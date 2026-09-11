@@ -1,0 +1,443 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Download, Loader2, Save, Search, Undo2, Upload } from "lucide-react";
+import { AppShell } from "@/components/app-shell";
+import { useAuth } from "@/components/auth-provider";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PriceCell } from "@/components/products/PriceCell";
+import { ImportCsvSheet } from "@/components/products/ImportCsvSheet";
+import { BulkAdjustPopover, type BulkAdjustment } from "@/components/products/BulkAdjustPopover";
+import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
+import { normalizeKey, readCsvFile, downloadText } from "@/lib/csv";
+import { productsToCsv, previewProductCsv, type CsvPreview } from "@/lib/priceListCsv";
+import { toJalali, toDisplayDigits } from "@/lib/format";
+import { CATEGORY_LABELS, type Product, type ProductCategory } from "@/types";
+
+type Draft = { unitPrice?: number; partnerPrice?: number | null };
+type SortKey = "code" | "name" | "category" | "unitPrice" | "partnerPrice";
+type Notice = { tone: "success" | "error"; text: string } | null;
+
+const COL_UNIT = 0;
+const COL_PARTNER = 1;
+
+function Kbd({ children }: { children: string }) {
+  return (
+    <kbd className="rounded border bg-muted px-1.5 py-0.5 font-sans text-[11px] font-medium text-foreground">
+      {children}
+    </kbd>
+  );
+}
+
+export function ProductsPage() {
+  const { user } = useAuth();
+  // The API only lets admins change products; others get a read-only list.
+  const canEdit = user?.role === "ADMIN";
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [drafts, setDrafts] = useState<Record<string, Draft>>({});
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState<Notice>(null);
+
+  const [q, setQ] = useState("");
+  const [category, setCategory] = useState<ProductCategory | "ALL">("ALL");
+  const [showInactive, setShowInactive] = useState(false);
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 } | null>(null);
+
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importFile, setImportFile] = useState("");
+  const [preview, setPreview] = useState<CsvPreview | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setProducts(await api.products.list());
+    } catch (err) {
+      setNotice({ tone: "error", text: `دریافت فهرست کالاها ناموفق بود: ${(err as Error).message}` });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const dirtyCount = Object.keys(drafts).length;
+
+  // Warn before closing the tab with unsaved price edits.
+  useEffect(() => {
+    if (!dirtyCount) return;
+    const handler = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirtyCount]);
+
+  const current = useCallback(
+    (p: Product) => ({
+      unitPrice: drafts[p.id]?.unitPrice ?? p.unitPrice,
+      partnerPrice: drafts[p.id] && "partnerPrice" in drafts[p.id] ? drafts[p.id].partnerPrice! : p.partnerPrice,
+    }),
+    [drafts]
+  );
+
+  const rows = useMemo(() => {
+    const needle = normalizeKey(q);
+    const list = products.filter(
+      (p) =>
+        (showInactive || p.active) &&
+        (category === "ALL" || p.category === category) &&
+        (!needle || normalizeKey(`${p.code ?? ""} ${p.name} ${p.spec ?? ""}`).includes(needle))
+    );
+    if (sort) {
+      // Sort by saved prices so a row doesn't jump away while it's being edited.
+      const val = (p: Product): string | number =>
+        sort.key === "unitPrice"
+          ? p.unitPrice
+          : sort.key === "partnerPrice"
+            ? (p.partnerPrice ?? -1)
+            : sort.key === "category"
+              ? CATEGORY_LABELS[p.category]
+              : ((p[sort.key] as string | null) ?? "");
+      list.sort((a, b) => {
+        const va = val(a);
+        const vb = val(b);
+        return (typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb), "fa")) * sort.dir;
+      });
+    }
+    return list;
+  }, [products, q, category, showInactive, sort]);
+
+  function setPrice(p: Product, field: keyof Draft, value: number | null) {
+    setNotice(null);
+    setDrafts((prev) => {
+      const next = { ...prev };
+      const d = { ...next[p.id] };
+      if ((value ?? null) === (p[field] ?? null)) delete d[field];
+      else (d as Record<string, number | null>)[field] = value;
+      if (Object.keys(d).length) next[p.id] = d;
+      else delete next[p.id];
+      return next;
+    });
+  }
+
+  function applyBulk({ percent, target, roundTo }: BulkAdjustment) {
+    const adjust = (v: number) => Math.max(0, Math.round((v * (1 + percent / 100)) / roundTo) * roundTo);
+    for (const p of rows) {
+      const c = current(p);
+      if (target !== "partner") setPrice(p, "unitPrice", adjust(c.unitPrice));
+      if (target !== "unit" && c.partnerPrice !== null) setPrice(p, "partnerPrice", adjust(c.partnerPrice));
+    }
+    setNotice({
+      tone: "success",
+      text: `تغییر ${percent > 0 ? "+" : ""}${toDisplayDigits(percent)}٪ روی ${toDisplayDigits(rows.length)} کالا اعمال شد. برای ثبت، «ذخیره» را بزنید.`,
+    });
+  }
+
+  async function save() {
+    setSaving(true);
+    setNotice(null);
+    try {
+      const updates = Object.entries(drafts).map(([id, d]) => ({ id, ...d }));
+      await api.products.bulkUpdate(updates);
+      setDrafts({});
+      await load();
+      setNotice({ tone: "success", text: `قیمت ${toDisplayDigits(updates.length)} کالا ذخیره شد.` });
+    } catch (err) {
+      setNotice({ tone: "error", text: `ذخیره ناموفق بود: ${(err as Error).message}` });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function exportCsv() {
+    const { jy, jm, jd } = toJalali(new Date());
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const sorted = [...products].sort(
+      (a, b) => a.category.localeCompare(b.category) || (a.code ?? "").localeCompare(b.code ?? "")
+    );
+    downloadText(`roya-house-price-list-${jy}-${pad(jm)}-${pad(jd)}.csv`, productsToCsv(sorted));
+  }
+
+  async function onFileChosen(file: File | undefined) {
+    if (!file) return;
+    setImportFile(file.name);
+    setPreview(null);
+    setImportError(null);
+    setImportOpen(true);
+    try {
+      setPreview(previewProductCsv(await readCsvFile(file), products));
+    } catch (err) {
+      setImportError(`خواندن فایل ناموفق بود: ${(err as Error).message}`);
+    } finally {
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  }
+
+  async function applyImport() {
+    if (!preview) return;
+    setImporting(true);
+    setImportError(null);
+    try {
+      const res = await api.products.import(preview.rows);
+      await load();
+      setImportOpen(false);
+      setNotice({
+        tone: "success",
+        text: `ورود از CSV انجام شد: ${toDisplayDigits(res.created)} کالای جدید، ${toDisplayDigits(res.updated)} کالا به‌روزرسانی شد.`,
+      });
+    } catch (err) {
+      setImportError(`اعمال تغییرات ناموفق بود: ${(err as Error).message}`);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  const SortHeader = ({ k, children, className }: { k: SortKey; children: string; className?: string }) => {
+    const active = sort?.key === k;
+    const Icon = !active ? ArrowUpDown : sort!.dir === 1 ? ArrowUp : ArrowDown;
+    return (
+      <th className={cn("px-3 py-2.5 text-right font-medium", className)} aria-sort={active ? (sort!.dir === 1 ? "ascending" : "descending") : "none"}>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 hover:text-foreground"
+          onClick={() => setSort(active && sort!.dir === -1 ? null : { key: k, dir: active ? -1 : 1 })}
+        >
+          {children}
+          <Icon className={cn("size-3.5", !active && "opacity-40")} />
+        </button>
+      </th>
+    );
+  };
+
+  return (
+    <AppShell
+      title="فهرست کالاها و قیمت‌ها"
+      actions={
+        <>
+          <Button variant="outline" size="sm" onClick={exportCsv} disabled={loading || !products.length}>
+            <Download /> خروجی CSV
+          </Button>
+          {canEdit && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fileInput.current?.click()}
+              disabled={loading || dirtyCount > 0}
+              title={dirtyCount ? "ابتدا تغییرات را ذخیره یا لغو کنید" : undefined}
+            >
+              <Upload /> ورود از CSV
+            </Button>
+          )}
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(e) => onFileChosen(e.target.files?.[0])}
+          />
+        </>
+      }
+    >
+      <div className="space-y-4 p-4 md:p-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
+            <Input
+              placeholder="جستجو در نام، کد یا مشخصات..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="pr-8"
+            />
+          </div>
+          <Select value={category} onValueChange={(v) => setCategory(v as ProductCategory | "ALL")}>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">همه دسته‌بندی‌ها</SelectItem>
+              {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <label className="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm">
+            <input
+              type="checkbox"
+              checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)}
+              className="size-4 accent-[var(--primary)]"
+            />
+            نمایش غیرفعال‌ها
+          </label>
+          {canEdit && <BulkAdjustPopover count={rows.length} onApply={applyBulk} />}
+          <span className="text-sm text-muted-foreground tabular-nums sm:ms-auto">
+            {toDisplayDigits(rows.length)} کالا
+          </span>
+        </div>
+
+        {!canEdit && (
+          <p className="rounded-lg border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+            فقط مدیر سیستم می‌تواند قیمت‌ها را تغییر دهد. شما فهرست را می‌بینید و می‌توانید خروجی CSV بگیرید.
+          </p>
+        )}
+
+        <p className={cn("flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground", !canEdit && "hidden")}>
+          <span>
+            <Kbd>Tab</Kbd> خانه بعد
+          </span>
+          <span>
+            <Kbd>Enter</Kbd> یا <Kbd>↓</Kbd> ردیف بعد
+          </span>
+          <span>
+            <Kbd>Shift+Enter</Kbd> یا <Kbd>↑</Kbd> ردیف قبل
+          </span>
+          <span>
+            <Kbd>Esc</Kbd> برگرداندن قیمت
+          </span>
+        </p>
+
+        {notice && (
+          <div
+            role={notice.tone === "error" ? "alert" : "status"}
+            className={cn(
+              "rounded-lg border px-3 py-2 text-sm",
+              notice.tone === "error"
+                ? "border-destructive/40 bg-destructive/10 text-destructive"
+                : "border-emerald-600/30 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300"
+            )}
+          >
+            {notice.text}
+          </div>
+        )}
+
+        <div className="overflow-hidden rounded-xl border bg-card">
+          <div className="max-h-[calc(100svh-var(--header-height)-15rem)] overflow-auto">
+            <table className="w-full min-w-[900px] text-sm">
+              <thead className="sticky top-0 z-10 bg-muted/95 text-muted-foreground backdrop-blur">
+                <tr className="border-b">
+                  <SortHeader k="code" className="w-32">کد کالا</SortHeader>
+                  <SortHeader k="name">نام کالا</SortHeader>
+                  <SortHeader k="category" className="w-36">دسته‌بندی</SortHeader>
+                  <th className="w-24 px-3 py-2.5 text-right font-medium">واحد</th>
+                  <SortHeader k="unitPrice" className="w-40">قیمت واحد (تومان)</SortHeader>
+                  <SortHeader k="partnerPrice" className="w-40">قیمت همکاری (تومان)</SortHeader>
+                  <th className="w-24 px-3 py-2.5 text-right font-medium">در بسته</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {loading &&
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <tr key={i}>
+                      {Array.from({ length: 7 }).map((__, j) => (
+                        <td key={j} className="px-3 py-3">
+                          <Skeleton className="h-4 w-full max-w-28" />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                {!loading && rows.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-3 py-12 text-center text-muted-foreground">
+                      کالایی با این فیلترها پیدا نشد.
+                    </td>
+                  </tr>
+                )}
+                {!loading &&
+                  rows.map((p, i) => {
+                    const c = current(p);
+                    const dirty = !!drafts[p.id];
+                    return (
+                      <tr
+                        key={p.id}
+                        className={cn(
+                          "transition-colors hover:bg-muted/40 focus-within:bg-muted/40",
+                          dirty && "bg-primary/[0.03]",
+                          !p.active && "text-muted-foreground"
+                        )}
+                      >
+                        <td className="px-3 py-1.5 font-mono text-xs" dir="ltr">
+                          <span className="block text-right">{p.code ?? "—"}</span>
+                        </td>
+                        <td className="px-3 py-1.5">
+                          <div className="flex items-center gap-2 font-medium">
+                            {p.name}
+                            {!p.active && <Badge variant="outline">غیرفعال</Badge>}
+                          </div>
+                          {p.spec && <div className="text-xs text-muted-foreground">{p.spec}</div>}
+                        </td>
+                        <td className="px-3 py-1.5 text-xs">{CATEGORY_LABELS[p.category]}</td>
+                        <td className="px-3 py-1.5 text-xs">{p.unit}</td>
+                        <td className="px-1.5 py-1">
+                          <PriceCell
+                            readOnly={!canEdit}
+                            row={i}
+                            col={COL_UNIT}
+                            value={c.unitPrice}
+                            saved={p.unitPrice}
+                            label={`قیمت واحد ${p.name}`}
+                            onChange={(v) => setPrice(p, "unitPrice", v)}
+                          />
+                        </td>
+                        <td className="px-1.5 py-1">
+                          <PriceCell
+                            readOnly={!canEdit}
+                            row={i}
+                            col={COL_PARTNER}
+                            value={c.partnerPrice}
+                            saved={p.partnerPrice}
+                            nullable
+                            label={`قیمت همکاری ${p.name}`}
+                            onChange={(v) => setPrice(p, "partnerPrice", v)}
+                          />
+                        </td>
+                        <td className="px-3 py-1.5 text-xs tabular-nums">
+                          {p.packSize ? toDisplayDigits(p.packSize) : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {dirtyCount > 0 && (
+        <div className="sticky bottom-0 z-20 border-t bg-background/95 px-4 py-3 backdrop-blur md:px-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-medium">
+              قیمت {toDisplayDigits(dirtyCount)} کالا تغییر کرده و هنوز ذخیره نشده است.
+            </span>
+            <div className="ms-auto flex gap-2">
+              <Button variant="outline" onClick={() => setDrafts({})} disabled={saving}>
+                <Undo2 /> لغو همه
+              </Button>
+              <Button onClick={save} disabled={saving}>
+                {saving ? <Loader2 className="animate-spin" /> : <Save />} ذخیره تغییرات
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ImportCsvSheet
+        open={importOpen}
+        onOpenChange={(o) => !importing && setImportOpen(o)}
+        fileName={importFile}
+        preview={preview}
+        applying={importing}
+        error={importError}
+        onApply={applyImport}
+      />
+    </AppShell>
+  );
+}

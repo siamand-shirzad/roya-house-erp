@@ -11,32 +11,35 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.52 0.2 25);
+  /* Brand palette sampled from the Roya House logo:
+     red #ab2c33 = oklch(0.495 0.163 22.7), taupe #5d514f, charcoal #464646. */
+  --primary: oklch(0.495 0.163 22.7);
   --primary-foreground: oklch(0.985 0.004 25);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.965 0.003 29);
+  --secondary-foreground: oklch(0.24 0.004 29);
+  --muted: oklch(0.965 0.003 29);
+  --muted-foreground: oklch(0.52 0.008 29);
+  --accent: oklch(0.955 0.005 29);
+  --accent-foreground: oklch(0.24 0.004 29);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.64 0.16 25);
-  --chart-1: oklch(0.58 0.2 25);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.52 0.2 25);
+  --border: oklch(0.915 0.003 29);
+  --input: oklch(0.915 0.003 29);
+  --ring: oklch(0.62 0.14 22.7);
+  --chart-1: oklch(0.55 0.17 22.7);
+  --chart-2: oklch(0.52 0.03 29);
+  --chart-3: oklch(0.45 0 0);
+  --chart-4: oklch(0.72 0.06 29);
+  --chart-5: oklch(0.7 0 0);
+  /* Charcoal sidebar in both themes, echoing the logo's dark backdrop. */
+  --sidebar: oklch(0.24 0.003 29);
+  --sidebar-foreground: oklch(0.93 0.003 29);
+  --sidebar-primary: oklch(0.62 0.17 22.7);
   --sidebar-primary-foreground: oklch(0.985 0.004 25);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.64 0.16 25);
+  --sidebar-accent: oklch(0.31 0.006 29);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-ring: oklch(0.62 0.14 22.7);
 }
 
 .dark {
@@ -46,32 +49,40 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.68 0.19 23);
-  --primary-foreground: oklch(0.2 0.05 25);
-  --secondary: oklch(0.269 0 0);
+  --primary: oklch(0.66 0.18 22.7);
+  --primary-foreground: oklch(0.2 0.04 25);
+  --secondary: oklch(0.27 0.004 29);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --muted: oklch(0.27 0.004 29);
+  --muted-foreground: oklch(0.72 0.006 29);
+  --accent: oklch(0.29 0.006 29);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.6 0.16 23);
-  --chart-1: oklch(0.68 0.19 23);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.68 0.19 23);
-  --sidebar-primary-foreground: oklch(0.2 0.05 25);
-  --sidebar-accent: oklch(0.269 0 0);
+  --ring: oklch(0.58 0.14 22.7);
+  --chart-1: oklch(0.66 0.18 22.7);
+  --chart-2: oklch(0.66 0.03 29);
+  --chart-3: oklch(0.6 0 0);
+  --chart-4: oklch(0.8 0.04 29);
+  --chart-5: oklch(0.45 0 0);
+  --sidebar: oklch(0.185 0.003 29);
+  --sidebar-foreground: oklch(0.93 0.003 29);
+  --sidebar-primary: oklch(0.66 0.18 22.7);
+  --sidebar-primary-foreground: oklch(0.2 0.04 25);
+  --sidebar-accent: oklch(0.27 0.006 29);
   --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.6 0.16 23);
+  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-ring: oklch(0.58 0.14 22.7);
+}
+
+/* Font stacks: the Latin font comes first so Latin letters and all digits use
+   it; Persian letters fall through to IBM Plex Sans Arabic. */
+@theme {
+  --font-sans: "Inter Variable", "IBM Plex Sans Arabic", system-ui, sans-serif;
+  --font-display: "Space Grotesk", "IBM Plex Sans Arabic", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", "IBM Plex Sans Arabic", ui-monospace, monospace;
 }
 
 @theme inline {
@@ -118,6 +129,12 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
   }
 }

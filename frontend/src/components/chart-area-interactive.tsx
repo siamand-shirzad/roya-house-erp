@@ -10,14 +10,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { api } from "@/lib/api";
-import { formatJalaliDate, formatToman, toPersianDigits } from "@/lib/format";
+import { formatJalaliDate, formatToman, toDisplayDigits } from "@/lib/format";
 import type { Document } from "@/types";
 
-// Compact axis labels: 35,000,000 -> "۳۵ م" (million Toman).
+// Compact axis labels: 35,000,000 -> "35 م" (million Toman).
 function compactToman(value: number) {
-  if (value >= 1_000_000) return `${toPersianDigits(Math.round(value / 100_000) / 10)} م`;
-  if (value >= 1_000) return `${toPersianDigits(Math.round(value / 1_000))} هزار`;
-  return toPersianDigits(value);
+  if (value >= 1_000_000) return `${toDisplayDigits(Math.round(value / 100_000) / 10)} م`;
+  if (value >= 1_000) return `${toDisplayDigits(Math.round(value / 1_000))} هزار`;
+  return toDisplayDigits(value);
 }
 
 export function ChartAreaInteractive() {
@@ -38,7 +38,7 @@ export function ChartAreaInteractive() {
       .map((doc) => ({
         date: formatJalaliDate(new Date(doc.issueDate)),
         total: doc.totals.grandTotal,
-        label: `فاکتور ${toPersianDigits(doc.number)} — ${doc.buyerName || doc.customer?.name || "بدون نام"}`,
+        label: `فاکتور ${toDisplayDigits(doc.number)} — ${doc.buyerName || doc.customer?.name || "بدون نام"}`,
       }));
   }, [invoices]);
 

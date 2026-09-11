@@ -3,13 +3,17 @@ import { Link, useLocation } from "react-router-dom";
 import {
   FileTextIcon,
   LayoutDashboardIcon,
-  PackageIcon,
   ReceiptIcon,
+  TagsIcon,
   TruckIcon,
+  UsersIcon,
+  type LucideIcon,
 } from "lucide-react";
 
+import { LogoMark } from "@/components/logo-mark";
+import { NavUser } from "@/components/nav-user";
+import { useAuth } from "@/components/auth-provider";
 import { TYPE_TO_SLUG } from "@/lib/documentTypeSlug";
-import { DOCUMENT_TYPE_LABELS } from "@/types";
 import {
   Sidebar,
   SidebarContent,
@@ -21,85 +25,108 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarRail,
 } from "@/components/ui/sidebar";
+import type { UserRole } from "@/types";
 
-const NAV_ITEMS = [
-  { to: "/", label: "داشبورد و فهرست کالاها", icon: LayoutDashboardIcon },
+// Layout from the shadcn sidebar-07 block: collapses to an icon rail (always
+// partly visible), brand at the top, signed-in user at the bottom. Group
+// labels use the Latin display font; item labels are short Persian names with
+// the full name as the collapsed-state tooltip.
+
+type NavItem = { to: string; label: string; tooltip?: string; icon: LucideIcon; exact?: boolean };
+type NavGroup = { label: string; items: NavItem[]; roles?: UserRole[] };
+
+const NAV: NavGroup[] = [
+  { label: "Overview", items: [{ to: "/", label: "داشبورد", icon: LayoutDashboardIcon, exact: true }] },
   {
-    to: `/documents/${TYPE_TO_SLUG.PROFORMA}`,
-    label: DOCUMENT_TYPE_LABELS.PROFORMA.title,
-    icon: FileTextIcon,
+    label: "Sales",
+    items: [
+      { to: `/documents/${TYPE_TO_SLUG.PROFORMA}`, label: "پیش‌فاکتور", icon: FileTextIcon },
+      {
+        to: `/documents/${TYPE_TO_SLUG.INVOICE}`,
+        label: "فاکتور فروش",
+        tooltip: "صورتحساب فروش کالا و خدمات",
+        icon: ReceiptIcon,
+      },
+    ],
   },
   {
-    to: `/documents/${TYPE_TO_SLUG.INVOICE}`,
-    label: DOCUMENT_TYPE_LABELS.INVOICE.title,
-    icon: ReceiptIcon,
+    label: "Warehouse",
+    items: [
+      {
+        to: `/documents/${TYPE_TO_SLUG.GOODS_ISSUE}`,
+        label: "حواله خروج",
+        tooltip: "حواله خروج از انبار کالا",
+        icon: TruckIcon,
+      },
+    ],
   },
-  {
-    to: `/documents/${TYPE_TO_SLUG.GOODS_ISSUE}`,
-    label: DOCUMENT_TYPE_LABELS.GOODS_ISSUE.title,
-    icon: TruckIcon,
-  },
+  { label: "Catalog", items: [{ to: "/products", label: "کالاها و قیمت‌ها", icon: TagsIcon }] },
+  { label: "Admin", roles: ["ADMIN"], items: [{ to: "/users", label: "کاربران", icon: UsersIcon }] },
 ];
 
-export function AppSidebar({
-  ...props
-}: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const location = useLocation();
+  const { user } = useAuth();
+  const isActive = (item: NavItem) =>
+    item.exact ? location.pathname === item.to : location.pathname.startsWith(item.to);
 
   return (
-    <Sidebar {...props}>
+    <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
+            <SidebarMenuButton size="lg" asChild tooltip="رویا هاوس">
               <Link to="/">
-                <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <PackageIcon className="size-4" />
-                </div>
-                <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-semibold">رویا هاوس</span>
-                  <span className="text-xs text-sidebar-foreground/70">
-                    سامانه فروش و انبار
+                <span className="flex size-8 items-center justify-center rounded-lg bg-sidebar-accent">
+                  <LogoMark onDark className="size-7" />
+                </span>
+                <div className="grid flex-1 text-right leading-tight">
+                  <span dir="ltr" className="truncate text-right font-display text-[15px] font-semibold tracking-tight">
+                    Roya House
                   </span>
+                  <span className="truncate text-xs text-sidebar-foreground/60">سامانه فروش و انبار</span>
                 </div>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>منو</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {NAV_ITEMS.map((item) => (
-                <SidebarMenuItem key={item.to}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={
-                      item.to === "/"
-                        ? location.pathname === "/"
-                        : location.pathname.startsWith(item.to)
-                    }
-                    tooltip={item.label}
-                  >
-                    <Link to={item.to}>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+
+      <SidebarContent className="gap-0 [scrollbar-color:var(--sidebar-border)_transparent] [scrollbar-width:thin]">
+        {NAV.filter((g) => !g.roles || (user && g.roles.includes(user.role))).map((group) => (
+          <SidebarGroup key={group.label} className="py-0.5">
+            <SidebarGroupLabel className="h-7 font-display text-[11px] font-semibold tracking-[0.14em] uppercase text-sidebar-foreground/45">
+              {group.label}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => (
+                  <SidebarMenuItem key={item.to}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive(item)}
+                      tooltip={item.tooltip ?? item.label}
+                      className="h-9 text-[14px] data-[active=true]:bg-sidebar-accent data-[active=true]:[&>svg]:text-sidebar-primary"
+                    >
+                      <Link to={item.to}>
+                        <item.icon />
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
+
       <SidebarFooter>
-        <div className="px-2 py-1 text-xs text-sidebar-foreground/60">
-          سیستم های سقف کاذب و ساخت خشک
-        </div>
+        <NavUser />
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
   );
 }

@@ -1,9 +1,10 @@
 import type { Document, DocumentItem, DocumentType } from "@/types";
 import { DOCUMENT_TYPE_LABELS } from "@/types";
 import { formatJalaliDate } from "@/lib/format";
-import { toPersianDigits, formatToman } from "@/lib/format";
+import { toDisplayDigits, formatToman } from "@/lib/format";
 import { computeDocumentTotals, computeLineTotal } from "@/lib/totals";
 import { tomanToRialWords } from "@/lib/numberToWords";
+import { BrandLogo } from "@/components/brand-logo";
 
 // Visual reproduction of the three Roya House paper templates:
 // PROFORMA (پیش فاکتور), INVOICE (صورتحساب فروش کالا و خدمات) and
@@ -35,7 +36,8 @@ function Field({ label, value }: { label: string; value?: string | null }) {
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-[#efe0c4] border border-neutral-400 border-b-0 px-3 py-1.5 text-[13px] font-bold text-neutral-800">
+    // Brand palette on paper: warm light grey fill, red accent bar at the reading start.
+    <div className="bg-[#f3f0ef] border border-[#c9c3c0] border-s-4 border-s-[#ab2c33] border-b-0 px-3 py-1.5 text-[13px] font-bold text-[#3a3a3c]">
       {children}
     </div>
   );
@@ -45,7 +47,7 @@ function PartyBox({ title, party }: { title: string; party: PartyInfo }) {
   return (
     <div className="mb-3">
       <SectionHeader>{title}</SectionHeader>
-      <div className="border border-neutral-400 p-3 grid grid-cols-2 gap-x-6 text-[12px]">
+      <div className="border border-[#c9c3c0] p-3 grid grid-cols-2 gap-x-6 text-[12px]">
         <Field label="نام شخص حقیقی/حقوقی" value={party.name} />
         <Field label="شناسه ملی / کد ملی" value={party.nationalId} />
         <Field label="شماره اقتصادی" value={party.economicCode} />
@@ -62,8 +64,8 @@ function PartyBox({ title, party }: { title: string; party: PartyInfo }) {
 
 function SignatureBox({ label }: { label: string }) {
   return (
-    <div className="border border-neutral-400 h-24 flex flex-col">
-      <div className="border-b border-neutral-400 bg-[#efe0c4] text-center text-[12px] font-bold py-1.5">
+    <div className="border border-[#c9c3c0] h-24 flex flex-col">
+      <div className="border-b border-[#c9c3c0] bg-[#f3f0ef] text-center text-[12px] font-bold py-1.5">
         {label}
       </div>
     </div>
@@ -107,14 +109,14 @@ export function DocumentPrint({ doc, elementId }: { doc: Document; elementId?: s
       // Fixed width, never shrunk to the container: the PDF is captured from
       // this node, so its layout must not depend on the screen size.
       className="mx-auto w-[794px] shrink-0 bg-white p-8 text-neutral-900 shadow-sm"
-      style={{ fontFamily: "'Vazirmatn', Tahoma, sans-serif" }}
+      style={{ fontFamily: "var(--font-sans)" }}
     >
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 border-b-2 border-neutral-800 pb-4 mb-4">
-        <div className="w-40 border border-neutral-400 text-[12px]">
-          <div className="flex justify-between border-b border-neutral-400 px-2 py-1">
+      <div className="flex items-start justify-between gap-4 border-b-2 border-[#ab2c33] pb-4 mb-4">
+        <div className="w-40 border border-[#c9c3c0] text-[12px]">
+          <div className="flex justify-between border-b border-[#c9c3c0] px-2 py-1">
             <span className="text-neutral-500">شماره :</span>
-            <span className="font-bold">{toPersianDigits(doc.number)}</span>
+            <span className="font-bold">{toDisplayDigits(doc.number)}</span>
           </div>
           <div className="flex justify-between px-2 py-1">
             <span className="text-neutral-500">تاریخ :</span>
@@ -122,14 +124,16 @@ export function DocumentPrint({ doc, elementId }: { doc: Document; elementId?: s
           </div>
         </div>
 
-        <div className="flex-1 text-center">
-          {isInvoiceLike && <div className="text-2xl font-extrabold">{doc.company?.name ?? "رویا هاوس"}</div>}
-          <div className="text-lg font-bold mt-1">{meta.title}</div>
+        <div className="flex flex-1 flex-col items-center text-center">
+          {/* Paper is always white, so always the light-surface logo. */}
+          <BrandLogo surface="light" className="mb-1 h-16" />
+          {isInvoiceLike && <div className="text-xl font-bold text-[#3a3a3c]">{doc.company?.name ?? "رویا هاوس"}</div>}
+          <div className="mt-1 text-lg font-bold text-[#ab2c33]">{meta.title}</div>
         </div>
 
         <div className="w-40 text-left text-[11px] text-neutral-500 leading-5">
           {doc.status === "DRAFT" && (
-            <span className="inline-block border border-dashed border-neutral-400 px-2 py-0.5 rounded text-neutral-500">
+            <span className="inline-block border border-dashed border-[#c9c3c0] px-2 py-0.5 rounded text-neutral-500">
               پیش‌نویس
             </span>
           )}
@@ -144,24 +148,24 @@ export function DocumentPrint({ doc, elementId }: { doc: Document; elementId?: s
         <SectionHeader>
           {isInvoiceLike ? "مشخصات کالا یا خدمات مورد معامله" : "مشخصات کالاهای خارج شده"}
         </SectionHeader>
-        <table className="w-full border-collapse border border-neutral-400 text-[11px]">
+        <table className="w-full border-collapse border border-[#c9c3c0] text-[11px]">
           <thead>
-            <tr className="bg-[#efe0c4] text-center">
-              <th className="border border-neutral-400 px-1 py-1.5 w-8">ردیف</th>
-              <th className="border border-neutral-400 px-1 py-1.5">نام کالا</th>
-              <th className="border border-neutral-400 px-1 py-1.5">واحد اندازه‌گیری</th>
-              <th className="border border-neutral-400 px-1 py-1.5">تعداد / مقدار</th>
+            <tr className="bg-[#f3f0ef] text-center">
+              <th className="border border-[#c9c3c0] px-1 py-1.5 w-8">ردیف</th>
+              <th className="border border-[#c9c3c0] px-1 py-1.5">نام کالا</th>
+              <th className="border border-[#c9c3c0] px-1 py-1.5">واحد اندازه‌گیری</th>
+              <th className="border border-[#c9c3c0] px-1 py-1.5">تعداد / مقدار</th>
               {isInvoiceLike ? (
                 <>
-                  <th className="border border-neutral-400 px-1 py-1.5">مبلغ واحد (ریال)</th>
-                  <th className="border border-neutral-400 px-1 py-1.5">مبلغ کل (ریال)</th>
-                  <th className="border border-neutral-400 px-1 py-1.5">مبلغ تخفیف (ریال)</th>
-                  <th className="border border-neutral-400 px-1 py-1.5">مبلغ کل بعد از تخفیف (ریال)</th>
-                  <th className="border border-neutral-400 px-1 py-1.5">جمع مالیات و عوارض (ریال)</th>
-                  <th className="border border-neutral-400 px-1 py-1.5">جمع کل بعلاوه مالیات و عوارض (ریال)</th>
+                  <th className="border border-[#c9c3c0] px-1 py-1.5">مبلغ واحد (ریال)</th>
+                  <th className="border border-[#c9c3c0] px-1 py-1.5">مبلغ کل (ریال)</th>
+                  <th className="border border-[#c9c3c0] px-1 py-1.5">مبلغ تخفیف (ریال)</th>
+                  <th className="border border-[#c9c3c0] px-1 py-1.5">مبلغ کل بعد از تخفیف (ریال)</th>
+                  <th className="border border-[#c9c3c0] px-1 py-1.5">جمع مالیات و عوارض (ریال)</th>
+                  <th className="border border-[#c9c3c0] px-1 py-1.5">جمع کل بعلاوه مالیات و عوارض (ریال)</th>
                 </>
               ) : (
-                <th className="border border-neutral-400 px-1 py-1.5">توضیحات</th>
+                <th className="border border-[#c9c3c0] px-1 py-1.5">توضیحات</th>
               )}
             </tr>
           </thead>
@@ -170,21 +174,21 @@ export function DocumentPrint({ doc, elementId }: { doc: Document; elementId?: s
               const t = computeLineTotal(item);
               return (
                 <tr key={idx} className="text-center">
-                  <td className="border border-neutral-400 px-1 py-1">{toPersianDigits(idx + 1)}</td>
-                  <td className="border border-neutral-400 px-2 py-1 text-right">{item.name}</td>
-                  <td className="border border-neutral-400 px-1 py-1">{item.unit}</td>
-                  <td className="border border-neutral-400 px-1 py-1">{toPersianDigits(item.quantity)}</td>
+                  <td className="border border-[#c9c3c0] px-1 py-1">{toDisplayDigits(idx + 1)}</td>
+                  <td className="border border-[#c9c3c0] px-2 py-1 text-right">{item.name}</td>
+                  <td className="border border-[#c9c3c0] px-1 py-1">{item.unit}</td>
+                  <td className="border border-[#c9c3c0] px-1 py-1">{toDisplayDigits(item.quantity)}</td>
                   {isInvoiceLike ? (
                     <>
-                      <td className="border border-neutral-400 px-1 py-1">{formatToman(item.unitPrice * 10)}</td>
-                      <td className="border border-neutral-400 px-1 py-1">{formatToman(t.lineTotal * 10)}</td>
-                      <td className="border border-neutral-400 px-1 py-1">{formatToman((item.discount ?? 0) * 10)}</td>
-                      <td className="border border-neutral-400 px-1 py-1">{formatToman(t.afterDiscount * 10)}</td>
-                      <td className="border border-neutral-400 px-1 py-1">{formatToman(t.taxAmount * 10)}</td>
-                      <td className="border border-neutral-400 px-1 py-1 font-bold">{formatToman(t.grandTotal * 10)}</td>
+                      <td className="border border-[#c9c3c0] px-1 py-1">{formatToman(item.unitPrice * 10)}</td>
+                      <td className="border border-[#c9c3c0] px-1 py-1">{formatToman(t.lineTotal * 10)}</td>
+                      <td className="border border-[#c9c3c0] px-1 py-1">{formatToman((item.discount ?? 0) * 10)}</td>
+                      <td className="border border-[#c9c3c0] px-1 py-1">{formatToman(t.afterDiscount * 10)}</td>
+                      <td className="border border-[#c9c3c0] px-1 py-1">{formatToman(t.taxAmount * 10)}</td>
+                      <td className="border border-[#c9c3c0] px-1 py-1 font-bold">{formatToman(t.grandTotal * 10)}</td>
                     </>
                   ) : (
-                    <td className="border border-neutral-400 px-1 py-1 text-right">{item.spec ?? ""}</td>
+                    <td className="border border-[#c9c3c0] px-1 py-1 text-right">{item.spec ?? ""}</td>
                   )}
                 </tr>
               );
@@ -192,15 +196,15 @@ export function DocumentPrint({ doc, elementId }: { doc: Document; elementId?: s
           </tbody>
           {isInvoiceLike && (
             <tfoot>
-              <tr className="bg-[#efe0c4] font-bold text-center">
-                <td className="border border-neutral-400 px-1 py-1.5" colSpan={5}>
+              <tr className="bg-[#f7ebec] font-bold text-center text-[#3a3a3c]">
+                <td className="border border-[#c9c3c0] px-1 py-1.5" colSpan={5}>
                   جمع کل : {tomanToRialWords(totals.grandTotal)}
                 </td>
-                <td className="border border-neutral-400 px-1 py-1.5">{formatToman(totals.subtotal * 10)}</td>
-                <td className="border border-neutral-400 px-1 py-1.5">{formatToman(totals.discountTotal * 10)}</td>
-                <td className="border border-neutral-400 px-1 py-1.5">{formatToman((totals.subtotal - totals.discountTotal) * 10)}</td>
-                <td className="border border-neutral-400 px-1 py-1.5">{formatToman(totals.taxTotal * 10)}</td>
-                <td className="border border-neutral-400 px-1 py-1.5">{formatToman(totals.grandTotal * 10)}</td>
+                <td className="border border-[#c9c3c0] px-1 py-1.5">{formatToman(totals.subtotal * 10)}</td>
+                <td className="border border-[#c9c3c0] px-1 py-1.5">{formatToman(totals.discountTotal * 10)}</td>
+                <td className="border border-[#c9c3c0] px-1 py-1.5">{formatToman((totals.subtotal - totals.discountTotal) * 10)}</td>
+                <td className="border border-[#c9c3c0] px-1 py-1.5">{formatToman(totals.taxTotal * 10)}</td>
+                <td className="border border-[#c9c3c0] px-1 py-1.5 text-[#ab2c33]">{formatToman(totals.grandTotal * 10)}</td>
               </tr>
             </tfoot>
           )}
@@ -211,9 +215,9 @@ export function DocumentPrint({ doc, elementId }: { doc: Document; elementId?: s
         <div className="mb-4 text-[12px] space-y-3">
           <div>
             <span className="text-neutral-500">شماره فاکتور: </span>
-            <span className="font-bold">{doc.relatedInvoiceNo ? toPersianDigits(doc.relatedInvoiceNo) : "—"}</span>
+            <span className="font-bold">{doc.relatedInvoiceNo ? toDisplayDigits(doc.relatedInvoiceNo) : "—"}</span>
           </div>
-          <div className="border border-neutral-400 p-3 leading-8">
+          <div className="border border-[#c9c3c0] p-3 leading-8">
             <b>توضیحات:</b> سفارش فوق صحیح و سالم تحویل اینجانب{" "}
             <span className="inline-block min-w-[160px] border-b border-dotted border-neutral-500 px-1">
               {doc.deliveredToName ?? ""}
@@ -237,10 +241,10 @@ export function DocumentPrint({ doc, elementId }: { doc: Document; elementId?: s
 
       {isInvoiceLike && (
         <div className="mb-4 grid grid-cols-3 gap-3 text-[11px]">
-          <div className="col-span-2 border border-neutral-400 p-2 leading-6">
-            <b>توضیحات:</b> {doc.notes || "۱. اعتبار پیش‌فاکتور ۲۴ ساعت از تاریخ صدور می‌باشد. ۲. واریز پیش‌پرداخت به منزله تایید پیش‌فاکتور می‌باشد. ۳. در صورت فروش شرایطی، تا زمان تسویه کامل، کلیه سفارش نزد خریدار محترم امانت خواهد بود."}
+          <div className="col-span-2 border border-[#c9c3c0] p-2 leading-6">
+            <b>توضیحات:</b> {doc.notes || "1. اعتبار پیش‌فاکتور 24 ساعت از تاریخ صدور می‌باشد. 2. واریز پیش‌پرداخت به منزله تایید پیش‌فاکتور می‌باشد. 3. در صورت فروش شرایطی، تا زمان تسویه کامل، کلیه سفارش نزد خریدار محترم امانت خواهد بود."}
           </div>
-          <div className="border border-neutral-400 p-2 leading-6">
+          <div className="border border-[#c9c3c0] p-2 leading-6">
             <b>مانده حساب مشتری:</b>
             <div className="mt-1">{formatToman(0)} ریال</div>
           </div>
@@ -262,7 +266,7 @@ export function DocumentPrint({ doc, elementId }: { doc: Document; elementId?: s
         )}
       </div>
 
-      <div className="mt-4 bg-[#efe0c4] border border-neutral-400 text-center py-2 text-[12px] font-bold">
+      <div className="mt-4 bg-[#464646] text-center py-2 text-[12px] font-bold text-white">
         از خرید شما سپاسگزاریم.
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   type ColumnDef,
   type SortingState,
@@ -31,7 +32,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api } from "@/lib/api";
 import { CATEGORY_LABELS, type Product, type ProductCategory } from "@/types";
-import { formatToman, toPersianDigits } from "@/lib/format";
+import { formatToman, toDisplayDigits } from "@/lib/format";
 
 // Drop-in replacement for dashboard-01's stock `<DataTable data={data} />`:
 // same card/table chrome, but wired to the live Roya House product catalog
@@ -138,7 +139,12 @@ export function ProductsDataTable() {
     <div className="px-4 lg:px-6">
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle>فهرست قیمت محصولات رویا هاوس</CardTitle>
+          <div className="flex items-center gap-3">
+            <CardTitle>فهرست قیمت محصولات رویا هاوس</CardTitle>
+            <Button asChild variant="link" size="sm" className="h-auto px-0">
+              <Link to="/products">ویرایش قیمت‌ها</Link>
+            </Button>
+          </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <div className="relative">
               <Search className="absolute right-2.5 top-2.5 size-4 text-muted-foreground" />
@@ -210,7 +216,7 @@ export function ProductsDataTable() {
 
               <div className="flex items-center justify-between py-4">
                 <div className="text-sm text-muted-foreground">
-                  {toPersianDigits(filteredData.length)} کالا
+                  {toDisplayDigits(filteredData.length)} کالا
                 </div>
                 <div className="flex items-center gap-2">
                   <Button

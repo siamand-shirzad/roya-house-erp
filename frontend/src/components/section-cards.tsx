@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
-import { formatToman, toPersianDigits } from "@/lib/format";
+import { formatToman, toDisplayDigits } from "@/lib/format";
 import type { Document, Product } from "@/types";
 
 function StatCard({
@@ -81,14 +81,14 @@ export function SectionCards() {
       <StatCard
         label="جمع فاکتورهای فروش (تومان)"
         value={formatToman(invoiceTotal)}
-        footer={`${toPersianDigits(invoices.length)} فاکتور ثبت شده`}
+        footer={`${toDisplayDigits(invoices.length)} فاکتور ثبت شده`}
         icon={<ReceiptIcon />}
         to="/documents/invoice"
         loading={loading}
       />
       <StatCard
         label="پیش فاکتورها"
-        value={toPersianDigits(proformas.length)}
+        value={toDisplayDigits(proformas.length)}
         footer="پیش فاکتور (Proforma Invoice)"
         icon={<FileTextIcon />}
         to="/documents/proforma"
@@ -96,7 +96,7 @@ export function SectionCards() {
       />
       <StatCard
         label="حواله‌های خروج از انبار"
-        value={toPersianDigits(goodsIssues.length)}
+        value={toDisplayDigits(goodsIssues.length)}
         footer="حواله خروج از انبار کالا"
         icon={<TruckIcon />}
         to="/documents/goods-issue"
@@ -104,7 +104,7 @@ export function SectionCards() {
       />
       <StatCard
         label="کالاهای فهرست قیمت"
-        value={toPersianDigits(products.length)}
+        value={toDisplayDigits(products.length)}
         footer="کالای فعال در کاتالوگ رویا هاوس"
         icon={<PackageIcon />}
         loading={loading}

@@ -108,6 +108,31 @@ CREATE TABLE IF NOT EXISTS documents (
   UNIQUE (type, number)
 );
 
+CREATE TABLE IF NOT EXISTS users (
+  id text PRIMARY KEY,
+  full_name text NOT NULL,
+  username text NOT NULL UNIQUE,
+  phone text,
+  role text NOT NULL DEFAULT 'SALES' CHECK (role IN ('ADMIN', 'SALES', 'WAREHOUSE', 'ACCOUNTANT')),
+  active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Added after the users table first shipped, hence ALTER ... IF NOT EXISTS.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at timestamptz;
+
+-- Login sessions. id is the SHA-256 of the cookie token (the token itself is never stored).
+CREATE TABLE IF NOT EXISTS sessions (
+  id text PRIMARY KEY,
+  user_id text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL,
+  user_agent text
+);
+CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);
+
 CREATE TABLE IF NOT EXISTS document_items (
   id text PRIMARY KEY,
   document_id text NOT NULL REFERENCES documents(id) ON DELETE CASCADE,

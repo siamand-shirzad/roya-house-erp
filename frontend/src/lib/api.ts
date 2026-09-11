@@ -1,21 +1,56 @@
-import type { Customer, Document, DocumentType, Product } from "@/types";
+import type {
+  AuthUser,
+  Customer,
+  Document,
+  DocumentType,
+  Product,
+  ProductCategory,
+  ProductImportRow,
+  User,
+} from "@/types";
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api";
+
+/** Fired when the API says the session is gone; AuthProvider listens and shows the login screen. */
+export const UNAUTHORIZED_EVENT = "rh:unauthorized";
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number
+  ) {
+    super(message);
+  }
+}
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     headers: { "Content-Type": "application/json" },
+    credentials: "include", // session cookie
     ...options,
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error ?? `Request failed: ${res.status}`);
+    if (res.status === 401 && !path.startsWith("/auth/")) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+    throw new ApiError(body.error ?? `Request failed: ${res.status}`, res.status);
   }
   if (res.status === 204) return undefined as T;
   return res.json();
 }
 
 export const api = {
+  auth: {
+    status: () => request<{ needsSetup: boolean }>("/auth/status"),
+    me: () => request<AuthUser>("/auth/me"),
+    login: (username: string, password: string) =>
+      request<AuthUser>("/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
+    setup: (data: { fullName: string; username: string; password: string }) =>
+      request<AuthUser>("/auth/setup", { method: "POST", body: JSON.stringify(data) }),
+    logout: () => request<void>("/auth/logout", { method: "POST" }),
+  },
+  public: {
+    catalog: () => request<{ category: ProductCategory; count: number }[]>("/public/catalog"),
+  },
   products: {
     list: (params?: { q?: string; category?: string; active?: "true" | "false" }) => {
       const qs = new URLSearchParams(params as Record<string, string>).toString();
@@ -27,6 +62,23 @@ export const api = {
     update: (id: string, data: Partial<Product>) =>
       request<Product>(`/products/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     remove: (id: string) => request<Product>(`/products/${id}`, { method: "DELETE" }),
+    bulkUpdate: (updates: { id: string; unitPrice?: number; partnerPrice?: number | null }[]) =>
+      request<{ updated: number }>("/products/bulk", {
+        method: "PATCH",
+        body: JSON.stringify({ updates }),
+      }),
+    import: (rows: ProductImportRow[]) =>
+      request<{ created: number; updated: number }>("/products/import", {
+        method: "POST",
+        body: JSON.stringify({ rows }),
+      }),
+  },
+  users: {
+    list: () => request<User[]>("/users"),
+    create: (data: Partial<User> & { password?: string }) =>
+      request<User>("/users", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: string, data: Partial<User> & { password?: string }) =>
+      request<User>(`/users/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   },
   customers: {
     list: (q?: string) => request<Customer[]>(`/customers${q ? `?q=${q}` : ""}`),

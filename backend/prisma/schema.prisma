@@ -62,6 +62,25 @@ model Customer {
   documents Document[]
 }
 
+enum UserRole {
+  ADMIN // مدیر سیستم
+  SALES // فروش
+  WAREHOUSE // انبار
+  ACCOUNTANT // حسابداری
+}
+
+// Staff directory. No passwords/sessions yet (authentication is a later phase).
+model User {
+  id        String   @id @default(cuid())
+  fullName  String
+  username  String   @unique
+  phone     String?
+  role      UserRole @default(SALES)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 enum ProductCategory {
   GYPSUM_PANEL // پنل های گچی
   METAL_STRUCTURE // سازه های فلزی

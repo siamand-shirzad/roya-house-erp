@@ -17,7 +17,7 @@ import { api } from "@/lib/api";
 import { SLUG_TO_TYPE } from "@/lib/documentTypeSlug";
 import { cn } from "@/lib/utils";
 import { DOCUMENT_TYPE_LABELS, type Document } from "@/types";
-import { formatToman, formatJalaliDate, toPersianDigits } from "@/lib/format";
+import { formatToman, formatJalaliDate, toDisplayDigits } from "@/lib/format";
 
 const STATUS: Record<Document["status"], { label: string; className: string }> = {
   DRAFT: {
@@ -67,7 +67,7 @@ export function DocumentListPage() {
         <div>
           <h2 className="text-xl font-bold">{DOCUMENT_TYPE_LABELS[type].title}</h2>
           <p className="text-sm text-muted-foreground">
-            {loading ? "در حال بارگذاری..." : `${toPersianDigits(docs.length)} سند`}
+            {loading ? "در حال بارگذاری..." : `${toDisplayDigits(docs.length)} سند`}
           </p>
         </div>
         <Button asChild>
@@ -143,7 +143,7 @@ export function DocumentListPage() {
                         className="hover:text-primary focus-visible:underline focus-visible:outline-none"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {toPersianDigits(doc.number)}
+                        {toDisplayDigits(doc.number)}
                       </Link>
                     </TableCell>
                     <TableCell className="tabular-nums text-muted-foreground">

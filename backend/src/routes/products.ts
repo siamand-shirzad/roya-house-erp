@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { query, queryOne, newId } from "../lib/db";
+import { pool, query, queryOne, newId } from "../lib/db";
 
 export const productsRouter = Router();
 
@@ -153,6 +153,113 @@ productsRouter.put("/:id", async (req, res, next) => {
     res.json(rowToProduct(row));
   } catch (err) {
     next(err);
+  }
+});
+
+// PATCH /api/products/bulk: save many inline price edits at once (price table).
+// All-or-nothing: an unknown id rolls the whole batch back.
+const bulkSchema = z.object({
+  updates: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        unitPrice: z.number().int().nonnegative().optional(),
+        partnerPrice: z.number().int().nonnegative().nullable().optional(),
+      })
+    )
+    .min(1)
+    .max(2000),
+});
+
+productsRouter.patch("/bulk", async (req, res, next) => {
+  let client;
+  try {
+    const { updates } = bulkSchema.parse(req.body);
+    client = await pool.connect();
+    await client.query("BEGIN");
+    const missing: string[] = [];
+    for (const u of updates) {
+      const r = await client.query(
+        `UPDATE products SET
+           unit_price = COALESCE($2, unit_price),
+           partner_price = CASE WHEN $3::boolean THEN $4::integer ELSE partner_price END,
+           updated_at = now()
+         WHERE id = $1`,
+        [u.id, u.unitPrice ?? null, u.partnerPrice !== undefined, u.partnerPrice ?? null]
+      );
+      if (r.rowCount === 0) missing.push(u.id);
+    }
+    if (missing.length) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Some products were not found", ids: missing });
+    }
+    await client.query("COMMIT");
+    res.json({ updated: updates.length });
+  } catch (err) {
+    await client?.query("ROLLBACK").catch(() => {});
+    next(err);
+  } finally {
+    client?.release();
+  }
+});
+
+// POST /api/products/import: upsert rows from a CSV by product code.
+// Products missing from the file are left untouched (never deleted).
+const importSchema = z.object({
+  rows: z
+    .array(productSchema.extend({ code: z.string().trim().min(1) }))
+    .min(1)
+    .max(5000),
+});
+
+productsRouter.post("/import", async (req, res, next) => {
+  let client;
+  try {
+    const { rows } = importSchema.parse(req.body);
+    const seen = new Set<string>();
+    const duplicates = rows.map((r) => r.code).filter((c) => (seen.has(c) ? true : (seen.add(c), false)));
+    if (duplicates.length) {
+      return res.status(400).json({ error: "Duplicate product codes in file", codes: [...new Set(duplicates)] });
+    }
+
+    client = await pool.connect();
+    await client.query("BEGIN");
+    let created = 0;
+    let updated = 0;
+    for (const p of rows) {
+      const values = [
+        p.name,
+        p.category,
+        p.spec ?? null,
+        p.unit,
+        p.unitPrice,
+        p.partnerPrice ?? null,
+        p.packSize ?? null,
+      ];
+      const r = await client.query(
+        `UPDATE products SET name=$2, category=$3, spec=$4, unit=$5, unit_price=$6, partner_price=$7,
+           pack_size=$8, active=COALESCE($9, active), updated_at=now()
+         WHERE code=$1`,
+        [p.code, ...values, p.active ?? null]
+      );
+      if (r.rowCount) {
+        updated++;
+      } else {
+        await client.query(
+          `INSERT INTO products (id, code, name, category, spec, unit, unit_price, partner_price, pack_size, active)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [newId("prod"), p.code, ...values, p.active ?? true]
+        );
+        created++;
+      }
+    }
+    await client.query("COMMIT");
+    res.json({ created, updated });
+  } catch (err) {
+    await client?.query("ROLLBACK").catch(() => {});
+    next(err);
+  } finally {
+    client?.release();
   }
 });
 

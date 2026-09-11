@@ -36,6 +36,44 @@ export type Product = {
   updatedAt: string;
 };
 
+export type UserRole = "ADMIN" | "SALES" | "WAREHOUSE" | "ACCOUNTANT";
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  ADMIN: "مدیر سیستم",
+  SALES: "فروش",
+  WAREHOUSE: "انبار",
+  ACCOUNTANT: "حسابداری",
+};
+
+export type User = {
+  id: string;
+  fullName: string;
+  username: string;
+  phone: string | null;
+  role: UserRole;
+  active: boolean;
+  hasPassword: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** The signed-in user (GET /api/auth/me). */
+export type AuthUser = Pick<User, "id" | "fullName" | "username" | "phone" | "role">;
+
+/** Row shape accepted by POST /api/products/import (upsert by code). */
+export type ProductImportRow = {
+  code: string;
+  name: string;
+  category: ProductCategory;
+  spec?: string | null;
+  unit: string;
+  unitPrice: number;
+  partnerPrice?: number | null;
+  packSize?: number | null;
+  active?: boolean;
+};
+
 export type Customer = {
   id: string;
   name: string;

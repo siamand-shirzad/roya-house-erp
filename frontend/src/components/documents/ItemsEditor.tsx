@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { ProductPicker } from "./ProductPicker";
 import type { DocumentItem, DocumentType, Product } from "@/types";
-import { formatToman, toPersianDigits } from "@/lib/format";
+import { formatToman, toDisplayDigits } from "@/lib/format";
 import { computeLineTotal } from "@/lib/totals";
 
 export function ItemsEditor({
@@ -89,7 +89,7 @@ export function ItemsEditor({
               const t = computeLineTotal(item);
               return (
                 <TableRow key={idx}>
-                  <TableCell className="text-muted-foreground tabular-nums">{toPersianDigits(idx + 1)}</TableCell>
+                  <TableCell className="text-muted-foreground tabular-nums">{toDisplayDigits(idx + 1)}</TableCell>
                   <TableCell>
                     <Input
                       value={item.name}

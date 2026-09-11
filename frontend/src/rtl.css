@@ -1,22 +1,10 @@
 /* Persian/RTL layer for the Roya House ERP UI.
    Kept as its own file (imported after index.css in main.tsx) so it never
-   has to touch the CSS-variable file the shadcn CLI generates for you. */
-
-@import url("https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap");
+   has to touch the CSS-variable file the shadcn CLI generates for you.
+   Fonts are self-hosted (see main.tsx) and the stacks live in index.css. */
 
 html {
   direction: rtl;
-}
-
-body {
-  font-family: "Vazirmatn", Tahoma, "Segoe UI", sans-serif;
-}
-
-/* In-page anchor links (landing page nav) glide, unless reduced motion is requested. */
-@media (prefers-reduced-motion: no-preference) {
-  html {
-    scroll-behavior: smooth;
-  }
 }
 
 /* The dashboard chrome (sidebar/header from the dashboard-01 block) was
@@ -26,4 +14,11 @@ body {
    layout primitives. */
 [dir="rtl"] {
   text-align: right;
+}
+
+/* In-page anchor links (landing page nav) glide, unless reduced motion is requested. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }

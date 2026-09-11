@@ -18,7 +18,7 @@ import {
 import { SLUG_TO_TYPE, TYPE_TO_SLUG } from "@/lib/documentTypeSlug";
 import { DOCUMENT_TYPE_LABELS, type Document, type DocumentItem } from "@/types";
 import { api } from "@/lib/api";
-import { toPersianDigits } from "@/lib/format";
+import { toDisplayDigits } from "@/lib/format";
 
 const EMPTY_BUYER: BuyerFormState = {
   buyerName: "",
@@ -223,7 +223,7 @@ export function DocumentFormPage() {
           </Button>
           {savedDoc && (
             <span className="text-sm text-muted-foreground">
-              شماره سند: {toPersianDigits(savedDoc.number)} — وضعیت: {savedDoc.status === "DRAFT" ? "پیش‌نویس" : "صادر شده"}
+              شماره سند: {toDisplayDigits(savedDoc.number)} — وضعیت: {savedDoc.status === "DRAFT" ? "پیش‌نویس" : "صادر شده"}
             </span>
           )}
         </div>

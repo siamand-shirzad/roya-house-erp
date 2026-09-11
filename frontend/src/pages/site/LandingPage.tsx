@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import {
   ArrowLeft,
   FileText,
-  House,
   MapPin,
   Phone,
   PhoneCall,
@@ -11,9 +10,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { BrandLogo } from "@/components/brand-logo";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { toJalali, toPersianDigits } from "@/lib/format";
+import { toJalali, toDisplayDigits } from "@/lib/format";
 import { CATEGORY_LABELS, type ProductCategory } from "@/types";
 import { SitePhoto } from "./SitePhoto";
 
@@ -31,12 +31,12 @@ const LIFT = `transition ${EASE} motion-safe:hover:-translate-y-1`;
 const BUTTON_MOTION = `${EASE} motion-safe:hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/25 motion-safe:active:scale-[0.98]`;
 
 const PHONES = [
-  { display: "۰۹۳۵ ۷۲۰ ۵۰۰۰", href: "tel:+989357205000" },
-  { display: "۰۹۳۵ ۶۱۱ ۵۰۰۰", href: "tel:+989356115000" },
+  { display: "0935 720 5000", href: "tel:+989357205000" },
+  { display: "0935 611 5000", href: "tel:+989356115000" },
 ];
 
 const ADDRESS =
-  "تهران، چهاردانگه به آزادگان شرق، خیابان غفاری، خیابان عرفان، عرفان یکم غربی، پلاک ۱۰۵";
+  "تهران، چهاردانگه به آزادگان شرق، خیابان غفاری، خیابان عرفان، عرفان یکم غربی، پلاک 105";
 
 const CONTACT_LABEL = "تماس با فروش";
 
@@ -58,7 +58,7 @@ type Tile = {
 const TILES: Tile[] = [
   {
     category: "GYPSUM_PANEL",
-    blurb: "معمولی، ضد رطوبت (MR)، مقاوم در برابر آتش (FR) و ضخیم ۱۵ میلی‌متری",
+    blurb: "معمولی، ضد رطوبت (MR)، مقاوم در برابر آتش (FR) و ضخیم 15 میلی‌متری",
     tone: "plain",
     className: "md:col-span-2 lg:row-span-2",
     photo: { src: "/site/gypsum-panels.jpg", alt: "بسته‌های پنل گچی در انبار", slot: "پنل‌های گچی" },
@@ -115,7 +115,7 @@ const STEPS = [
   {
     icon: FileText,
     title: "پیش‌فاکتور رسمی",
-    body: "پیش‌فاکتور با مشخصات کامل صادر می‌شود و ۲۴ ساعت اعتبار دارد.",
+    body: "پیش‌فاکتور با مشخصات کامل صادر می‌شود و 24 ساعت اعتبار دارد.",
   },
   {
     icon: Truck,
@@ -140,22 +140,15 @@ const TONE_CLASSES: Record<Tone, { tile: string; muted: string }> = {
   },
 };
 
-// Live item counts per category from the price list. The page works without
-// them (e.g. if the API is unreachable), so failures just hide the counts.
+// Live item counts per category from the public (unauthenticated) catalog
+// endpoint, which exposes counts only, never prices. Failures hide the counts.
 function useCategoryCounts() {
   const [counts, setCounts] = useState<Partial<Record<ProductCategory, number>> | null>(null);
 
   useEffect(() => {
-    api.products
-      .list({ active: "true" })
-      .then((products) => {
-        const next: Partial<Record<ProductCategory, number>> = {};
-        for (const p of products) {
-          if (p.code?.startsWith("SRV-")) continue; // services, not stock
-          next[p.category] = (next[p.category] ?? 0) + 1;
-        }
-        setCounts(next);
-      })
+    api.public
+      .catalog()
+      .then((rows) => setCounts(Object.fromEntries(rows.map((r) => [r.category, r.count]))))
       .catch(() => setCounts(null));
   }, []);
 
@@ -195,7 +188,7 @@ function CategoryTile({ tile, count }: { tile: Tile; count: number | undefined }
       <p className={cn("text-sm leading-7", tone.muted)}>{tile.blurb}</p>
       {count !== undefined && (
         <p className={cn("mt-auto pt-2 text-sm font-medium tabular-nums", tone.muted)}>
-          {toPersianDigits(count)} قلم کالا
+          {toDisplayDigits(count)} قلم کالا
         </p>
       )}
     </div>
@@ -230,7 +223,7 @@ function CategoryTile({ tile, count }: { tile: Tile; count: number | undefined }
 
 export function LandingPage() {
   const counts = useCategoryCounts();
-  const year = toPersianDigits(toJalali(new Date()).jy);
+  const year = toDisplayDigits(toJalali(new Date()).jy);
 
   useEffect(() => {
     const previous = document.title;
@@ -244,11 +237,9 @@ export function LandingPage() {
     <div dir="rtl" className="min-h-[100dvh] bg-background text-foreground">
       <header className="sticky top-0 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-8 px-4 lg:px-8">
-          <a href="#top" className="flex shrink-0 items-center gap-2.5">
-            <span className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <House className="size-5" />
-            </span>
-            <span className="text-lg font-extrabold">رویا هاوس</span>
+          <a href="#top" className="flex shrink-0 items-center gap-3" aria-label="رویا هاوس، بازگشت به بالا">
+            <BrandLogo className="h-11 shrink-0" />
+            <span className="hidden text-lg font-extrabold sm:inline">رویا هاوس</span>
           </a>
           <nav aria-label="بخش‌های صفحه" className="hidden items-center gap-1 text-sm md:flex">
             {[

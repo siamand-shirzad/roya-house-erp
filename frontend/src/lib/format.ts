@@ -2,14 +2,22 @@
 
 const PERSIAN_DIGITS = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
 
-/** Convert any Western digits in a string/number to Persian (Eastern Arabic-Indic) digits. */
-export function toPersianDigits(input: string | number): string {
-  return String(input).replace(/[0-9]/g, (d) => PERSIAN_DIGITS[Number(d)]);
+/**
+ * Digit style for the whole UI and the printed documents. Latin digits are
+ * rendered by the Latin number fonts (Inter / Space Grotesk); flip this to go
+ * back to Persian digits everywhere.
+ */
+const USE_PERSIAN_DIGITS = false;
+
+/** Digits as displayed: Latin (default) or Persian, per USE_PERSIAN_DIGITS. */
+export function toDisplayDigits(input: string | number): string {
+  const s = String(input);
+  return USE_PERSIAN_DIGITS ? s.replace(/[0-9]/g, (d) => PERSIAN_DIGITS[Number(d)]) : s;
 }
 
-/** Format a Toman amount with thousands separators, e.g. 1234567 -> "۱,۲۳۴,۵۶۷". */
+/** Format a Toman amount with thousands separators, e.g. 1234567 -> "1,234,567". */
 export function formatToman(amount: number): string {
-  return toPersianDigits(Math.round(amount).toLocaleString("en-US"));
+  return toDisplayDigits(Math.round(amount).toLocaleString("en-US"));
 }
 
 /** Format a Rial amount (Toman * 10), matching how the paper templates print totals. */
@@ -20,7 +28,7 @@ export function formatRial(tomanAmount: number): string {
 /** Format a plain number (quantities) with Persian digits, no currency. */
 export function formatNumber(n: number): string {
   const rounded = Number.isInteger(n) ? n : Math.round(n * 100) / 100;
-  return toPersianDigits(rounded.toLocaleString("en-US"));
+  return toDisplayDigits(rounded.toLocaleString("en-US"));
 }
 
 const GREGORIAN_EPOCH = 1948321; // JDN adjustments for Jalali conversion
@@ -79,11 +87,11 @@ export function toJalali(date: Date): { jy: number; jm: number; jd: number } {
 export function formatJalaliDate(date: Date): string {
   const { jy, jm, jd } = toJalali(date);
   const pad = (n: number) => String(n).padStart(2, "0");
-  return toPersianDigits(`${jy}/${pad(jm)}/${pad(jd)}`);
+  return toDisplayDigits(`${jy}/${pad(jm)}/${pad(jd)}`);
 }
 
 export function formatJalaliDateLong(date: Date): string {
   const { jy, jm, jd } = toJalali(date);
   const weekday = JALALI_WEEKDAYS[date.getDay()];
-  return `${weekday} ${toPersianDigits(jd)} ${JALALI_MONTHS[jm - 1]} ${toPersianDigits(jy)}`;
+  return `${weekday} ${toDisplayDigits(jd)} ${JALALI_MONTHS[jm - 1]} ${toDisplayDigits(jy)}`;
 }
