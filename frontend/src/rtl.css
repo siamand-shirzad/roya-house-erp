@@ -12,6 +12,13 @@ body {
   font-family: "Vazirmatn", Tahoma, "Segoe UI", sans-serif;
 }
 
+/* In-page anchor links (landing page nav) glide, unless reduced motion is requested. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 /* The dashboard chrome (sidebar/header from the dashboard-01 block) was
    authored LTR-first; the document pages below are fully RTL already via
    dir="rtl" on their own root. This just nudges scrollbars/icons to feel

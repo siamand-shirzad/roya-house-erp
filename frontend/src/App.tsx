@@ -3,6 +3,7 @@ import { DashboardPage } from "@/pages/DashboardPage";
 import { DocumentListPage } from "@/pages/documents/DocumentListPage";
 import { DocumentFormPage } from "@/pages/documents/DocumentFormPage";
 import { DocumentsLayout } from "@/components/documents-layout";
+import { LandingPage } from "@/pages/site/LandingPage";
 
 // Remount the form whenever the type or document changes, so state from one
 // document (e.g. its id) can never leak into "new" or a different document.
@@ -16,6 +17,8 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<DashboardPage />} />
+        {/* Public landing page (outside the ERP shell). */}
+        <Route path="/site" element={<LandingPage />} />
 
         <Route
           path="/documents/:typeSlug"
