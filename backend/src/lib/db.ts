@@ -123,6 +123,16 @@ CREATE TABLE IF NOT EXISTS users (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash text;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at timestamptz;
 
+-- Document lifecycle (DRAFT -> ISSUED -> CANCELLED) and conversion links.
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS created_by text REFERENCES users(id);
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS issued_at timestamptz;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS issued_by text REFERENCES users(id);
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS cancelled_at timestamptz;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS cancelled_by text REFERENCES users(id);
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS cancel_reason text;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS source_document_id text REFERENCES documents(id);
+CREATE INDEX IF NOT EXISTS documents_source_idx ON documents(source_document_id);
+
 -- Login sessions. id is the SHA-256 of the cookie token (the token itself is never stored).
 CREATE TABLE IF NOT EXISTS sessions (
   id text PRIMARY KEY,

@@ -114,6 +114,20 @@ export const DOCUMENT_TYPE_LABELS: Record<DocumentType, { title: string; short: 
   GOODS_ISSUE: { title: "حواله خروج از انبار کالا", short: "حواله" },
 };
 
+// Who may create/issue/cancel/convert each document type. UI-only mirror of
+// the backend's WRITE_ROLES in backend/src/routes/documents.ts — hides
+// buttons the user can't use; the API is the actual enforcement.
+export const DOCUMENT_WRITE_ROLES: Record<DocumentType, UserRole[]> = {
+  PROFORMA: ["ADMIN", "SALES"],
+  INVOICE: ["ADMIN", "SALES"],
+  GOODS_ISSUE: ["ADMIN", "WAREHOUSE"],
+};
+
+export const NEXT_DOCUMENT_TYPE: Partial<Record<DocumentType, DocumentType>> = {
+  PROFORMA: "INVOICE",
+  INVOICE: "GOODS_ISSUE",
+};
+
 export type DocumentItem = {
   id?: string;
   productId?: string | null;
@@ -133,6 +147,8 @@ export type DocumentTotals = {
   grandTotal: number;
 };
 
+export type DocumentLink = { id: string; type: DocumentType; number: number; status: DocumentStatus };
+
 export type Document = {
   id: string;
   type: DocumentType;
@@ -140,6 +156,14 @@ export type Document = {
   status: DocumentStatus;
   issueDate: string;
   company: Company | null;
+  createdByName?: string | null;
+  issuedAt?: string | null;
+  issuedByName?: string | null;
+  cancelledAt?: string | null;
+  cancelledByName?: string | null;
+  cancelReason?: string | null;
+  source?: DocumentLink | null;
+  derived?: DocumentLink[];
   customer: Customer | null;
   buyerName: string | null;
   buyerNationalId: string | null;

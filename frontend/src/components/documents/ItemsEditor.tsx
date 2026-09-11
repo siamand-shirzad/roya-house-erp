@@ -18,10 +18,12 @@ export function ItemsEditor({
   type,
   items,
   onChange,
+  disabled,
 }: {
   type: DocumentType;
   items: DocumentItem[];
   onChange: (items: DocumentItem[]) => void;
+  disabled?: boolean;
 }) {
   const isInvoiceLike = type === "INVOICE" || type === "PROFORMA";
 
@@ -51,7 +53,7 @@ export function ItemsEditor({
 
   return (
     <div className="space-y-3">
-      <ProductPicker onSelect={addProduct} />
+      {!disabled && <ProductPicker onSelect={addProduct} />}
 
       <div className="rounded-md border overflow-x-auto">
         {/* Min width keeps inputs usable on narrow screens; the wrapper scrolls instead. */}
@@ -71,14 +73,14 @@ export function ItemsEditor({
                 </>
               )}
               {!isInvoiceLike && <TableHead>توضیحات</TableHead>}
-              <TableHead className="w-10" />
+              {!disabled && <TableHead className="w-10" />}
             </TableRow>
           </TableHeader>
           <TableBody>
             {items.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={isInvoiceLike ? 9 : 6}
+                  colSpan={(isInvoiceLike ? 9 : 6) - (disabled ? 1 : 0)}
                   className="text-center text-muted-foreground py-6"
                 >
                   هنوز کالایی اضافه نشده است.
@@ -94,12 +96,14 @@ export function ItemsEditor({
                     <Input
                       value={item.name}
                       onChange={(e) => updateItem(idx, { name: e.target.value })}
+                      disabled={disabled}
                     />
                   </TableCell>
                   <TableCell>
                     <Input
                       value={item.unit}
                       onChange={(e) => updateItem(idx, { unit: e.target.value })}
+                      disabled={disabled}
                     />
                   </TableCell>
                   <TableCell>
@@ -108,6 +112,7 @@ export function ItemsEditor({
                       min={0}
                       value={item.quantity}
                       onChange={(e) => updateItem(idx, { quantity: Number(e.target.value) })}
+                      disabled={disabled}
                     />
                   </TableCell>
                   {isInvoiceLike ? (
@@ -118,6 +123,7 @@ export function ItemsEditor({
                           min={0}
                           value={item.unitPrice}
                           onChange={(e) => updateItem(idx, { unitPrice: Number(e.target.value) })}
+                          disabled={disabled}
                         />
                       </TableCell>
                       <TableCell>
@@ -126,6 +132,7 @@ export function ItemsEditor({
                           min={0}
                           value={item.discount ?? 0}
                           onChange={(e) => updateItem(idx, { discount: Number(e.target.value) })}
+                          disabled={disabled}
                         />
                       </TableCell>
                       <TableCell>
@@ -135,6 +142,7 @@ export function ItemsEditor({
                           max={100}
                           value={item.taxRate ?? 0}
                           onChange={(e) => updateItem(idx, { taxRate: Number(e.target.value) })}
+                          disabled={disabled}
                         />
                       </TableCell>
                       <TableCell className="font-medium whitespace-nowrap">
@@ -146,19 +154,22 @@ export function ItemsEditor({
                       <Input
                         value={item.spec ?? ""}
                         onChange={(e) => updateItem(idx, { spec: e.target.value })}
+                        disabled={disabled}
                       />
                     </TableCell>
                   )}
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeItem(idx)}
-                      aria-label="حذف ردیف"
-                    >
-                      <Trash2 className="size-4 text-destructive" />
-                    </Button>
-                  </TableCell>
+                  {!disabled && (
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeItem(idx)}
+                        aria-label="حذف ردیف"
+                      >
+                        <Trash2 className="size-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               );
             })}

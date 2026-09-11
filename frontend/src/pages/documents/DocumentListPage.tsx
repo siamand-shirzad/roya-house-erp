@@ -16,7 +16,8 @@ import { ChevronLeft, FileText, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import { SLUG_TO_TYPE } from "@/lib/documentTypeSlug";
 import { cn } from "@/lib/utils";
-import { DOCUMENT_TYPE_LABELS, type Document } from "@/types";
+import { useAuth } from "@/components/auth-provider";
+import { DOCUMENT_TYPE_LABELS, DOCUMENT_WRITE_ROLES, type Document } from "@/types";
 import { formatToman, formatJalaliDate, toDisplayDigits } from "@/lib/format";
 
 const STATUS: Record<Document["status"], { label: string; className: string }> = {
@@ -40,6 +41,7 @@ export function DocumentListPage() {
   const { typeSlug } = useParams<{ typeSlug: string }>();
   const navigate = useNavigate();
   const type = SLUG_TO_TYPE[typeSlug ?? ""];
+  const { user } = useAuth();
   const [docs, setDocs] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +62,7 @@ export function DocumentListPage() {
   }
 
   const newHref = `/documents/${typeSlug}/new`;
+  const canCreate = user ? DOCUMENT_WRITE_ROLES[type].includes(user.role) : false;
 
   return (
     <div className="space-y-4 p-4 md:p-6">
@@ -70,11 +73,13 @@ export function DocumentListPage() {
             {loading ? "در حال بارگذاری..." : `${toDisplayDigits(docs.length)} سند`}
           </p>
         </div>
-        <Button asChild>
-          <Link to={newHref}>
-            <Plus /> سند جدید
-          </Link>
-        </Button>
+        {canCreate && (
+          <Button asChild>
+            <Link to={newHref}>
+              <Plus /> سند جدید
+            </Link>
+          </Button>
+        )}
       </div>
 
       <Card className="overflow-hidden py-0">
@@ -117,11 +122,13 @@ export function DocumentListPage() {
                       <FileText className="size-5" />
                     </div>
                     <div>هنوز سندی ثبت نشده است.</div>
-                    <Button asChild variant="outline" size="sm">
-                      <Link to={newHref}>
-                        <Plus /> ثبت اولین سند
-                      </Link>
-                    </Button>
+                    {canCreate && (
+                      <Button asChild variant="outline" size="sm">
+                        <Link to={newHref}>
+                          <Plus /> ثبت اولین سند
+                        </Link>
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

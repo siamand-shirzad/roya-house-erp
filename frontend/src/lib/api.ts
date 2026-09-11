@@ -2,6 +2,7 @@ import type {
   AuthUser,
   Customer,
   Document,
+  DocumentLink,
   DocumentType,
   Product,
   ProductCategory,
@@ -94,5 +95,13 @@ export const api = {
     update: (id: string, data: Record<string, unknown>) =>
       request<Document>(`/documents/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     remove: (id: string) => request<void>(`/documents/${id}`, { method: "DELETE" }),
+    issue: (id: string) => request<Document>(`/documents/${id}/issue`, { method: "POST" }),
+    cancel: (id: string, reason?: string) =>
+      request<Document>(`/documents/${id}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }),
+    convert: (id: string, to: DocumentType) =>
+      request<Document>(`/documents/${id}/convert`, {
+        method: "POST",
+        body: JSON.stringify({ to }),
+      }) as Promise<Document & { existing?: DocumentLink }>,
   },
 };
