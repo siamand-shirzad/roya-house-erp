@@ -1,0 +1,151 @@
+// Roya House ERP — Prisma schema
+// Products, customers, and the three document types the business uses:
+// Proforma Invoice (پیش فاکتور), Invoice (فاکتور), Goods Issue (حواله خروج از انبار)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum DocumentType {
+  PROFORMA // پیش فاکتور
+  INVOICE // فاکتور فروش
+  GOODS_ISSUE // حواله خروج از انبار کالا
+}
+
+enum DocumentStatus {
+  DRAFT
+  ISSUED
+  CANCELLED
+}
+
+model Company {
+  id           String   @id @default(cuid())
+  name         String // رویا هاوس
+  legalName    String? // نام شخص حقوقی
+  nationalId   String? // شناسه ملی
+  economicCode String? // شماره اقتصادی
+  registration String? // شماره ثبت
+  province     String? // استان
+  city         String? // شهرستان
+  address      String?
+  postalCode   String?
+  phone        String?
+  fax          String?
+  logoUrl      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  documents Document[]
+}
+
+model Customer {
+  id           String   @id @default(cuid())
+  name         String // نام شخص حقیقی/حقوقی
+  customerCode String? // کد مشتری
+  nationalId   String? // شناسه ملی / کد ملی
+  economicCode String?
+  registration String?
+  province     String?
+  city         String?
+  address      String?
+  postalCode   String?
+  phone        String?
+  fax          String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  documents Document[]
+}
+
+enum ProductCategory {
+  GYPSUM_PANEL // پنل های گچی
+  METAL_STRUCTURE // سازه های فلزی
+  GYPSUM_TILE // تایل های گچی
+  SPRI_ACCESSORY // سپری
+  SCREW_BOLT // پیچ و بولت
+  TAPE_PUTTY // نوار و بتونه
+  CONNECTOR // اتصالات
+  OTHER // سایر محصولات
+  BRAND_PANEL // پنل های برند (بانا، یزد، جی برد ...)
+}
+
+model Product {
+  id            String          @id @default(cuid())
+  code          String?         @unique
+  name          String
+  category      ProductCategory
+  spec          String? // مشخصات (ابعاد/ضخامت/مقاومت ...)
+  unit          String // واحد اندازه‌گیری: مترمربع، شاخه، متر طول، عدد، بسته، رول، کیلو ...
+  unitPrice     Int // قیمت واحد (تومان)
+  partnerPrice  Int? // قیمت همکاری (تومان)
+  packSize      Int? // تعداد در بسته/پالت در صورت وجود
+  active        Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  documentItems DocumentItem[]
+}
+
+model Document {
+  id          String         @id @default(cuid())
+  type        DocumentType
+  number      Int // شماره سند (per-type sequence)
+  status      DocumentStatus @default(DRAFT)
+  issueDate   DateTime       @default(now())
+  companyId   String?
+  company     Company?       @relation(fields: [companyId], references: [id])
+  customerId  String?
+  customer    Customer?      @relation(fields: [customerId], references: [id])
+
+  // free-form buyer snapshot (in case no Customer record is linked, or to freeze
+  // the info as it looked on the day the document was issued)
+  buyerName        String?
+  buyerNationalId  String?
+  buyerEconomicCode String?
+  buyerProvince    String?
+  buyerCity        String?
+  buyerAddress     String?
+  buyerPostalCode  String?
+  buyerPhone       String?
+
+  relatedInvoiceNo String? // شماره فاکتور (for goods-issue vouchers)
+  vehiclePlate     String? // شماره پلاک (goods issue)
+  vehicleColor     String? // رنگ ماشین (goods issue)
+  deliveredToName  String? // تحویل گیرنده
+  deliveredToNationalId String?
+
+  notes       String?
+  discountTotal Int @default(0)
+  taxTotal      Int @default(0)
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  items DocumentItem[]
+
+  @@unique([type, number])
+}
+
+model DocumentItem {
+  id          String   @id @default(cuid())
+  documentId  String
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id])
+
+  rowNo       Int
+  name        String // frozen product name at time of document
+  spec        String? // توضیحات / مشخصات
+  unit        String
+  quantity    Decimal  @db.Decimal(12, 2)
+  unitPrice   Int
+  discount    Int      @default(0)
+  taxRate     Int      @default(0) // percent
+
+  createdAt   DateTime @default(now())
+}

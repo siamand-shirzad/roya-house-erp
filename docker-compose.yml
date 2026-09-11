@@ -1,0 +1,23 @@
+version: "3.9"
+
+# Quick local PostgreSQL for the Roya House ERP backend.
+# Run: docker compose up -d
+# Then in backend/.env, DATABASE_URL should point at:
+#   postgresql://postgres:postgres@localhost:5432/royahouse
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: royahouse-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: royahouse
+    ports:
+      - "5432:5432"
+    volumes:
+      - royahouse_pgdata:/var/lib/postgresql/data
+
+volumes:
+  royahouse_pgdata:

@@ -1,0 +1,22 @@
+/* Persian/RTL layer for the Roya House ERP UI.
+   Kept as its own file (imported after index.css in main.tsx) so it never
+   has to touch the CSS-variable file the shadcn CLI generates for you. */
+
+@import url("https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap");
+
+html {
+  direction: rtl;
+}
+
+body {
+  font-family: "Vazirmatn", Tahoma, "Segoe UI", sans-serif;
+}
+
+/* The dashboard chrome (sidebar/header from the dashboard-01 block) was
+   authored LTR-first; the document pages below are fully RTL already via
+   dir="rtl" on their own root. This just nudges scrollbars/icons to feel
+   natural in a right-to-left shell without fighting the sidebar's own
+   layout primitives. */
+[dir="rtl"] {
+  text-align: right;
+}
