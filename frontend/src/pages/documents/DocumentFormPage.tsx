@@ -4,7 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Ban, LoaderCircle, Lock, Save, Stamp } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Ban, LoaderCircle, Lock, Save, Stamp, TriangleAlert } from "lucide-react";
 import { DocumentTypeIcon } from "@/lib/icons";
 import { ItemsEditor } from "@/components/documents/ItemsEditor";
 import { DocumentPrint } from "@/components/documents/DocumentPrint";
@@ -27,7 +40,7 @@ import {
   type DocumentItem,
   type DocumentType,
 } from "@/types";
-import { api, ApiError } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import { toDisplayDigits, formatJalaliDate } from "@/lib/format";
 
 const EMPTY_BUYER: BuyerFormState = {
@@ -109,7 +122,7 @@ export function DocumentFormPage() {
         });
         setNotes(doc.notes ?? "");
       })
-      .catch((err: Error) => setError(`بارگذاری سند ناموفق بود: ${err.message}`))
+      .catch((err) => setError(`بارگذاری سند ناموفق بود: ${errorMessage(err)}`))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -202,7 +215,7 @@ export function DocumentFormPage() {
       setSavedDoc(doc);
       if (!id) navigate(`/documents/${typeSlug}/${doc.id}`, { replace: true });
     } catch (err) {
-      setError(`ذخیره سند ناموفق بود: ${(err as Error).message}`);
+      setError(`ذخیره سند ناموفق بود: ${errorMessage(err)}`);
     } finally {
       setSaving(false);
     }
@@ -215,7 +228,7 @@ export function DocumentFormPage() {
     try {
       setSavedDoc(await api.documents.issue(savedDoc.id));
     } catch (err) {
-      setError(`صدور سند ناموفق بود: ${(err as Error).message}`);
+      setError(`صدور سند ناموفق بود: ${errorMessage(err)}`);
     } finally {
       setBusyAction(null);
     }
@@ -230,11 +243,9 @@ export function DocumentFormPage() {
       setConfirmingCancel(false);
       setCancelReason("");
     } catch (err) {
-      const message =
-        err instanceof ApiError && (err as any).message?.includes("Cancel the documents")
-          ? "ابتدا سندهایی که از این سند ساخته شده‌اند را باطل کنید."
-          : (err as Error).message;
-      setError(`ابطال سند ناموفق بود: ${message}`);
+      // Close the dialog first, or the reason it failed renders behind it.
+      setConfirmingCancel(false);
+      setError(`ابطال سند ناموفق بود: ${errorMessage(err)}`);
     } finally {
       setBusyAction(null);
     }
@@ -253,7 +264,7 @@ export function DocumentFormPage() {
       }
       navigate(`/documents/${TYPE_TO_SLUG[to]}/${doc.id}`);
     } catch (err) {
-      setError(`تبدیل سند ناموفق بود: ${(err as Error).message}`);
+      setError(`تبدیل سند ناموفق بود: ${errorMessage(err)}`);
     } finally {
       setBusyAction(null);
     }
@@ -380,7 +391,7 @@ export function DocumentFormPage() {
             </Button>
           )}
 
-          {canWrite && isIssued && !confirmingCancel && (
+          {canWrite && isIssued && (
             <Button variant="outline" onClick={() => setConfirmingCancel(true)} disabled={busyAction !== null}>
               <Ban /> ابطال سند
             </Button>
@@ -398,42 +409,53 @@ export function DocumentFormPage() {
           )}
         </div>
 
-        {confirmingCancel && (
-          <div className="space-y-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3">
-            <label htmlFor="cancel-reason" className="text-sm font-medium text-destructive">
-              دلیل ابطال (اختیاری)
-            </label>
-            <textarea
-              id="cancel-reason"
-              value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value)}
-              rows={2}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/30"
-            />
-            <div className="flex gap-2">
-              <Button variant="destructive" size="sm" onClick={handleCancel} disabled={busyAction !== null}>
-                {busyAction === "cancel" ? <LoaderCircle className="animate-spin" /> : <Ban />}
-                تأیید ابطال سند
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setConfirmingCancel(false);
-                  setCancelReason("");
+        <AlertDialog
+          open={confirmingCancel}
+          onOpenChange={(open) => {
+            if (busyAction === "cancel") return;
+            setConfirmingCancel(open);
+            if (!open) setCancelReason("");
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>این سند باطل شود؟</AlertDialogTitle>
+              <AlertDialogDescription>
+                سند صادرشده حذف نمی‌شود؛ باطل می‌ماند و شماره‌اش دیگر استفاده نمی‌شود. این کار
+                برگشت‌پذیر نیست.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="grid gap-2 text-start">
+              <Label htmlFor="cancel-reason">دلیل ابطال (اختیاری)</Label>
+              <Textarea
+                id="cancel-reason"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                rows={2}
+              />
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busyAction === "cancel"}>انصراف</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleCancel();
                 }}
                 disabled={busyAction !== null}
               >
-                انصراف
-              </Button>
-            </div>
-          </div>
-        )}
+                {busyAction === "cancel" ? <LoaderCircle className="animate-spin" /> : <Ban />}
+                تأیید ابطال سند
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {error && (
-          <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {error}
-          </div>
+          <Alert variant="destructive">
+            <TriangleAlert />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
       </div>
 

@@ -1,16 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Download, LoaderCircle, Save, Search, Undo2, Upload } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Download, LoaderCircle, Save, Search, TriangleAlert, Undo2, Upload } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PriceCell } from "@/components/products/PriceCell";
 import { ImportCsvSheet } from "@/components/products/ImportCsvSheet";
 import { BulkAdjustPopover, type BulkAdjustment } from "@/components/products/BulkAdjustPopover";
-import { api } from "@/lib/api";
+import { toast } from "sonner";
+import { api, errorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { normalizeKey, readCsvFile, downloadText } from "@/lib/csv";
 import { productsToCsv, previewProductCsv, type CsvPreview } from "@/lib/priceListCsv";
@@ -19,7 +23,7 @@ import { CATEGORY_LABELS, type Product, type ProductCategory } from "@/types";
 
 type Draft = { unitPrice?: number; partnerPrice?: number | null };
 type SortKey = "code" | "name" | "category" | "unitPrice" | "partnerPrice";
-type Notice = { tone: "success" | "error"; text: string } | null;
+
 
 const COL_UNIT = 0;
 const COL_PARTNER = 1;
@@ -40,7 +44,9 @@ export function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState<Notice>(null);
+  // Failures stay on the page until they are dealt with; successes are
+  // transient and go to a toast.
+  const [error, setError] = useState<string | null>(null);
 
   const [q, setQ] = useState("");
   const [category, setCategory] = useState<ProductCategory | "ALL">("ALL");
@@ -59,7 +65,7 @@ export function ProductsPage() {
     try {
       setProducts(await api.products.list());
     } catch (err) {
-      setNotice({ tone: "error", text: `دریافت فهرست کالاها ناموفق بود: ${(err as Error).message}` });
+      setError(`دریافت فهرست کالاها ناموفق بود: ${errorMessage(err)}`);
     } finally {
       setLoading(false);
     }
@@ -115,7 +121,7 @@ export function ProductsPage() {
   }, [products, q, category, showInactive, sort]);
 
   function setPrice(p: Product, field: keyof Draft, value: number | null) {
-    setNotice(null);
+    setError(null);
     setDrafts((prev) => {
       const next = { ...prev };
       const d = { ...next[p.id] };
@@ -134,23 +140,23 @@ export function ProductsPage() {
       if (target !== "partner") setPrice(p, "unitPrice", adjust(c.unitPrice));
       if (target !== "unit" && c.partnerPrice !== null) setPrice(p, "partnerPrice", adjust(c.partnerPrice));
     }
-    setNotice({
-      tone: "success",
-      text: `تغییر ${percent > 0 ? "+" : ""}${toDisplayDigits(percent)}٪ روی ${toDisplayDigits(rows.length)} کالا اعمال شد. برای ثبت، «ذخیره» را بزنید.`,
-    });
+    toast.success(
+      `تغییر ${percent > 0 ? "+" : ""}${toDisplayDigits(percent)}٪ روی ${toDisplayDigits(rows.length)} کالا اعمال شد.`,
+      { description: "برای ثبت، «ذخیره» را بزنید." }
+    );
   }
 
   async function save() {
     setSaving(true);
-    setNotice(null);
+    setError(null);
     try {
       const updates = Object.entries(drafts).map(([id, d]) => ({ id, ...d }));
       await api.products.bulkUpdate(updates);
       setDrafts({});
       await load();
-      setNotice({ tone: "success", text: `قیمت ${toDisplayDigits(updates.length)} کالا ذخیره شد.` });
+      toast.success(`قیمت ${toDisplayDigits(updates.length)} کالا ذخیره شد.`);
     } catch (err) {
-      setNotice({ tone: "error", text: `ذخیره ناموفق بود: ${(err as Error).message}` });
+      setError(`ذخیره ناموفق بود: ${errorMessage(err)}`);
     } finally {
       setSaving(false);
     }
@@ -188,12 +194,11 @@ export function ProductsPage() {
       const res = await api.products.import(preview.rows);
       await load();
       setImportOpen(false);
-      setNotice({
-        tone: "success",
-        text: `ورود از CSV انجام شد: ${toDisplayDigits(res.created)} کالای جدید، ${toDisplayDigits(res.updated)} کالا به‌روزرسانی شد.`,
+      toast.success("ورود از CSV انجام شد.", {
+        description: `${toDisplayDigits(res.created)} کالای جدید، ${toDisplayDigits(res.updated)} کالا به‌روزرسانی شد.`,
       });
     } catch (err) {
-      setImportError(`اعمال تغییرات ناموفق بود: ${(err as Error).message}`);
+      setImportError(`اعمال تغییرات ناموفق بود: ${errorMessage(err)}`);
     } finally {
       setImporting(false);
     }
@@ -269,15 +274,16 @@ export function ProductsPage() {
               ))}
             </SelectContent>
           </Select>
-          <label className="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm">
-            <input
-              type="checkbox"
+          <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+            <Checkbox
+              id="show-inactive"
               checked={showInactive}
-              onChange={(e) => setShowInactive(e.target.checked)}
-              className="size-4 accent-[var(--primary)]"
+              onCheckedChange={(checked) => setShowInactive(checked === true)}
             />
-            نمایش غیرفعال‌ها
-          </label>
+            <Label htmlFor="show-inactive" className="cursor-pointer font-normal">
+              نمایش غیرفعال‌ها
+            </Label>
+          </div>
           {canEdit && <BulkAdjustPopover count={rows.length} onApply={applyBulk} />}
           <span className="text-sm text-muted-foreground tabular-nums sm:ms-auto">
             {toDisplayDigits(rows.length)} کالا
@@ -305,18 +311,11 @@ export function ProductsPage() {
           </span>
         </p>
 
-        {notice && (
-          <div
-            role={notice.tone === "error" ? "alert" : "status"}
-            className={cn(
-              "rounded-lg border px-3 py-2 text-sm",
-              notice.tone === "error"
-                ? "border-destructive/40 bg-destructive/10 text-destructive"
-                : "border-emerald-600/30 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300"
-            )}
-          >
-            {notice.text}
-          </div>
+        {error && (
+          <Alert variant="destructive">
+            <TriangleAlert />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         <div className="overflow-hidden rounded-xl border bg-card">

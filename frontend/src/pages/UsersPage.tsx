@@ -1,9 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Info, LoaderCircle, Pencil, UserPlus, Users } from "lucide-react";
+import { Info, LoaderCircle, Pencil, TriangleAlert, UserPlus, Users } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,7 +17,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { formatJalaliDate, toDisplayDigits } from "@/lib/format";
 import { ROLE_LABELS, type User, type UserRole } from "@/types";
@@ -31,13 +33,6 @@ const ROLE_TONE: Record<UserRole, string> = {
 };
 
 // Server messages are English; show Persian for the ones users can act on.
-function friendlyError(message: string) {
-  if (message.includes("already exists")) return "این نام کاربری قبلاً ثبت شده است.";
-  if (message.includes("active admin")) return "حداقل یک مدیر سیستم فعال باید باقی بماند.";
-  if (message.includes("Validation")) return "اطلاعات فرم کامل یا معتبر نیست.";
-  return message;
-}
-
 export function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,7 +50,7 @@ export function UsersPage() {
       setUsers(await api.users.list());
       setError(null);
     } catch (err) {
-      setError(`دریافت کاربران ناموفق بود: ${(err as Error).message}`);
+      setError(`دریافت کاربران ناموفق بود: ${errorMessage(err)}`);
     } finally {
       setLoading(false);
     }
@@ -94,7 +89,7 @@ export function UsersPage() {
       setSheetOpen(false);
       await load();
     } catch (err) {
-      setFormError(friendlyError((err as Error).message));
+      setFormError(errorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -105,7 +100,7 @@ export function UsersPage() {
       const updated = await api.users.update(user.id, { active: !user.active });
       setUsers((list) => list.map((u) => (u.id === user.id ? updated : u)));
     } catch (err) {
-      setError(`تغییر وضعیت ناموفق بود: ${friendlyError((err as Error).message)}`);
+      setError(`تغییر وضعیت ناموفق بود: ${errorMessage(err)}`);
     }
   }
 
@@ -129,9 +124,10 @@ export function UsersPage() {
         </div>
 
         {error && (
-          <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {error}
-          </div>
+          <Alert variant="destructive">
+            <TriangleAlert />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         <div className="overflow-x-auto rounded-xl border bg-card">
@@ -308,19 +304,21 @@ export function UsersPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="user-active"
                   checked={form.active}
-                  onChange={(e) => setForm({ ...form, active: e.target.checked })}
-                  className="size-4 accent-[var(--primary)]"
+                  onCheckedChange={(checked) => setForm({ ...form, active: checked === true })}
                 />
-                کاربر فعال است
-              </label>
+                <Label htmlFor="user-active" className="font-normal">
+                  کاربر فعال است
+                </Label>
+              </div>
               {formError && (
-                <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                  {formError}
-                </div>
+                <Alert variant="destructive">
+                  <TriangleAlert />
+                  <AlertDescription>{formError}</AlertDescription>
+                </Alert>
               )}
             </div>
             <SheetFooter className="flex-row gap-2 border-t">

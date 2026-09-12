@@ -1,5 +1,6 @@
 import { FileSpreadsheet, LoaderCircle, Plus, RefreshCw, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Sheet,
   SheetContent,
@@ -51,10 +52,13 @@ export function ImportCsvSheet({
               <LoaderCircle className="size-4 animate-spin" /> در حال خواندن فایل...
             </div>
           ) : preview.missingColumns.length > 0 ? (
-            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-              ستون‌های لازم در فایل پیدا نشد: {preview.missingColumns.join("، ")}. سطر اول فایل باید عنوان ستون‌ها
-              باشد (مثل فایل «خروجی CSV»).
-            </div>
+            <Alert variant="destructive">
+              <TriangleAlert />
+              <AlertDescription>
+                ستون‌های لازم در فایل پیدا نشد: {preview.missingColumns.join("، ")}. سطر اول فایل باید عنوان
+                ستون‌ها باشد (مثل فایل «خروجی CSV»).
+              </AlertDescription>
+            </Alert>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
@@ -143,9 +147,10 @@ export function ImportCsvSheet({
             </>
           )}
           {error && (
-            <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-              {error}
-            </div>
+            <Alert variant="destructive">
+              <TriangleAlert />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
         </div>
 

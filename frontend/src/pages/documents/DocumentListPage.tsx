@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ChevronLeft, Plus } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, errorMessage } from "@/lib/api";
 import { SLUG_TO_TYPE } from "@/lib/documentTypeSlug";
 import { DocumentTypeIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
@@ -54,7 +54,7 @@ export function DocumentListPage() {
     api.documents
       .list(type)
       .then(setDocs)
-      .catch((err: Error) => setError(err.message))
+      .catch((err) => setError(errorMessage(err)))
       .finally(() => setLoading(false));
   }, [type]);
 

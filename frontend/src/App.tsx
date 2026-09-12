@@ -5,6 +5,7 @@ import { DocumentListPage } from "@/pages/documents/DocumentListPage";
 import { DocumentFormPage } from "@/pages/documents/DocumentFormPage";
 import { DocumentsLayout } from "@/components/documents-layout";
 import { AuthProvider, RequireAuth } from "@/components/auth-provider";
+import { Toaster } from "@/components/ui/sonner";
 import { LandingPage } from "@/pages/site/LandingPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { ProductsPage } from "@/pages/ProductsPage";
@@ -42,6 +43,7 @@ export default function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <Toaster />
       </AuthProvider>
     </BrowserRouter>
   );

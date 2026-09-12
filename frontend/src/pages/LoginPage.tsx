@@ -1,26 +1,17 @@
 import { useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, LoaderCircle, LogIn, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, LoaderCircle, LogIn, ShieldCheck, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BrandLogo } from "@/components/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FullScreenStatus, useAuth } from "@/components/auth-provider";
-import { ApiError } from "@/lib/api";
+import { errorMessage } from "@/lib/api";
 
 // Sign-in screen. On a fresh install (no admin with a password yet) it turns
 // into "create the first admin account".
-
-function messageFor(err: unknown): string {
-  if (err instanceof ApiError) {
-    if (err.status === 401) return "نام کاربری یا رمز عبور درست نیست.";
-    if (err.status === 429) return "تعداد تلاش‌های ناموفق زیاد بود. چند دقیقه بعد دوباره امتحان کنید.";
-    if (err.status === 400) return "اطلاعات وارد شده کامل یا معتبر نیست.";
-    if (err.status === 409) return "این مرحله قبلاً انجام شده است. صفحه را دوباره باز کنید.";
-  }
-  return "ارتباط با سرور برقرار نشد. دوباره تلاش کنید.";
-}
 
 function PasswordInput({
   id,
@@ -100,7 +91,7 @@ export function LoginPage() {
       else await login(username.trim(), password);
       navigate(from, { replace: true });
     } catch (err) {
-      setError(messageFor(err));
+      setError(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -131,9 +122,10 @@ export function LoginPage() {
           </div>
 
           {status === "offline" && (
-            <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              ارتباط با سرور برقرار نشد.
-            </div>
+            <Alert variant="destructive">
+              <TriangleAlert />
+              <AlertDescription>ارتباط با سرور برقرار نشد.</AlertDescription>
+            </Alert>
           )}
 
           {isSetup && (
@@ -172,9 +164,10 @@ export function LoginPage() {
           )}
 
           {error && (
-            <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
-            </div>
+            <Alert variant="destructive">
+              <TriangleAlert />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
 
           <Button type="submit" className="w-full" disabled={busy}>
