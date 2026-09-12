@@ -364,7 +364,7 @@ export function LandingPage() {
                     "group-hover:border-primary group-hover:bg-primary group-hover:text-primary-foreground motion-safe:group-hover:scale-110"
                   )}
                 >
-                  <Icon className="size-5" />
+                  <Icon className="size-6" />
                 </span>
                 <div className="space-y-2 pt-2 md:pt-0">
                   <h3 className="text-lg font-bold leading-8">{title}</h3>
