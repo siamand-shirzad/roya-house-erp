@@ -89,7 +89,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarContent className="gap-0 [scrollbar-color:var(--sidebar-border)_transparent] [scrollbar-width:thin]">
         {NAV.filter((g) => !g.roles || (user && g.roles.includes(user.role))).map((group) => (
-          <SidebarGroup key={group.label} className="py-0.5">
+          <SidebarGroup key={group.label} className="py-2">
             <SidebarGroupLabel className="h-7 font-display text-[11px] font-semibold tracking-[0.14em] uppercase text-sidebar-foreground/45">
               {group.label}
             </SidebarGroupLabel>
