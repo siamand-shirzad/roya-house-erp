@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Loader2 } from "lucide-react";
+import { Download, LoaderCircle } from "lucide-react";
 
 // Renders the already-mounted #elementId node (the DocumentPrint component)
 // to a canvas and drops it into a single-page-per-A4-sheet PDF. Doing the
@@ -72,7 +72,7 @@ export function ExportPdfButton({
 
   return (
     <Button onClick={handleExport} disabled={loading} size="sm">
-      {loading ? <Loader2 className="animate-spin" /> : <Download />}
+      {loading ? <LoaderCircle className="animate-spin" /> : <Download />}
       دانلود PDF
     </Button>
   );

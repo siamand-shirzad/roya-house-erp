@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Info, Loader2, Pencil, UserPlus, Users } from "lucide-react";
+import { Info, LoaderCircle, Pencil, UserPlus, Users } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -325,7 +325,7 @@ export function UsersPage() {
             </div>
             <SheetFooter className="flex-row gap-2 border-t">
               <Button type="submit" disabled={saving}>
-                {saving && <Loader2 className="animate-spin" />}
+                {saving && <LoaderCircle className="animate-spin" />}
                 {editing ? "ذخیره تغییرات" : "افزودن کاربر"}
               </Button>
               <Button type="button" variant="outline" onClick={() => setSheetOpen(false)} disabled={saving}>

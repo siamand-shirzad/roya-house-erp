@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Ban, Loader2, Lock, Save, Stamp } from "lucide-react";
+import { Ban, LoaderCircle, Lock, Save, Stamp } from "lucide-react";
 import { DocumentTypeIcon } from "@/lib/icons";
 import { ItemsEditor } from "@/components/documents/ItemsEditor";
 import { DocumentPrint } from "@/components/documents/DocumentPrint";
@@ -262,7 +262,7 @@ export function DocumentFormPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24 text-muted-foreground gap-2">
-        <Loader2 className="animate-spin" /> در حال بارگذاری...
+        <LoaderCircle className="animate-spin" /> در حال بارگذاری...
       </div>
     );
   }
@@ -368,14 +368,14 @@ export function DocumentFormPage() {
         <div className="flex flex-wrap items-center gap-2">
           {editable && (
             <Button onClick={handleSave} disabled={saving || items.length === 0}>
-              {saving ? <Loader2 className="animate-spin" /> : <Save />}
+              {saving ? <LoaderCircle className="animate-spin" /> : <Save />}
               {savedDoc ? "ذخیره تغییرات" : "ثبت سند"}
             </Button>
           )}
 
           {editable && savedDoc?.status === "DRAFT" && (
             <Button variant="outline" onClick={handleIssue} disabled={busyAction !== null || items.length === 0}>
-              {busyAction === "issue" ? <Loader2 className="animate-spin" /> : <Stamp />}
+              {busyAction === "issue" ? <LoaderCircle className="animate-spin" /> : <Stamp />}
               صدور سند
             </Button>
           )}
@@ -389,7 +389,7 @@ export function DocumentFormPage() {
           {canWrite && isIssued && canConvert && nextType && !activeDerived && (
             <Button variant="outline" onClick={() => handleConvert(nextType)} disabled={busyAction !== null}>
               {busyAction === "convert" ? (
-                <Loader2 className="animate-spin" />
+                <LoaderCircle className="animate-spin" />
               ) : (
                 <DocumentTypeIcon type={nextType} />
               )}
@@ -412,7 +412,7 @@ export function DocumentFormPage() {
             />
             <div className="flex gap-2">
               <Button variant="destructive" size="sm" onClick={handleCancel} disabled={busyAction !== null}>
-                {busyAction === "cancel" ? <Loader2 className="animate-spin" /> : <Ban />}
+                {busyAction === "cancel" ? <LoaderCircle className="animate-spin" /> : <Ban />}
                 تأیید ابطال سند
               </Button>
               <Button

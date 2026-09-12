@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Download, Loader2, Save, Search, Undo2, Upload } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Download, LoaderCircle, Save, Search, Undo2, Upload } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -422,7 +422,7 @@ export function ProductsPage() {
                 <Undo2 /> لغو همه
               </Button>
               <Button onClick={save} disabled={saving}>
-                {saving ? <Loader2 className="animate-spin" /> : <Save />} ذخیره تغییرات
+                {saving ? <LoaderCircle className="animate-spin" /> : <Save />} ذخیره تغییرات
               </Button>
             </div>
           </div>

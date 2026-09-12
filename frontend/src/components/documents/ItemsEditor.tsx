@@ -1,4 +1,4 @@
-import { Trash2 } from "lucide-react";
+import { Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -166,7 +166,7 @@ export function ItemsEditor({
                         onClick={() => removeItem(idx)}
                         aria-label="حذف ردیف"
                       >
-                        <Trash2 className="size-4 text-destructive" />
+                        <Trash className="size-4 text-destructive" />
                       </Button>
                     </TableCell>
                   )}

@@ -10,7 +10,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, Loader2, Search } from "lucide-react";
+import { ArrowUpDown, LoaderCircle, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -173,7 +173,7 @@ export function ProductsDataTable() {
         <CardContent>
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
-              <Loader2 className="animate-spin" /> در حال بارگذاری کالاها...
+              <LoaderCircle className="animate-spin" /> در حال بارگذاری کالاها...
             </div>
           ) : (
             <>
