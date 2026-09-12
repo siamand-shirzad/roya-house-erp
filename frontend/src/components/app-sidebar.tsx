@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Tags, Users, type LucideIcon } from "lucide-react";
+import { Contact, LayoutDashboard, Tags, Users, type LucideIcon } from "lucide-react";
 
 import { LogoMark } from "@/components/logo-mark";
 import { NavUser } from "@/components/nav-user";
@@ -55,7 +55,13 @@ const NAV: NavGroup[] = [
       },
     ],
   },
-  { label: "Catalog", items: [{ to: "/products", label: "کالاها و قیمت‌ها", icon: Tags }] },
+  {
+    label: "Catalog",
+    items: [
+      { to: "/products", label: "کالاها و قیمت‌ها", icon: Tags },
+      { to: "/customers", label: "مشتریان", tooltip: "فهرست مشتریان", icon: Contact },
+    ],
+  },
   { label: "Admin", roles: ["ADMIN"], items: [{ to: "/users", label: "کاربران", icon: Users }] },
 ];
 

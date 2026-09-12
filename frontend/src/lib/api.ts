@@ -132,6 +132,8 @@ export const api = {
     get: (id: string) => request<Customer>(`/customers/${id}`),
     create: (data: Partial<Customer>) =>
       request<Customer>("/customers", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: string, data: Partial<Customer>) =>
+      request<Customer>(`/customers/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   },
   documents: {
     list: (type?: DocumentType) => request<Document[]>(`/documents${type ? `?type=${type}` : ""}`),

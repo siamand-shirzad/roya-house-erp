@@ -17,13 +17,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Ban, LoaderCircle, Lock, Save, Stamp, TriangleAlert } from "lucide-react";
+import { Ban, LoaderCircle, Lock, Save, Stamp, TriangleAlert, UserPlus, X } from "lucide-react";
 import { DocumentTypeIcon } from "@/lib/icons";
 import { ItemsEditor } from "@/components/documents/ItemsEditor";
 import { DocumentPrint } from "@/components/documents/DocumentPrint";
 import { ExportPdfButton } from "@/components/documents/ExportPdfButton";
 import { PrintPreview } from "@/components/documents/PrintPreview";
 import { useAuth } from "@/components/auth-provider";
+import { CustomerPicker } from "@/components/documents/CustomerPicker";
+import { CustomerFormSheet } from "@/components/customers/CustomerFormSheet";
 import {
   BuyerForm,
   GoodsIssueForm,
@@ -36,10 +38,12 @@ import {
   DOCUMENT_TYPE_LABELS,
   DOCUMENT_WRITE_ROLES,
   NEXT_DOCUMENT_TYPE,
+  type Customer,
   type Document,
   type DocumentItem,
   type DocumentType,
 } from "@/types";
+import { toast } from "sonner";
 import { api, errorMessage } from "@/lib/api";
 import { toDisplayDigits, formatJalaliDate } from "@/lib/format";
 
@@ -87,6 +91,11 @@ export function DocumentFormPage() {
   const [busyAction, setBusyAction] = useState<"issue" | "cancel" | "convert" | null>(null);
   const [items, setItems] = useState<DocumentItem[]>([]);
   const [buyer, setBuyer] = useState<BuyerFormState>(EMPTY_BUYER);
+  // The buyer fields are the document's own copy; customerId only records who
+  // they were taken from, so the customer list can be kept in sync later.
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [customerName, setCustomerName] = useState<string | null>(null);
+  const [saveCustomerOpen, setSaveCustomerOpen] = useState(false);
   const [goodsIssue, setGoodsIssue] = useState<GoodsIssueFormState>(EMPTY_GOODS_ISSUE);
   const [notes, setNotes] = useState("");
   const [savedDoc, setSavedDoc] = useState<Document | null>(null);
@@ -103,6 +112,8 @@ export function DocumentFormPage() {
       .then((doc) => {
         setSavedDoc(doc);
         setItems(doc.items);
+        setCustomerId(doc.customer?.id ?? null);
+        setCustomerName(doc.customer?.name ?? null);
         setBuyer({
           buyerName: doc.buyerName ?? "",
           buyerNationalId: doc.buyerNationalId ?? "",
@@ -181,6 +192,21 @@ export function DocumentFormPage() {
         totals: { subtotal: 0, discountTotal: 0, taxTotal: 0, grandTotal: 0 },
       };
 
+  function applyCustomer(customer: Customer) {
+    setCustomerId(customer.id);
+    setCustomerName(customer.name);
+    setBuyer({
+      buyerName: customer.name,
+      buyerNationalId: customer.nationalId ?? "",
+      buyerEconomicCode: customer.economicCode ?? "",
+      buyerProvince: customer.province ?? "",
+      buyerCity: customer.city ?? "",
+      buyerAddress: customer.address ?? "",
+      buyerPostalCode: customer.postalCode ?? "",
+      buyerPhone: customer.phone ?? "",
+    });
+  }
+
   async function handleSave() {
     if (items.length === 0) return;
     const invalidRow = items.findIndex((it) => !it.name.trim() || !it.unit.trim() || !(it.quantity > 0));
@@ -203,6 +229,7 @@ export function DocumentFormPage() {
           discount: it.discount ?? 0,
           taxRate: it.taxRate ?? 0,
         })),
+        customerId,
         ...buyer,
         ...(typeNeedsGoodsIssueFields(type) ? goodsIssue : {}),
         notes,
@@ -351,7 +378,35 @@ export function DocumentFormPage() {
           <CardHeader>
             <CardTitle>{DOCUMENT_TYPE_LABELS[type].title} — مشخصات خریدار</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {editable && (
+              <div className="flex flex-wrap items-center gap-2">
+                <CustomerPicker onSelect={applyCustomer} />
+                {customerId ? (
+                  <Badge variant="outline" className="gap-1 py-1">
+                    از مشتری: {customerName ?? buyer.buyerName}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomerId(null);
+                        setCustomerName(null);
+                      }}
+                      className="rounded-sm opacity-60 hover:opacity-100"
+                      title="جدا کردن از مشتری"
+                    >
+                      <X className="size-3.5" />
+                      <span className="sr-only">جدا کردن از مشتری</span>
+                    </button>
+                  </Badge>
+                ) : (
+                  buyer.buyerName.trim() !== "" && (
+                    <Button variant="ghost" size="sm" onClick={() => setSaveCustomerOpen(true)}>
+                      <UserPlus /> ثبت در فهرست مشتریان
+                    </Button>
+                  )
+                )}
+              </div>
+            )}
             <BuyerForm value={buyer} onChange={setBuyer} disabled={!editable} />
           </CardContent>
         </Card>
@@ -408,6 +463,26 @@ export function DocumentFormPage() {
             </Button>
           )}
         </div>
+
+        <CustomerFormSheet
+          open={saveCustomerOpen}
+          onOpenChange={setSaveCustomerOpen}
+          customer={null}
+          draft={{
+            name: buyer.buyerName,
+            nationalId: buyer.buyerNationalId || null,
+            economicCode: buyer.buyerEconomicCode || null,
+            province: buyer.buyerProvince || null,
+            city: buyer.buyerCity || null,
+            address: buyer.buyerAddress || null,
+            postalCode: buyer.buyerPostalCode || null,
+            phone: buyer.buyerPhone || null,
+          }}
+          onSaved={(customer) => {
+            applyCustomer(customer);
+            toast.success(`«${customer.name}» به فهرست مشتریان اضافه شد.`);
+          }}
+        />
 
         <AlertDialog
           open={confirmingCancel}

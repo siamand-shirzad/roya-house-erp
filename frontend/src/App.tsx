@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { LandingPage } from "@/pages/site/LandingPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { ProductsPage } from "@/pages/ProductsPage";
+import { CustomersPage } from "@/pages/CustomersPage";
 import { UsersPage } from "@/pages/UsersPage";
 
 // Remount the form whenever the type or document changes, so state from one
@@ -36,6 +37,7 @@ export default function App() {
           {/* ERP: signed-in users only. */}
           <Route path="/" element={<RequireAuth><DashboardPage /></RequireAuth>} />
           <Route path="/products" element={<RequireAuth><ProductsPage /></RequireAuth>} />
+          <Route path="/customers" element={<RequireAuth><CustomersPage /></RequireAuth>} />
           <Route path="/users" element={<RequireAuth roles={["ADMIN"]}><UsersPage /></RequireAuth>} />
           <Route path="/documents/:typeSlug" element={documents(<DocumentListPage />)} />
           <Route path="/documents/:typeSlug/new" element={documents(<KeyedDocumentFormPage />)} />
