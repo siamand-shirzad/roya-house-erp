@@ -1,8 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "preserve",
-    "moduleResolution": "bundler",
+    // package.json says "type": "commonjs", so tsc has to emit CommonJS:
+    // with "preserve" the output kept ESM `import` syntax and node refused to
+    // run dist/index.js. Only `tsx` (dev) ever tolerated that.
+    "module": "commonjs",
     "lib": ["ES2022"],
     "outDir": "dist",
     "rootDir": "src",

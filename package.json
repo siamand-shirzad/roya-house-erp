@@ -1,0 +1,14 @@
+{
+  "name": "roya-house-erp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Deployment entry point: builds the frontend and backend, then runs the Express server which also serves the built SPA.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "npm --prefix backend install --no-audit --no-fund && npm --prefix backend run build && npm --prefix frontend install --no-audit --no-fund && npm --prefix frontend run build",
+    "start": "node backend/dist/index.js",
+    "seed": "npm --prefix backend run prisma:seed"
+  }
+}

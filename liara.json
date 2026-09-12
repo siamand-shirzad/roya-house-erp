@@ -1,0 +1,5 @@
+{
+  "platform": "node",
+  "app": "royahouse",
+  "port": 4000
+}

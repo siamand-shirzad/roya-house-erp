@@ -30,6 +30,12 @@ On this Windows machine, Docker Desktop has to be running before `docker compose
 
 Pinned versions: `@tanstack/react-table` must stay on **v8**, because `products-data-table.tsx` uses the v8 API (`useReactTable`, `getCoreRowModel`, ...) and v9 removed it. `vite.config.ts` sets an inline `css.postcss: {}` so Vite doesn't search parent folders for a PostCSS config (a stray empty `C:\Users\ASUS\package.json` broke that search). Tailwind v4 runs through `@tailwindcss/vite`.
 
+## Deployment
+
+The repo root has a `package.json` whose only job is deployment: `build` installs and builds `backend/` and `frontend/`, `start` runs `node backend/dist/index.js`. In production the Express server **also serves `frontend/dist`** (static files plus an index.html fallback for client-side routes), so the API and the SPA share one origin: no CORS, and the `SameSite=Lax` session cookie keeps working. `frontend/.env.production` bakes `VITE_API_URL=/api` into the bundle at build time. `liara.json` targets the `node` platform on port 4000; `DEPLOY.md` has the full checklist. `backend/src/lib/env.ts` loads `backend/.env` by absolute path, because `npm start` runs from the repo root where a plain `dotenv/config` would find nothing. `app.set("trust proxy")` is on when `NODE_ENV=production`, so the login throttle sees real client IPs behind the platform proxy.
+
+`backend/tsconfig.json` must emit **CommonJS** (`"module": "commonjs"`), matching `"type": "commonjs"` in `backend/package.json`. It used to say `"module": "preserve"`, which left ESM `import` syntax in `dist/` that node refused to load — only `tsx` (dev) ever ran it.
+
 ## Docs don't match the code
 
 - **The backend uses raw SQL over `pg`, not Prisma.** All data access goes through `backend/src/lib/db.ts` (`pool`, `query`, `queryOne`, `newId`). Prisma's engine binaries couldn't be downloaded in the original build environment, so Prisma was dropped.
