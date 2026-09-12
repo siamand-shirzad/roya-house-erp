@@ -68,6 +68,11 @@ productsRouter.get("/:id", async (req, res, next) => {
   }
 });
 
+// Postgres unique_violation on products.code -> 409 instead of a generic 500.
+function isDuplicateCode(err: unknown) {
+  return typeof err === "object" && err !== null && (err as { code?: string }).code === "23505";
+}
+
 const productSchema = z.object({
   code: z.string().min(1).optional().nullable(),
   name: z.string().min(1),
@@ -112,6 +117,7 @@ productsRouter.post("/", async (req, res, next) => {
     );
     res.status(201).json(rowToProduct(row));
   } catch (err) {
+    if (isDuplicateCode(err)) return res.status(409).json({ error: "Product code already exists" });
     next(err);
   }
 });
@@ -152,6 +158,7 @@ productsRouter.put("/:id", async (req, res, next) => {
     );
     res.json(rowToProduct(row));
   } catch (err) {
+    if (isDuplicateCode(err)) return res.status(409).json({ error: "Product code already exists" });
     next(err);
   }
 });

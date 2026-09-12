@@ -1,5 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Download, LoaderCircle, Save, Search, TriangleAlert, Undo2, Upload } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Download,
+  LoaderCircle,
+  Archive,
+  ArchiveRestore,
+  Pencil,
+  Plus,
+  Save,
+  Search,
+  TriangleAlert,
+  Undo2,
+  Upload,
+} from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -13,6 +28,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PriceCell } from "@/components/products/PriceCell";
 import { ImportCsvSheet } from "@/components/products/ImportCsvSheet";
 import { BulkAdjustPopover, type BulkAdjustment } from "@/components/products/BulkAdjustPopover";
+import { ProductFormSheet } from "@/components/products/ProductFormSheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { api, errorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -53,12 +79,24 @@ export function ProductsPage() {
   const [showInactive, setShowInactive] = useState(false);
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 } | null>(null);
 
+  // Add / edit / deactivate. Only admins ever see these; the API enforces it too.
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<Product | null>(null);
+  const [deactivating, setDeactivating] = useState<Product | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
   const fileInput = useRef<HTMLInputElement>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [importFile, setImportFile] = useState("");
   const [preview, setPreview] = useState<CsvPreview | null>(null);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+
+  const colCount = canEdit ? 8 : 7;
+  const units = useMemo(
+    () => [...new Set(products.map((p) => p.unit).filter(Boolean))].sort(),
+    [products]
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -162,6 +200,69 @@ export function ProductsPage() {
     }
   }
 
+  function openCreate() {
+    setEditing(null);
+    setFormOpen(true);
+  }
+
+  function openEdit(p: Product) {
+    setEditing(p);
+    setFormOpen(true);
+  }
+
+  function onSaved(saved: Product, mode: "created" | "updated") {
+    setProducts((list) =>
+      mode === "created" ? [...list, saved] : list.map((p) => (p.id === saved.id ? saved : p))
+    );
+    if (mode === "updated") {
+      toast.success(`«${saved.name}» ذخیره شد.`);
+      return;
+    }
+    const filtered = q.trim() !== "" || category !== "ALL";
+    toast.success(`«${saved.name}» به کاتالوگ اضافه شد.`, {
+      description: filtered ? "با فیلترهای فعلی ممکن است در فهرست دیده نشود." : undefined,
+      action: filtered
+        ? {
+            label: "پاک کردن فیلترها",
+            onClick: () => {
+              setQ("");
+              setCategory("ALL");
+            },
+          }
+        : undefined,
+    });
+  }
+
+  async function deactivate(p: Product) {
+    setBusyId(p.id);
+    try {
+      const updated = await api.products.remove(p.id);
+      setProducts((list) => list.map((x) => (x.id === p.id ? updated : x)));
+      setDeactivating(null);
+      toast.success(`«${p.name}» غیرفعال شد.`, {
+        description: showInactive ? undefined : "برای دیدنش «نمایش غیرفعال‌ها» را بزنید.",
+      });
+    } catch (err) {
+      setDeactivating(null);
+      setError(`غیرفعال کردن کالا ناموفق بود: ${errorMessage(err)}`);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function reactivate(p: Product) {
+    setBusyId(p.id);
+    try {
+      const updated = await api.products.update(p.id, { active: true });
+      setProducts((list) => list.map((x) => (x.id === p.id ? updated : x)));
+      toast.success(`«${p.name}» دوباره فعال شد.`);
+    } catch (err) {
+      setError(`فعال کردن کالا ناموفق بود: ${errorMessage(err)}`);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   function exportCsv() {
     const { jy, jm, jd } = toJalali(new Date());
     const pad = (n: number) => String(n).padStart(2, "0");
@@ -226,6 +327,11 @@ export function ProductsPage() {
       title="فهرست کالاها و قیمت‌ها"
       actions={
         <>
+          {canEdit && (
+            <Button size="sm" onClick={openCreate} disabled={loading}>
+              <Plus /> کالای جدید
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={exportCsv} disabled={loading || !products.length}>
             <Download /> خروجی CSV
           </Button>
@@ -330,13 +436,14 @@ export function ProductsPage() {
                   <SortHeader k="unitPrice" className="w-40">قیمت واحد (تومان)</SortHeader>
                   <SortHeader k="partnerPrice" className="w-40">قیمت همکاری (تومان)</SortHeader>
                   <th className="w-24 px-3 py-2.5 text-right font-medium">در بسته</th>
+                  {canEdit && <th className="w-24 px-3 py-2.5 text-right font-medium">عملیات</th>}
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {loading &&
                   Array.from({ length: 8 }).map((_, i) => (
                     <tr key={i}>
-                      {Array.from({ length: 7 }).map((__, j) => (
+                      {Array.from({ length: colCount }).map((__, j) => (
                         <td key={j} className="px-3 py-3">
                           <Skeleton className="h-4 w-full max-w-28" />
                         </td>
@@ -345,7 +452,7 @@ export function ProductsPage() {
                   ))}
                 {!loading && rows.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-3 py-12 text-center text-muted-foreground">
+                    <td colSpan={colCount} className="px-3 py-12 text-center text-muted-foreground">
                       کالایی با این فیلترها پیدا نشد.
                     </td>
                   </tr>
@@ -401,6 +508,45 @@ export function ProductsPage() {
                         <td className="px-3 py-1.5 text-xs tabular-nums">
                           {p.packSize ? toDisplayDigits(p.packSize) : "—"}
                         </td>
+                        {canEdit && (
+                          <td className="px-1.5 py-1">
+                            <div className="flex items-center gap-0.5">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => openEdit(p)}
+                                disabled={busyId === p.id}
+                                title="ویرایش کالا"
+                              >
+                                <Pencil />
+                                <span className="sr-only">ویرایش {p.name}</span>
+                              </Button>
+                              {p.active ? (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setDeactivating(p)}
+                                  disabled={busyId === p.id}
+                                  title="غیرفعال کردن کالا"
+                                >
+                                  <Archive />
+                                  <span className="sr-only">غیرفعال کردن {p.name}</span>
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => reactivate(p)}
+                                  disabled={busyId === p.id}
+                                  title="فعال کردن دوباره"
+                                >
+                                  {busyId === p.id ? <LoaderCircle className="animate-spin" /> : <ArchiveRestore />}
+                                  <span className="sr-only">فعال کردن {p.name}</span>
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -409,6 +555,45 @@ export function ProductsPage() {
           </div>
         </div>
       </div>
+
+      <ProductFormSheet
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        product={editing}
+        units={units}
+        onSaved={onSaved}
+      />
+
+      <AlertDialog
+        open={deactivating !== null}
+        onOpenChange={(open) => {
+          if (!open && busyId === null) setDeactivating(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>«{deactivating?.name}» غیرفعال شود؟</AlertDialogTitle>
+            <AlertDialogDescription>
+              کالا حذف نمی‌شود: از فهرست قیمت و فرم اسناد کنار می‌رود، ولی اسناد قبلی دست نمی‌خورند.
+              هر وقت بخواهی می‌توانی دوباره فعالش کنی.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busyId !== null}>انصراف</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={(e) => {
+                e.preventDefault();
+                if (deactivating) deactivate(deactivating);
+              }}
+              disabled={busyId !== null}
+            >
+              {busyId !== null ? <LoaderCircle className="animate-spin" /> : <Archive />}
+              غیرفعال کن
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {dirtyCount > 0 && (
         <div className="sticky bottom-0 z-20 border-t bg-background/95 px-4 py-3 backdrop-blur md:px-6">

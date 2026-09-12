@@ -44,6 +44,7 @@ const SERVER_MESSAGES: Record<string, string> = {
   "Only drafts can be deleted; cancel issued documents instead":
     "فقط پیش‌نویس حذف می‌شود؛ سند صادرشده را باید باطل کرد.",
   "Only issued documents can be cancelled": "فقط سند صادرشده قابل ابطال است.",
+  "Product code already exists": "کالای دیگری با این کد ثبت شده است.",
   "Product not found": "کالا پیدا نشد.",
   "Setup already completed": "راه‌اندازی اولیه قبلاً انجام شده است. صفحه را دوباره باز کنید.",
   "Some products were not found": "بعضی از کالاهای این سند پیدا نشدند.",
