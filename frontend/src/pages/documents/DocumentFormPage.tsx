@@ -4,14 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import {
-  ArrowLeftRight,
-  Ban,
-  CheckCircle2,
-  Loader2,
-  Lock,
-  Save,
-} from "lucide-react";
+import { Ban, Loader2, Lock, Save, Stamp } from "lucide-react";
+import { DocumentTypeIcon } from "@/lib/icons";
 import { ItemsEditor } from "@/components/documents/ItemsEditor";
 import { DocumentPrint } from "@/components/documents/DocumentPrint";
 import { ExportPdfButton } from "@/components/documents/ExportPdfButton";
@@ -381,7 +375,7 @@ export function DocumentFormPage() {
 
           {editable && savedDoc?.status === "DRAFT" && (
             <Button variant="outline" onClick={handleIssue} disabled={busyAction !== null || items.length === 0}>
-              {busyAction === "issue" ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
+              {busyAction === "issue" ? <Loader2 className="animate-spin" /> : <Stamp />}
               صدور سند
             </Button>
           )}
@@ -394,7 +388,11 @@ export function DocumentFormPage() {
 
           {canWrite && isIssued && canConvert && nextType && !activeDerived && (
             <Button variant="outline" onClick={() => handleConvert(nextType)} disabled={busyAction !== null}>
-              {busyAction === "convert" ? <Loader2 className="animate-spin" /> : <ArrowLeftRight />}
+              {busyAction === "convert" ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <DocumentTypeIcon type={nextType} />
+              )}
               تبدیل به {DOCUMENT_TYPE_LABELS[nextType].short}
             </Button>
           )}

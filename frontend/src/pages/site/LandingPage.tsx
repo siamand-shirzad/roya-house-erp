@@ -1,19 +1,13 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import {
-  ArrowLeft,
-  FileText,
-  MapPin,
-  Phone,
-  PhoneCall,
-  Truck,
-} from "lucide-react";
+import { ArrowLeft, MapPin, Phone, PhoneCall } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BrandLogo } from "@/components/brand-logo";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { toJalali, toDisplayDigits } from "@/lib/format";
+import { CategoryIcon, DOCUMENT_TYPE_ICONS } from "@/lib/icons";
 import { CATEGORY_LABELS, type ProductCategory } from "@/types";
 import { SitePhoto } from "./SitePhoto";
 
@@ -113,30 +107,35 @@ const STEPS = [
     body: "با فروش تماس بگیرید یا فهرست اقلام موردنیازتان را بفرستید.",
   },
   {
-    icon: FileText,
+    icon: DOCUMENT_TYPE_ICONS.PROFORMA,
     title: "پیش‌فاکتور رسمی",
     body: "پیش‌فاکتور با مشخصات کامل صادر می‌شود و 24 ساعت اعتبار دارد.",
   },
   {
-    icon: Truck,
+    icon: DOCUMENT_TYPE_ICONS.GOODS_ISSUE,
     title: "بارگیری از انبار",
     body: "با واریز پیش‌پرداخت، سفارش تأیید و با حواله خروج از انبار بارگیری می‌شود.",
   },
 ];
 
-const TONE_CLASSES: Record<Tone, { tile: string; muted: string }> = {
+const TONE_CLASSES: Record<Tone, { tile: string; muted: string; icon: string }> = {
   plain: {
     tile: "border bg-card text-card-foreground hover:border-primary/40 hover:shadow-xl hover:shadow-primary/10",
     muted: "text-muted-foreground",
+    icon: "bg-primary/10 text-primary",
   },
   tint: {
     tile: "border border-primary/20 bg-primary/10 text-foreground hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10",
     // muted-foreground is only ~4.1:1 on the tint in light mode; this keeps AA.
     muted: "text-foreground/75",
+    // A primary tint on top of the tile's own primary tint barely reads, so
+    // the badge lifts back to the page background instead.
+    icon: "bg-background/70 text-primary",
   },
   accent: {
     tile: "bg-primary text-primary-foreground hover:shadow-xl hover:shadow-primary/30",
     muted: "text-primary-foreground/80",
+    icon: "bg-primary-foreground/15 text-primary-foreground",
   },
 };
 
@@ -184,6 +183,14 @@ function CategoryTile({ tile, count }: { tile: Tile; count: number | undefined }
   const tone = TONE_CLASSES[tile.tone];
   const text = (
     <div className="flex flex-col gap-2 p-6">
+      <div
+        className={cn(
+          "mb-1 flex size-10 items-center justify-center rounded-xl",
+          tone.icon
+        )}
+      >
+        <CategoryIcon category={tile.category} className="size-5" />
+      </div>
       <h3 className="text-lg font-bold leading-8">{CATEGORY_LABELS[tile.category]}</h3>
       <p className={cn("text-sm leading-7", tone.muted)}>{tile.blurb}</p>
       {count !== undefined && (

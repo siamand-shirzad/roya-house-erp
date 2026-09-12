@@ -12,9 +12,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ChevronLeft, FileText, Plus } from "lucide-react";
+import { ChevronLeft, Plus } from "lucide-react";
 import { api } from "@/lib/api";
 import { SLUG_TO_TYPE } from "@/lib/documentTypeSlug";
+import { DocumentTypeIcon } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth-provider";
 import { DOCUMENT_TYPE_LABELS, DOCUMENT_WRITE_ROLES, type Document } from "@/types";
@@ -67,11 +68,16 @@ export function DocumentListPage() {
   return (
     <div className="space-y-4 p-4 md:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold">{DOCUMENT_TYPE_LABELS[type].title}</h2>
-          <p className="text-sm text-muted-foreground">
-            {loading ? "در حال بارگذاری..." : `${toDisplayDigits(docs.length)} سند`}
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <DocumentTypeIcon type={type} className="size-5" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold">{DOCUMENT_TYPE_LABELS[type].title}</h2>
+            <p className="text-sm text-muted-foreground">
+              {loading ? "در حال بارگذاری..." : `${toDisplayDigits(docs.length)} سند`}
+            </p>
+          </div>
         </div>
         {canCreate && (
           <Button asChild>
@@ -119,7 +125,7 @@ export function DocumentListPage() {
                 <TableCell colSpan={6} className="py-14">
                   <div className="flex flex-col items-center gap-3 text-muted-foreground">
                     <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-                      <FileText className="size-5" />
+                      <DocumentTypeIcon type={type} className="size-5" />
                     </div>
                     <div>هنوز سندی ثبت نشده است.</div>
                     {canCreate && (

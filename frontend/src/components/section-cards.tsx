@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { FileTextIcon, PackageIcon, ReceiptIcon, TruckIcon } from "lucide-react";
+import { Tags } from "lucide-react";
 
 import {
   Card,
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { DocumentTypeIcon } from "@/lib/icons";
 import { formatToman, toDisplayDigits } from "@/lib/format";
 import type { Document, Product } from "@/types";
 
@@ -82,7 +83,7 @@ export function SectionCards() {
         label="جمع فاکتورهای فروش (تومان)"
         value={formatToman(invoiceTotal)}
         footer={`${toDisplayDigits(invoices.length)} فاکتور ثبت شده`}
-        icon={<ReceiptIcon />}
+        icon={<DocumentTypeIcon type="INVOICE" />}
         to="/documents/invoice"
         loading={loading}
       />
@@ -90,7 +91,7 @@ export function SectionCards() {
         label="پیش فاکتورها"
         value={toDisplayDigits(proformas.length)}
         footer="پیش فاکتور (Proforma Invoice)"
-        icon={<FileTextIcon />}
+        icon={<DocumentTypeIcon type="PROFORMA" />}
         to="/documents/proforma"
         loading={loading}
       />
@@ -98,7 +99,7 @@ export function SectionCards() {
         label="حواله‌های خروج از انبار"
         value={toDisplayDigits(goodsIssues.length)}
         footer="حواله خروج از انبار کالا"
-        icon={<TruckIcon />}
+        icon={<DocumentTypeIcon type="GOODS_ISSUE" />}
         to="/documents/goods-issue"
         loading={loading}
       />
@@ -106,7 +107,7 @@ export function SectionCards() {
         label="کالاهای فهرست قیمت"
         value={toDisplayDigits(products.length)}
         footer="کالای فعال در کاتالوگ رویا هاوس"
-        icon={<PackageIcon />}
+        icon={<Tags />}
         loading={loading}
       />
     </div>

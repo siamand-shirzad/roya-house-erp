@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ReceiptIcon } from "lucide-react";
+import { DocumentTypeIcon } from "@/lib/icons";
 
 import {
   Card,
@@ -51,7 +51,7 @@ export function ChartAreaInteractive() {
       <CardContent className="px-2 sm:px-6">
         {loaded && data.length === 0 ? (
           <div className="flex h-[250px] flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
-            <ReceiptIcon className="size-6 opacity-50" />
+            <DocumentTypeIcon type="INVOICE" className="size-6 opacity-50" />
             هنوز فاکتوری برای نمایش نمودار ثبت نشده است.
           </div>
         ) : (
