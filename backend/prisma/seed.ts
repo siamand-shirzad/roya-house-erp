@@ -556,6 +556,134 @@ async function main() {
     ],
   });
 
+  // ---------------------------------------------------------------------------
+  // Documents dated today (1405/06/21), so the dashboard and the list pages
+  // have same-day traffic to show: a walk-in draft, a small cash invoice, and
+  // a full PROFORMA -> INVOICE -> GOODS_ISSUE chain issued on one day.
+  // ---------------------------------------------------------------------------
+  const TODAY = "2026-09-12";
+
+  await seedCustomer("customer-ghanbari", "آقای امیر قنبری", {
+    customerCode: "1483",
+    nationalId: "0453987612",
+    province: "تهران",
+    city: "شهریار",
+    address: "شهریار، اندیشه، فاز 3، خیابان امام حسین، پلاک 9",
+    phone: "09354478812",
+  });
+
+  // 9) Today's walk-in draft proforma.
+  await seedDocument({
+    type: "PROFORMA",
+    number: 11847,
+    status: "DRAFT",
+    issueDate: TODAY,
+    customerId: "customer-ghanbari",
+    buyerName: "آقای امیر قنبری",
+    buyerNationalId: "0453987612",
+    buyerProvince: "تهران",
+    buyerCity: "شهریار",
+    buyerAddress: "شهریار، اندیشه، فاز 3، خیابان امام حسین، پلاک 9",
+    buyerPhone: "09354478812",
+    notes: "قیمت‌ها تا پایان وقت اداری امروز معتبر است.",
+    lines: [
+      { code: "TIL-002", name: "تایل حصیری", spec: "120×240 سانتی‌متر", unit: "مترمربع", quantity: 62.4, unitPrice: 280000 },
+      { code: "SPR-360", name: "سپری 3.60 فیکس", unit: "عدد", quantity: 26, unitPrice: 93000 },
+      { code: "SPR-060", name: "سپری 0.60 فیکس", unit: "عدد", quantity: 52, unitPrice: 93000 },
+      { code: "TIL-L24", name: "نبشی 24L سفید", spec: "طول 3 متر", unit: "شاخه", quantity: 18, unitPrice: 66000 },
+      { code: "AT-004", name: "رابط یک‌طرفه", unit: "عدد", quantity: 80, unitPrice: 4500 },
+    ],
+  });
+
+  // 10) Today's issued proforma - head of the same-day chain.
+  const proformaToday = await seedDocument({
+    type: "PROFORMA",
+    number: 11848,
+    issueDate: TODAY,
+    customerId: "customer-arian",
+    buyerName: "شرکت ساختمانی آرین سازه",
+    buyerNationalId: "14008765432",
+    buyerEconomicCode: "411356789002",
+    buyerProvince: "تهران",
+    buyerCity: "تهران",
+    buyerAddress: "تهران، شهرک غرب، بلوار دادمان، برج نگین، طبقه 7، واحد 14",
+    buyerPostalCode: "1465774311",
+    buyerPhone: "021-88567412",
+    lines: [
+      { code: "GYP-003", name: "پنل گچی مقاوم در برابر آتش (FR)", spec: "240×120×12.5 سانتی‌متر", unit: "مترمربع", quantity: 115.2, unitPrice: 445000 },
+      { code: "PR-001", name: "سازه پروفیل F47", unit: "شاخه", quantity: 160, unitPrice: 37000 },
+      { code: "PR-002", name: "سازه پروفیل U36", unit: "شاخه", quantity: 80, unitPrice: 26500 },
+      { code: "XMAT-ST", name: "پیچ سازه تایوانی XMAT", spec: "بسته 1000 عددی", unit: "بسته", quantity: 3, unitPrice: 1150000 },
+      { code: "PT-002", name: "بتونه درزگیر سفید", spec: "کیسه 25 کیلوگرمی", unit: "کیلو", quantity: 50, unitPrice: 278000 },
+    ],
+  });
+
+  // 11) Today's invoice, converted from proforma 11848.
+  const invoiceToday = await seedDocument({
+    type: "INVOICE",
+    number: 2042,
+    issueDate: TODAY,
+    customerId: "customer-arian",
+    buyerName: "شرکت ساختمانی آرین سازه",
+    buyerNationalId: "14008765432",
+    buyerEconomicCode: "411356789002",
+    buyerProvince: "تهران",
+    buyerCity: "تهران",
+    buyerAddress: "تهران، شهرک غرب، بلوار دادمان، برج نگین، طبقه 7، واحد 14",
+    buyerPostalCode: "1465774311",
+    buyerPhone: "021-88567412",
+    sourceDocumentId: proformaToday,
+    lines: [
+      { code: "GYP-003", name: "پنل گچی مقاوم در برابر آتش (FR)", spec: "240×120×12.5 سانتی‌متر", unit: "مترمربع", quantity: 115.2, unitPrice: 445000, discount: 3126000, taxRate: 10 },
+      { code: "PR-001", name: "سازه پروفیل F47", unit: "شاخه", quantity: 160, unitPrice: 37000, taxRate: 10 },
+      { code: "PR-002", name: "سازه پروفیل U36", unit: "شاخه", quantity: 80, unitPrice: 26500, taxRate: 10 },
+      { code: "XMAT-ST", name: "پیچ سازه تایوانی XMAT", spec: "بسته 1000 عددی", unit: "بسته", quantity: 3, unitPrice: 1150000, discount: 450000, taxRate: 10 },
+      { code: "PT-002", name: "بتونه درزگیر سفید", spec: "کیسه 25 کیلوگرمی", unit: "کیلو", quantity: 50, unitPrice: 278000, taxRate: 10 },
+    ],
+  });
+
+  // 12) A small cash invoice issued today, with no source document.
+  await seedDocument({
+    type: "INVOICE",
+    number: 2043,
+    issueDate: TODAY,
+    customerId: "customer-kazemi",
+    buyerName: "آقای سعید کاظمی",
+    buyerCity: "تهران",
+    buyerPhone: "09193456781",
+    notes: "تسویه نقدی.",
+    lines: [
+      { code: "PT-001", name: "نوار درزگیر کاغذی 5 سانتی‌متر", unit: "رول", quantity: 4, unitPrice: 58000, taxRate: 10 },
+      { code: "AT-001", name: "پیچ TN 25", unit: "عدد", quantity: 500, unitPrice: 2100, taxRate: 10 },
+    ],
+  });
+
+  // 13) Today's goods issue, converted from invoice 2042 and already issued.
+  await seedDocument({
+    type: "GOODS_ISSUE",
+    number: 2043,
+    issueDate: TODAY,
+    customerId: "customer-arian",
+    buyerName: "شرکت ساختمانی آرین سازه",
+    buyerProvince: "تهران",
+    buyerCity: "تهران",
+    buyerAddress: "تهران، شهرک غرب، بلوار دادمان، برج نگین، طبقه 7، واحد 14",
+    buyerPhone: "021-88567412",
+    relatedInvoiceNo: "2042",
+    sourceDocumentId: invoiceToday,
+    vehiclePlate: "78 ص 349 ایران 10",
+    vehicleColor: "نقره‌ای",
+    deliveredToName: "آقای بهرام کریمی",
+    deliveredToNationalId: "0071122334",
+    lines: [
+      { code: "GYP-003", name: "پنل گچی مقاوم در برابر آتش (FR)", spec: "240×120×12.5 سانتی‌متر", unit: "مترمربع", quantity: 115.2, unitPrice: 445000 },
+      { code: "PR-001", name: "سازه پروفیل F47", unit: "شاخه", quantity: 160, unitPrice: 37000 },
+      { code: "PR-002", name: "سازه پروفیل U36", unit: "شاخه", quantity: 80, unitPrice: 26500 },
+      { code: "XMAT-ST", name: "پیچ سازه تایوانی XMAT", spec: "بسته 1000 عددی", unit: "بسته", quantity: 3, unitPrice: 1150000 },
+      { code: "PT-002", name: "بتونه درزگیر سفید", spec: "کیسه 25 کیلوگرمی", unit: "کیلو", quantity: 50, unitPrice: 278000 },
+    ],
+  });
+
   console.log("Seed complete.");
 }
 
