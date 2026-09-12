@@ -320,7 +320,7 @@ export function ProductsPage() {
         )}
 
         <div className="overflow-hidden rounded-xl border bg-card">
-          <div className="max-h-[calc(100svh-var(--header-height)-15rem)] overflow-auto">
+          <div className="max-h-[calc(100svh-var(--header-height)-10rem)] overflow-auto">
             <table className="w-full min-w-[900px] text-sm">
               <thead className="sticky top-0 z-10 bg-muted/95 text-muted-foreground backdrop-blur">
                 <tr className="border-b">

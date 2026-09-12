@@ -108,6 +108,7 @@ export function SectionCards() {
         value={toDisplayDigits(products.length)}
         footer="کالای فعال در کاتالوگ رویا هاوس"
         icon={<Tags />}
+        to="/products"
         loading={loading}
       />
     </div>
