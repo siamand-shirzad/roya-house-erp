@@ -185,11 +185,11 @@ function CategoryTile({ tile, count }: { tile: Tile; count: number | undefined }
     <div className="flex flex-col gap-2 p-6">
       <div
         className={cn(
-          "mb-1 flex size-10 items-center justify-center rounded-xl",
+          "mb-1 flex size-12 items-center justify-center rounded-xl",
           tone.icon
         )}
       >
-        <CategoryIcon category={tile.category} className="size-5" />
+        <CategoryIcon category={tile.category} className="size-6" />
       </div>
       <h3 className="text-lg font-bold leading-8">{CATEGORY_LABELS[tile.category]}</h3>
       <p className={cn("text-sm leading-7", tone.muted)}>{tile.blurb}</p>
@@ -364,7 +364,7 @@ export function LandingPage() {
                     "group-hover:border-primary group-hover:bg-primary group-hover:text-primary-foreground motion-safe:group-hover:scale-110"
                   )}
                 >
-                  <Icon className="size-5" />
+                  <Icon className="size-6" />
                 </span>
                 <div className="space-y-2 pt-2 md:pt-0">
                   <h3 className="text-lg font-bold leading-8">{title}</h3>

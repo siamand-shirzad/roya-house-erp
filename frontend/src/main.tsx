@@ -13,15 +13,22 @@ import "@fontsource/ibm-plex-sans-arabic/400.css";
 import "@fontsource/ibm-plex-sans-arabic/500.css";
 import "@fontsource/ibm-plex-sans-arabic/600.css";
 import "@fontsource/ibm-plex-sans-arabic/700.css";
+import { LucideProvider } from "lucide-react";
+
 import App from "./App";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./index.css";
 import "./rtl.css";
 
+// lucide's own default stroke is 2, which reads heavy at the larger icon
+// sizes this UI uses. The provider only sets a default: any icon passing its
+// own strokeWidth still wins.
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ThemeProvider>
-      <App />
-    </ThemeProvider>
+    <LucideProvider strokeWidth={1.5}>
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
+    </LucideProvider>
   </StrictMode>
 );
