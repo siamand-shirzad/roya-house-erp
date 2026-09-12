@@ -1,19 +1,12 @@
 import * as React from "react";
 import { Link, useLocation } from "react-router-dom";
-import {
-  FileTextIcon,
-  LayoutDashboardIcon,
-  ReceiptIcon,
-  TagsIcon,
-  TruckIcon,
-  UsersIcon,
-  type LucideIcon,
-} from "lucide-react";
+import { LayoutDashboard, Tags, Users, type LucideIcon } from "lucide-react";
 
 import { LogoMark } from "@/components/logo-mark";
 import { NavUser } from "@/components/nav-user";
 import { useAuth } from "@/components/auth-provider";
 import { TYPE_TO_SLUG } from "@/lib/documentTypeSlug";
+import { DOCUMENT_TYPE_ICONS } from "@/lib/icons";
 import {
   Sidebar,
   SidebarContent,
@@ -38,16 +31,16 @@ type NavItem = { to: string; label: string; tooltip?: string; icon: LucideIcon; 
 type NavGroup = { label: string; items: NavItem[]; roles?: UserRole[] };
 
 const NAV: NavGroup[] = [
-  { label: "Overview", items: [{ to: "/", label: "داشبورد", icon: LayoutDashboardIcon, exact: true }] },
+  { label: "Overview", items: [{ to: "/", label: "داشبورد", icon: LayoutDashboard, exact: true }] },
   {
     label: "Sales",
     items: [
-      { to: `/documents/${TYPE_TO_SLUG.PROFORMA}`, label: "پیش‌فاکتور", icon: FileTextIcon },
+      { to: `/documents/${TYPE_TO_SLUG.PROFORMA}`, label: "پیش‌فاکتور", icon: DOCUMENT_TYPE_ICONS.PROFORMA },
       {
         to: `/documents/${TYPE_TO_SLUG.INVOICE}`,
         label: "فاکتور فروش",
         tooltip: "صورتحساب فروش کالا و خدمات",
-        icon: ReceiptIcon,
+        icon: DOCUMENT_TYPE_ICONS.INVOICE,
       },
     ],
   },
@@ -58,12 +51,12 @@ const NAV: NavGroup[] = [
         to: `/documents/${TYPE_TO_SLUG.GOODS_ISSUE}`,
         label: "حواله خروج",
         tooltip: "حواله خروج از انبار کالا",
-        icon: TruckIcon,
+        icon: DOCUMENT_TYPE_ICONS.GOODS_ISSUE,
       },
     ],
   },
-  { label: "Catalog", items: [{ to: "/products", label: "کالاها و قیمت‌ها", icon: TagsIcon }] },
-  { label: "Admin", roles: ["ADMIN"], items: [{ to: "/users", label: "کاربران", icon: UsersIcon }] },
+  { label: "Catalog", items: [{ to: "/products", label: "کالاها و قیمت‌ها", icon: Tags }] },
+  { label: "Admin", roles: ["ADMIN"], items: [{ to: "/users", label: "کاربران", icon: Users }] },
 ];
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {

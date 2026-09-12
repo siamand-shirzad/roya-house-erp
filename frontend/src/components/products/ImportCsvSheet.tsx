@@ -1,4 +1,4 @@
-import { AlertTriangle, FileSpreadsheet, Loader2, Plus, RefreshCw } from "lucide-react";
+import { FileSpreadsheet, LoaderCircle, Plus, RefreshCw, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -48,7 +48,7 @@ export function ImportCsvSheet({
         <div className="flex-1 space-y-5 overflow-y-auto p-4">
           {!preview ? (
             <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" /> در حال خواندن فایل...
+              <LoaderCircle className="size-4 animate-spin" /> در حال خواندن فایل...
             </div>
           ) : preview.missingColumns.length > 0 ? (
             <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
@@ -74,7 +74,7 @@ export function ImportCsvSheet({
               {preview.errors.length > 0 && (
                 <section className="space-y-2">
                   <h3 className="flex items-center gap-1.5 text-sm font-semibold text-destructive">
-                    <AlertTriangle className="size-4" /> سطرهای رد شده (وارد نمی‌شوند)
+                    <TriangleAlert className="size-4" /> سطرهای رد شده (وارد نمی‌شوند)
                   </h3>
                   <ul className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-destructive/30 p-2 text-sm">
                     {preview.errors.map((e, i) => (
@@ -151,7 +151,7 @@ export function ImportCsvSheet({
 
         <SheetFooter className="flex-row gap-2 border-t">
           <Button onClick={onApply} disabled={!canApply || applying}>
-            {applying && <Loader2 className="animate-spin" />}
+            {applying && <LoaderCircle className="animate-spin" />}
             اعمال {preview ? n(preview.rows.length) : ""} تغییر
           </Button>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={applying}>

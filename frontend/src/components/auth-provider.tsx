@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { LoaderCircle } from "lucide-react";
 import { api, ApiError, UNAUTHORIZED_EVENT } from "@/lib/api";
 import { BrandLogo } from "@/components/brand-logo";
 import type { AuthUser, UserRole } from "@/types";
@@ -103,7 +103,7 @@ export function RequireAuth({ children, roles }: { children: ReactNode; roles?: 
   if (status === "loading") {
     return (
       <FullScreenStatus>
-        <Loader2 className="size-5 animate-spin" />
+        <LoaderCircle className="size-5 animate-spin" />
       </FullScreenStatus>
     );
   }

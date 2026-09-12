@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Loader2, LogIn, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, LoaderCircle, LogIn, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -74,7 +74,7 @@ export function LoginPage() {
   if (status === "loading") {
     return (
       <FullScreenStatus>
-        <Loader2 className="size-5 animate-spin" />
+        <LoaderCircle className="size-5 animate-spin" />
       </FullScreenStatus>
     );
   }
@@ -178,7 +178,7 @@ export function LoginPage() {
           )}
 
           <Button type="submit" className="w-full" disabled={busy}>
-            {busy && <Loader2 className="animate-spin" />}
+            {busy && <LoaderCircle className="animate-spin" />}
             {isSetup ? "ساخت حساب و ورود" : "ورود"}
           </Button>
         </form>
