@@ -47,7 +47,7 @@ export function PriceCell({
 
   if (readOnly) {
     return (
-      <span dir="ltr" className="block px-2 py-2 text-left text-sm tabular-nums">
+      <span dir="ltr" className="block px-2 py-2 text-right text-sm tabular-nums">
         {value === null ? "—" : formatToman(value)}
       </span>
     );
@@ -103,7 +103,7 @@ export function PriceCell({
       onBlur={commit}
       onKeyDown={onKeyDown}
       className={cn(
-        "h-9 w-full min-w-28 rounded-md border border-transparent bg-transparent px-2 text-left text-sm tabular-nums outline-none transition-colors",
+        "h-9 w-full min-w-28 rounded-md border border-transparent bg-transparent px-2 text-right text-sm tabular-nums outline-none transition-colors",
         "hover:border-input focus:border-ring focus:bg-background focus:ring-[3px] focus:ring-ring/30",
         dirty && "border-primary/30 bg-primary/10 font-semibold text-primary",
         invalid && "border-destructive bg-destructive/10 ring-[3px] ring-destructive/20"
