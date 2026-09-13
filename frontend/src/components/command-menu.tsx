@@ -307,7 +307,8 @@ function CommandMenu({
                     <CommandItem key={s.id} value={s.id} onSelect={() => run(s.run)}>
                       {s.icon}
                       <span>{s.label}</span>
-                      <CommandShortcut className="flex gap-1 tracking-normal">
+                      {/* LTR so the keys read in the order they're pressed: "G D", not "D G". */}
+                      <CommandShortcut dir="ltr" className="flex gap-1 tracking-normal">
                         <Kbd>{s.keys[0]}</Kbd>
                         <Kbd>{s.keys[1]}</Kbd>
                       </CommandShortcut>
