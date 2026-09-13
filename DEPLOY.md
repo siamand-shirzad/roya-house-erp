@@ -13,7 +13,7 @@
 | فایل | کارش |
 |---|---|
 | `package.json` (ریشه) | Liara اسکریپت‌های همین فایل را می‌بیند: `build` هر دو بخش را می‌سازد، `start` سرور را اجرا می‌کند. |
-| `liara.json` | پلتفرم `node`، شناسه‌ی برنامه، پورت `4000`. |
+| `liara.json` | پلتفرم `node`، شناسه‌ی برنامه، پورت `3000` — همان `PORT` که Liara خودش به کانتینر می‌دهد. |
 | `.liaraignore` | `node_modules`، `dist` و `.git` آپلود نمی‌شوند (Liara خودش نصب و build می‌کند). |
 | `frontend/.env.production` | `VITE_API_URL=/api` — هنگام build داخل bundle پخته می‌شود. |
 
