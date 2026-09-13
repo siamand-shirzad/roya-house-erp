@@ -1,5 +1,8 @@
 {
   "platform": "node",
   "app": "royahouse",
-  "port": 4000
+  "port": 4000,
+  "node": {
+    "version": "22"
+  }
 }

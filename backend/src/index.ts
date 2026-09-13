@@ -92,11 +92,20 @@ app.use(errorHandler);
 
 // SCHEMA_SQL is idempotent (CREATE TABLE IF NOT EXISTS), so new tables appear
 // on startup. It does not alter existing tables; see CLAUDE.md.
+// Without DATABASE_URL, pg silently falls back to localhost:5432, and on a
+// platform that only shows up as a vague ECONNREFUSED. Say what is missing.
+if (!process.env.DATABASE_URL) {
+  console.error("DATABASE_URL is not set. Add it to the app's environment variables (or backend/.env locally).");
+  process.exit(1);
+}
+
 pool
   .query(SCHEMA_SQL)
   .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Roya House backend listening on http://localhost:${PORT}`);
+    // Bind all IPv4 interfaces explicitly: platforms such as Liara route to
+    // 0.0.0.0 inside the container, and node's default (::) is not guaranteed there.
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Roya House backend listening on port ${PORT}`);
     });
   })
   .catch((err) => {
