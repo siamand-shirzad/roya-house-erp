@@ -6,8 +6,13 @@ import { Button } from "@/components/ui/button";
 import { toDisplayDigits } from "@/lib/format";
 import type { CsvPreview } from "@/lib/priceListCsv";
 
-// Preview of a price-list CSV before anything is written: what's new, what
-// changes (old -> new per field), and which rows were rejected.
+// Preview of a price-list CSV before anything is written. It never scrolls:
+// the counts carry the full picture, and each list shows its first few rows
+// (with "و N مورد دیگر" beside its heading), which is enough to spot a wrong
+// file or a bad column. Sized so the fullest case fits a 529px-tall window.
+const SHOWN = 5;
+const SHOWN_ERRORS = 2;
+
 export function ImportCsvDialog({
   open,
   onOpenChange,
@@ -27,6 +32,10 @@ export function ImportCsvDialog({
 }) {
   const n = (v: number) => toDisplayDigits(v);
   const canApply = !!preview && preview.rows.length > 0 && preview.missingColumns.length === 0;
+  const more = (total: number, shown: number) =>
+    total > shown ? (
+      <span className="ms-auto font-normal text-muted-foreground">و {n(total - shown)} مورد دیگر</span>
+    ) : null;
 
   return (
     <FormDialog
@@ -50,11 +59,11 @@ export function ImportCsvDialog({
       }}
       footer={
         <>
-          <Button type="submit" disabled={!canApply || applying}>
+          <Button type="submit" size="sm" disabled={!canApply || applying}>
             {applying && <LoaderCircle className="animate-spin" />}
             اعمال {preview ? n(preview.rows.length) : ""} تغییر
           </Button>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={applying}>
+          <Button type="button" size="sm" variant="outline" onClick={() => onOpenChange(false)} disabled={applying}>
             انصراف
           </Button>
         </>
@@ -65,7 +74,7 @@ export function ImportCsvDialog({
           <LoaderCircle className="size-4 animate-spin" /> در حال خواندن فایل...
         </div>
       ) : preview.missingColumns.length > 0 ? (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="py-2">
           <TriangleAlert />
           <AlertDescription>
             ستون‌های لازم در فایل پیدا نشد: {preview.missingColumns.join("، ")}. سطر اول فایل باید عنوان ستون‌ها
@@ -81,21 +90,22 @@ export function ImportCsvDialog({
               { label: "بدون تغییر", value: preview.unchanged, tone: "text-muted-foreground" },
               { label: "خطا", value: preview.errors.length, tone: "text-destructive" },
             ].map((s) => (
-              <div key={s.label} className="rounded-lg border p-3">
-                <div className={`text-2xl font-bold tabular-nums ${s.tone}`}>{n(s.value)}</div>
+              <div key={s.label} className="rounded-lg border px-3 py-1">
+                <div className={`text-lg font-bold tabular-nums ${s.tone}`}>{n(s.value)}</div>
                 <div className="text-xs text-muted-foreground">{s.label}</div>
               </div>
             ))}
           </div>
 
           {preview.errors.length > 0 && (
-            <section className="space-y-2">
-              <h3 className="flex items-center gap-1.5 text-sm font-semibold text-destructive">
-                <TriangleAlert className="size-4" /> سطرهای رد شده (وارد نمی‌شوند)
+            <section className="space-y-1">
+              <h3 className="flex items-center gap-1.5 text-xs font-semibold text-destructive">
+                <TriangleAlert className="size-3.5" /> سطرهای رد شده (وارد نمی‌شوند)
+                {more(preview.errors.length, SHOWN_ERRORS)}
               </h3>
-              <ul className="space-y-1 rounded-lg border border-destructive/30 p-2 text-sm">
-                {preview.errors.map((e, i) => (
-                  <li key={i}>
+              <ul className="rounded-lg border border-destructive/30 text-xs">
+                {preview.errors.slice(0, SHOWN_ERRORS).map((e, i) => (
+                  <li key={i} className="truncate px-3 py-1">
                     <span className="font-medium tabular-nums">سطر {n(e.row)}:</span> {e.message}
                   </li>
                 ))}
@@ -103,53 +113,58 @@ export function ImportCsvDialog({
             </section>
           )}
 
-          {preview.created.length > 0 && (
-            <section className="space-y-2">
-              <h3 className="flex items-center gap-1.5 text-sm font-semibold">
-                <Plus className="size-4" /> کالاهای جدید
-              </h3>
-              <ul className="divide-y rounded-lg border text-sm">
-                {preview.created.slice(0, 100).map((c) => (
-                  <li key={c.code} className="flex justify-between gap-3 px-3 py-2">
-                    <span>{c.name}</span>
-                    <span dir="ltr" className="font-mono text-xs text-muted-foreground">
-                      {c.code}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {preview.changed.length > 0 && (
-            <section className="space-y-2">
-              <h3 className="flex items-center gap-1.5 text-sm font-semibold">
-                <RefreshCw className="size-4" /> تغییرات
-              </h3>
-              <ul className="divide-y rounded-lg border text-sm">
-                {preview.changed.slice(0, 200).map((c) => (
-                  <li key={c.code} className="space-y-1 px-3 py-2">
-                    <div className="flex justify-between gap-3">
-                      <span className="font-medium">{c.name}</span>
-                      <span dir="ltr" className="font-mono text-xs text-muted-foreground">
-                        {c.code}
-                      </span>
-                    </div>
-                    {c.changes.map((ch) => (
-                      <div key={ch.field} className="flex flex-wrap gap-x-2 text-xs text-muted-foreground">
-                        <span>{ch.field}:</span>
-                        <span className="tabular-nums line-through">{toDisplayDigits(ch.from)}</span>
-                        <span aria-hidden>←</span>
-                        <span className="font-semibold tabular-nums text-foreground">{toDisplayDigits(ch.to)}</span>
-                      </div>
+          {(preview.created.length > 0 || preview.changed.length > 0) && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <section className="space-y-1">
+                <h3 className="flex items-center gap-1.5 text-xs font-semibold">
+                  <Plus className="size-3.5" /> کالاهای جدید
+                  {more(preview.created.length, SHOWN)}
+                </h3>
+                {preview.created.length === 0 ? (
+                  <p className="rounded-lg border px-3 py-1.5 text-xs text-muted-foreground">کالای جدیدی نیست.</p>
+                ) : (
+                  <ul className="divide-y rounded-lg border text-xs">
+                    {preview.created.slice(0, SHOWN).map((c) => (
+                      <li key={c.code} className="flex justify-between gap-3 px-3 py-1.5">
+                        <span className="truncate">{c.name}</span>
+                        <span dir="ltr" className="shrink-0 font-mono text-muted-foreground">
+                          {c.code}
+                        </span>
+                      </li>
                     ))}
-                  </li>
-                ))}
-              </ul>
-              {preview.changed.length > 200 && (
-                <p className="text-xs text-muted-foreground">و {n(preview.changed.length - 200)} مورد دیگر...</p>
-              )}
-            </section>
+                  </ul>
+                )}
+              </section>
+
+              <section className="space-y-1">
+                <h3 className="flex items-center gap-1.5 text-xs font-semibold">
+                  <RefreshCw className="size-3.5" /> تغییرات
+                  {more(preview.changed.length, SHOWN)}
+                </h3>
+                {preview.changed.length === 0 ? (
+                  <p className="rounded-lg border px-3 py-1.5 text-xs text-muted-foreground">تغییری نیست.</p>
+                ) : (
+                  <ul className="divide-y rounded-lg border text-xs">
+                    {preview.changed.slice(0, SHOWN).map((c) => {
+                      const [first, ...rest] = c.changes;
+                      return (
+                        <li key={c.code} className="flex items-center justify-between gap-3 px-3 py-1.5">
+                          <span className="truncate font-medium">{c.name}</span>
+                          {first && (
+                            <span className="flex shrink-0 items-center gap-1 text-muted-foreground">
+                              <span className="tabular-nums line-through">{toDisplayDigits(first.from)}</span>
+                              <span aria-hidden>←</span>
+                              <span className="font-semibold tabular-nums text-foreground">{toDisplayDigits(first.to)}</span>
+                              {rest.length > 0 && <span>+{n(rest.length)}</span>}
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
+            </div>
           )}
 
           {preview.rows.length === 0 && preview.errors.length === 0 && (
@@ -158,7 +173,7 @@ export function ImportCsvDialog({
         </>
       )}
       {error && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="py-2">
           <TriangleAlert />
           <AlertDescription>{error}</AlertDescription>
         </Alert>

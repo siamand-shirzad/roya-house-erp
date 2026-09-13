@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
 import { useAuth } from "@/components/auth-provider";
 import { CustomerFormDialog } from "@/components/customers/CustomerFormDialog";
+import { ListPagination, usePagination } from "@/components/list-pagination";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,6 +55,8 @@ export function CustomersPage() {
         .some((field) => field!.toLowerCase().includes(needle))
     );
   }, [customers, q]);
+
+  const pager = usePagination(rows, q);
 
   function openCreate() {
     setEditing(null);
@@ -155,7 +158,7 @@ export function CustomersPage() {
               )}
 
               {!loading &&
-                rows.map((c) => (
+                pager.pageRows.map((c) => (
                   <tr key={c.id} className="transition-colors hover:bg-muted/40">
                     <td className="px-3 py-2 font-medium">
                       {c.name}
@@ -199,6 +202,16 @@ export function CustomersPage() {
             </tbody>
           </table>
         </div>
+
+        {!loading && (
+          <ListPagination
+            page={pager.page}
+            pageCount={pager.pageCount}
+            total={pager.total}
+            pageSize={pager.pageSize}
+            onPageChange={pager.setPage}
+          />
+        )}
 
         {loading && (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">

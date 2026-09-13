@@ -7,6 +7,7 @@ import { useAuth } from "@/components/auth-provider";
 import { DocumentTypeTabs } from "@/components/documents/DocumentTypeTabs";
 import { useDocumentPdfExport } from "@/components/documents/useDocumentPdfExport";
 import { StatusBadge } from "@/components/documents/StatusBadge";
+import { ListPagination, usePagination } from "@/components/list-pagination";
 import { SegmentedControl } from "@/components/segmented-control";
 import {
   AlertDialog,
@@ -87,6 +88,8 @@ export function DocumentListPage() {
       ),
     [docs, q, status]
   );
+
+  const pager = usePagination(rows, `${type}|${q}|${status}`);
 
   if (!type) {
     return <div className="p-8 text-center text-muted-foreground">نوع سند نامعتبر است.</div>;
@@ -218,7 +221,7 @@ export function DocumentListPage() {
             )}
 
             {!loading &&
-              rows.map((doc) => {
+              pager.pageRows.map((doc) => {
                 const href = `/documents/${typeSlug}/${doc.id}`;
                 const exporting = pdf.exportingId === doc.id;
                 return (
@@ -272,6 +275,16 @@ export function DocumentListPage() {
           </TableBody>
         </Table>
       </Card>
+
+      {!loading && !error && (
+        <ListPagination
+          page={pager.page}
+          pageCount={pager.pageCount}
+          total={pager.total}
+          pageSize={pager.pageSize}
+          onPageChange={pager.setPage}
+        />
+      )}
 
       {pdf.host}
 

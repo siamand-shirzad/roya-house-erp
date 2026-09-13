@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FormDialog } from "@/components/form-dialog";
+import { FIELD, FormDialog, INPUT, LABEL } from "@/components/form-dialog";
 import { api, errorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { formatJalaliDate, toDisplayDigits } from "@/lib/format";
@@ -234,96 +234,108 @@ export function UsersPage() {
         onSubmit={submit}
         footer={
           <>
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" size="sm" disabled={saving}>
               {saving && <LoaderCircle className="animate-spin" />}
               {editing ? "ذخیره تغییرات" : "افزودن کاربر"}
             </Button>
-            <Button type="button" variant="outline" onClick={() => setSheetOpen(false)} disabled={saving}>
+            <Button type="button" size="sm" variant="outline" onClick={() => setSheetOpen(false)} disabled={saving}>
               انصراف
             </Button>
           </>
         }
       >
-              <div className="space-y-2">
-                <Label htmlFor="u-name">نام و نام خانوادگی</Label>
-                <Input
-                  id="u-name"
-                  value={form.fullName}
-                  onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-                  autoFocus
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="u-username">نام کاربری</Label>
-                <Input
-                  id="u-username"
-                  dir="ltr"
-                  className="text-left"
-                  value={form.username}
-                  onChange={(e) => setForm({ ...form, username: e.target.value })}
-                  aria-invalid={form.username !== "" && !usernameValid}
-                />
-                <p className="text-xs text-muted-foreground">حروف لاتین کوچک، عدد و . _ - (3 تا 32 کاراکتر)</p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="u-phone">تلفن همراه</Label>
-                <Input
-                  id="u-phone"
-                  dir="ltr"
-                  inputMode="tel"
-                  className="text-left"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="u-password">{editing ? "رمز عبور جدید" : "رمز عبور"}</Label>
-                <Input
-                  id="u-password"
-                  type="password"
-                  dir="ltr"
-                  autoComplete="new-password"
-                  className="text-left"
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {editing
-                    ? "برای تغییر ندادن رمز، خالی بگذارید. رمز جدید کاربر را از دستگاه‌های دیگر خارج می‌کند."
-                    : "حداقل 8 کاراکتر. رمز را به‌صورت حضوری یا امن به کاربر بدهید."}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label>نقش</Label>
-                <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as UserRole })}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(ROLE_LABELS) as UserRole[]).map((r) => (
-                      <SelectItem key={r} value={r}>
-                        {ROLE_LABELS[r]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="user-active"
-                  checked={form.active}
-                  onCheckedChange={(checked) => setForm({ ...form, active: checked === true })}
-                />
-                <Label htmlFor="user-active" className="font-normal">
-                  کاربر فعال است
-                </Label>
-              </div>
-              {formError && (
-                <Alert variant="destructive">
-                  <TriangleAlert />
-                  <AlertDescription>{formError}</AlertDescription>
-                </Alert>
-              )}
+        <div className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-3">
+          <div className={FIELD}>
+            <Label htmlFor="u-name" className={LABEL}>
+              نام و نام خانوادگی
+            </Label>
+            <Input
+              id="u-name"
+              className={INPUT}
+              value={form.fullName}
+              onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+              autoFocus
+            />
+          </div>
+          <div className={FIELD}>
+            <Label htmlFor="u-username" className={LABEL}>
+              نام کاربری (لاتین کوچک، 3 تا 32)
+            </Label>
+            <Input
+              id="u-username"
+              dir="ltr"
+              className={cn(INPUT, "text-left")}
+              value={form.username}
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
+              aria-invalid={form.username !== "" && !usernameValid}
+            />
+          </div>
+          <div className={FIELD}>
+            <Label htmlFor="u-phone" className={LABEL}>
+              تلفن همراه
+            </Label>
+            <Input
+              id="u-phone"
+              dir="ltr"
+              inputMode="tel"
+              className={cn(INPUT, "text-left")}
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            />
+          </div>
+          <div className={cn(FIELD, "sm:col-span-2")}>
+            <Label htmlFor="u-password" className={LABEL}>
+              {editing ? "رمز عبور جدید (خالی = بدون تغییر)" : "رمز عبور (حداقل 8 کاراکتر)"}
+            </Label>
+            <Input
+              id="u-password"
+              type="password"
+              dir="ltr"
+              autoComplete="new-password"
+              className={cn(INPUT, "text-left")}
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+          </div>
+          <div className={FIELD}>
+            <Label className={LABEL}>نقش</Label>
+            <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as UserRole })}>
+              <SelectTrigger size="sm" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(ROLE_LABELS) as UserRole[]).map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {ROLE_LABELS[r]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="user-active"
+              checked={form.active}
+              onCheckedChange={(checked) => setForm({ ...form, active: checked === true })}
+            />
+            <Label htmlFor="user-active" className="text-sm font-normal">
+              کاربر فعال است
+            </Label>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {editing
+              ? "رمز جدید، کاربر را از دستگاه‌های دیگر خارج می‌کند."
+              : "رمز را حضوری یا از راه امن به کاربر بدهید."}
+          </p>
+        </div>
+        {formError && (
+          <Alert variant="destructive" className="py-2">
+            <TriangleAlert />
+            <AlertDescription>{formError}</AlertDescription>
+          </Alert>
+        )}
       </FormDialog>
     </AppShell>
   );

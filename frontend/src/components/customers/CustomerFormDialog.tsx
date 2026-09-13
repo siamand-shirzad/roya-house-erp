@@ -1,13 +1,13 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { LoaderCircle, TriangleAlert } from "lucide-react";
 
-import { FormDialog } from "@/components/form-dialog";
+import { FIELD, FormDialog, INPUT, LABEL } from "@/components/form-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { api, errorMessage } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import type { Customer } from "@/types";
 
 // The same modal backs "new customer", "edit customer", and the shortcut on
@@ -113,10 +113,13 @@ export function CustomerFormDialog({
     }
   }
 
-  const field = (id: keyof FormState, label: string, className?: string) => (
-    <div className={className ? `grid gap-2 ${className}` : "grid gap-2"}>
-      <Label htmlFor={`customer-${id}`}>{label}</Label>
-      <Input id={`customer-${id}`} value={form[id]} onChange={(e) => set(id)(e.target.value)} />
+  // Compact label + input; `span` widens it across the 4-column grid.
+  const field = (id: keyof FormState, label: string, span?: string) => (
+    <div className={cn(FIELD, span)}>
+      <Label htmlFor={`customer-${id}`} className={LABEL}>
+        {label}
+      </Label>
+      <Input id={`customer-${id}`} className={INPUT} value={form[id]} onChange={(e) => set(id)(e.target.value)} />
     </div>
   );
 
@@ -127,44 +130,36 @@ export function CustomerFormDialog({
       busy={saving}
       size="lg"
       title={customer ? "ویرایش مشتری" : "مشتری جدید"}
-      description="این مشخصات هنگام ساخت سند در فرم خریدار کپی می‌شود؛ تغییر بعدی آن‌ها روی اسناد قبلی اثر ندارد."
+      description="هنگام ساخت سند در فرم خریدار کپی می‌شود؛ تغییرش روی اسناد قبلی اثر ندارد."
       onSubmit={submit}
       footer={
         <>
-          <Button type="submit" disabled={saving}>
+          <Button type="submit" size="sm" disabled={saving}>
             {saving && <LoaderCircle className="animate-spin" />}
             {customer ? "ذخیره تغییرات" : "افزودن مشتری"}
           </Button>
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button type="button" size="sm" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
             انصراف
           </Button>
         </>
       }
     >
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-4">
         {field("name", "نام مشتری", "sm:col-span-2")}
         {field("customerCode", "کد مشتری")}
         {field("phone", "تلفن")}
         {field("nationalId", "شناسه ملی / کد ملی")}
         {field("economicCode", "شماره اقتصادی")}
-        {field("province", "استان")}
-        {field("city", "شهرستان")}
-        {field("postalCode", "کدپستی")}
-        <div className="grid gap-2 sm:col-span-2 lg:col-span-3">
-          <Label htmlFor="customer-address">آدرس</Label>
-          <Textarea
-            id="customer-address"
-            value={form.address}
-            onChange={(e) => set("address")(e.target.value)}
-            rows={2}
-          />
-        </div>
         {field("registration", "شماره ثبت")}
         {field("fax", "نمابر")}
+        {field("province", "استان")}
+        {field("city", "شهرستان")}
+        {field("postalCode", "کدپستی", "sm:col-span-2")}
+        {field("address", "آدرس", "sm:col-span-4")}
       </div>
 
       {error && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="py-2">
           <TriangleAlert />
           <AlertDescription>{error}</AlertDescription>
         </Alert>

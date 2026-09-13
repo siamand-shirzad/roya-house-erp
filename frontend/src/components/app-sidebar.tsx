@@ -1,8 +1,9 @@
 import * as React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ChartColumn, Contact, FileStack, LayoutDashboard, Search, Tags, Users, type LucideIcon } from "lucide-react";
+import { ChartColumn, Contact, FileStack, LayoutDashboard, Tags, Users, type LucideIcon } from "lucide-react";
 
 import { useCommandMenu } from "@/components/command-menu";
+import { WindowsIcon } from "@/components/windows-icon";
 
 import { LogoMark } from "@/components/logo-mark";
 import { NavUser } from "@/components/nav-user";
@@ -97,7 +98,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
               tooltip="Search · Ctrl K"
               className="h-9 border border-sidebar-border bg-sidebar-accent/40 text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
             >
-              <Search />
+              <WindowsIcon />
               <span dir="ltr" className="font-display text-[13px] tracking-wide">
                 Search
               </span>

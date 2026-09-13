@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { LoaderCircle, TriangleAlert } from "lucide-react";
 
-import { FormDialog } from "@/components/form-dialog";
+import { FIELD, FormDialog, INPUT, LABEL } from "@/components/form-dialog";
 import { NumberInput } from "@/components/number-input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { api, errorMessage } from "@/lib/api";
 import { CategoryIcon } from "@/lib/icons";
+import { cn } from "@/lib/utils";
 import { CATEGORY_LABELS, type Product, type ProductCategory } from "@/types";
 
 // One modal for both "new product" and "edit product"; `product` decides which.
@@ -122,47 +122,60 @@ export function ProductFormDialog({
       open={open}
       onOpenChange={onOpenChange}
       busy={saving}
+      size="lg"
       title={product ? "ویرایش کالا" : "کالای جدید"}
       description={
         product
-          ? "تغییر مشخصات کالا. قیمت‌ها را می‌توانید از خود جدول هم ویرایش کنید."
-          : "کالای تازه به کاتالوگ اضافه می‌شود و بلافاصله در فرم اسناد قابل انتخاب است."
+          ? "قیمت‌ها را از خود جدول هم می‌توانید ویرایش کنید."
+          : "کالای تازه بلافاصله در فرم اسناد قابل انتخاب است."
       }
       onSubmit={submit}
       footer={
         <>
-          <Button type="submit" disabled={saving}>
+          <Button type="submit" size="sm" disabled={saving}>
             {saving && <LoaderCircle className="animate-spin" />}
             {product ? "ذخیره تغییرات" : "افزودن کالا"}
           </Button>
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button type="button" size="sm" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
             انصراف
           </Button>
         </>
       }
     >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="grid gap-2 sm:col-span-2">
-          <Label htmlFor="product-name">نام کالا</Label>
-          <Input id="product-name" value={form.name} onChange={(e) => set("name", e.target.value)} autoFocus />
+      <div className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-4">
+        <div className={cn(FIELD, "sm:col-span-2")}>
+          <Label htmlFor="product-name" className={LABEL}>
+            نام کالا
+          </Label>
+          <Input
+            id="product-name"
+            className={INPUT}
+            value={form.name}
+            onChange={(e) => set("name", e.target.value)}
+            autoFocus
+          />
         </div>
 
-        <div className="grid gap-2">
-          <Label htmlFor="product-code">کد کالا (اختیاری)</Label>
+        <div className={FIELD}>
+          <Label htmlFor="product-code" className={LABEL}>
+            کد کالا (یکتا، اختیاری)
+          </Label>
           <Input
             id="product-code"
             value={form.code}
             onChange={(e) => set("code", e.target.value)}
             dir="ltr"
-            className="font-mono"
+            className={cn(INPUT, "font-mono")}
             placeholder="GYP-001"
           />
         </div>
 
-        <div className="grid gap-2">
-          <Label htmlFor="product-category">دسته‌بندی</Label>
+        <div className={FIELD}>
+          <Label htmlFor="product-category" className={LABEL}>
+            دسته‌بندی
+          </Label>
           <Select value={form.category} onValueChange={(v) => set("category", v as ProductCategory)}>
-            <SelectTrigger id="product-category" className="w-full">
+            <SelectTrigger id="product-category" size="sm" className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -176,14 +189,13 @@ export function ProductFormDialog({
           </Select>
         </div>
 
-        <p className="-mt-2 text-xs text-muted-foreground sm:col-span-2">
-          کد باید یکتا باشد؛ ورود و خروجی CSV کالاها را با همین کد تطبیق می‌دهد.
-        </p>
-
-        <div className="grid gap-2">
-          <Label htmlFor="product-unit">واحد</Label>
+        <div className={FIELD}>
+          <Label htmlFor="product-unit" className={LABEL}>
+            واحد
+          </Label>
           <Input
             id="product-unit"
+            className={INPUT}
             value={form.unit}
             onChange={(e) => set("unit", e.target.value)}
             list="product-units"
@@ -196,32 +208,51 @@ export function ProductFormDialog({
           </datalist>
         </div>
 
-        <div className="grid gap-2">
-          <Label htmlFor="product-pack">تعداد در بسته (اختیاری)</Label>
-          <NumberInput id="product-pack" value={form.packSize} onValueChange={(v) => set("packSize", v)} />
+        <div className={FIELD}>
+          <Label htmlFor="product-pack" className={LABEL}>
+            تعداد در بسته
+          </Label>
+          <NumberInput
+            id="product-pack"
+            className={INPUT}
+            value={form.packSize}
+            onValueChange={(v) => set("packSize", v)}
+          />
         </div>
 
-        <div className="grid gap-2">
-          <Label htmlFor="product-price">قیمت واحد (تومان)</Label>
-          <NumberInput id="product-price" value={form.unitPrice} onValueChange={(v) => set("unitPrice", v)} />
+        <div className={FIELD}>
+          <Label htmlFor="product-price" className={LABEL}>
+            قیمت واحد (تومان)
+          </Label>
+          <NumberInput
+            id="product-price"
+            className={INPUT}
+            value={form.unitPrice}
+            onValueChange={(v) => set("unitPrice", v)}
+          />
         </div>
 
-        <div className="grid gap-2">
-          <Label htmlFor="product-partner-price">قیمت همکاری (اختیاری)</Label>
+        <div className={FIELD}>
+          <Label htmlFor="product-partner-price" className={LABEL}>
+            قیمت همکاری (تومان)
+          </Label>
           <NumberInput
             id="product-partner-price"
+            className={INPUT}
             value={form.partnerPrice}
             onValueChange={(v) => set("partnerPrice", v)}
           />
         </div>
 
-        <div className="grid gap-2 sm:col-span-2">
-          <Label htmlFor="product-spec">مشخصات (اختیاری)</Label>
-          <Textarea
+        <div className={cn(FIELD, "sm:col-span-4")}>
+          <Label htmlFor="product-spec" className={LABEL}>
+            مشخصات (اختیاری)
+          </Label>
+          <Input
             id="product-spec"
+            className={INPUT}
             value={form.spec}
             onChange={(e) => set("spec", e.target.value)}
-            rows={2}
             placeholder="240×120×12.5 سانتی‌متر"
           />
         </div>
@@ -234,14 +265,14 @@ export function ProductFormDialog({
             checked={form.active}
             onCheckedChange={(checked) => set("active", checked === true)}
           />
-          <Label htmlFor="product-active" className="font-normal">
+          <Label htmlFor="product-active" className="text-sm font-normal">
             کالا فعال است و در فهرست و اسناد دیده می‌شود
           </Label>
         </div>
       )}
 
       {error && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="py-2">
           <TriangleAlert />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
