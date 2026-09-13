@@ -4,6 +4,7 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BrandLogo } from "@/components/brand-logo";
+import { CommandMenuTrigger } from "@/components/command-menu";
 
 export function SiteHeader({ title, actions }: { title: string; actions?: ReactNode }) {
   return (
@@ -18,6 +19,7 @@ export function SiteHeader({ title, actions }: { title: string; actions?: ReactN
         <Separator orientation="vertical" className="mx-2 h-4" />
         <h1 className="truncate text-base font-semibold">{title}</h1>
         <div className="mr-auto flex items-center gap-1.5">
+          <CommandMenuTrigger />
           {actions}
           <ThemeToggle />
         </div>

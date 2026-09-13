@@ -1,16 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
-import { Contact, LoaderCircle, Pencil, Plus, Search, TriangleAlert } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Contact, Ellipsis, LoaderCircle, Pencil, Plus, Search, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
+import { useAuth } from "@/components/auth-provider";
 import { CustomerFormSheet } from "@/components/customers/CustomerFormSheet";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, errorMessage } from "@/lib/api";
 import { toDisplayDigits } from "@/lib/format";
-import type { Customer } from "@/types";
+import { DocumentTypeIcon } from "@/lib/icons";
+import { DOCUMENT_WRITE_ROLES, type Customer } from "@/types";
 
 // Customers are shared address-book entries. A document copies them into its
 // own buyer_* columns when it is created, so editing one here never rewrites
@@ -23,6 +33,9 @@ export function CustomersPage() {
   const [q, setQ] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const canSell = user ? DOCUMENT_WRITE_ROLES.PROFORMA.includes(user.role) : false;
 
   useEffect(() => {
     api.customers
@@ -102,7 +115,9 @@ export function CustomersPage() {
                 <th className="w-36 px-3 py-2.5 text-right font-medium">تلفن</th>
                 <th className="w-36 px-3 py-2.5 text-right font-medium">شهرستان</th>
                 <th className="w-40 px-3 py-2.5 text-right font-medium">شناسه ملی</th>
-                <th className="w-20 px-3 py-2.5 text-right font-medium">عملیات</th>
+                <th className="w-12 px-3 py-2.5">
+                  <span className="sr-only">عملیات</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -155,10 +170,29 @@ export function CustomersPage() {
                     <td className="px-3 py-2">{c.city ?? "—"}</td>
                     <td className="px-3 py-2 tabular-nums">{c.nationalId ?? "—"}</td>
                     <td className="px-1.5 py-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(c)} title="ویرایش مشتری">
-                        <Pencil />
-                        <span className="sr-only">ویرایش {c.name}</span>
-                      </Button>
+                      <DropdownMenu dir="rtl" modal={false}>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" aria-label={`عملیات ${c.name}`}>
+                            <Ellipsis />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="min-w-52">
+                          <DropdownMenuItem onSelect={() => openEdit(c)}>
+                            <Pencil /> ویرایش مشتری
+                          </DropdownMenuItem>
+                          {canSell && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onSelect={() => navigate(`/documents/proforma/new?customer=${c.id}`)}>
+                                <DocumentTypeIcon type="PROFORMA" /> پیش‌فاکتور برای این مشتری
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => navigate(`/documents/invoice/new?customer=${c.id}`)}>
+                                <DocumentTypeIcon type="INVOICE" /> فاکتور برای این مشتری
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
                 ))}

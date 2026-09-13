@@ -6,6 +6,7 @@ import { DocumentFormPage } from "@/pages/documents/DocumentFormPage";
 import { DocumentsLayout } from "@/components/documents-layout";
 import { AuthProvider, RequireAuth } from "@/components/auth-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { CommandMenuProvider } from "@/components/command-menu";
 import { LandingPage } from "@/pages/site/LandingPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { ProductsPage } from "@/pages/ProductsPage";
@@ -29,6 +30,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <CommandMenuProvider>
         <Routes>
           {/* Public: landing page and sign-in. */}
           <Route path="/site" element={<LandingPage />} />
@@ -39,12 +41,14 @@ export default function App() {
           <Route path="/products" element={<RequireAuth><ProductsPage /></RequireAuth>} />
           <Route path="/customers" element={<RequireAuth><CustomersPage /></RequireAuth>} />
           <Route path="/users" element={<RequireAuth roles={["ADMIN"]}><UsersPage /></RequireAuth>} />
+          <Route path="/documents" element={<Navigate to="/documents/proforma" replace />} />
           <Route path="/documents/:typeSlug" element={documents(<DocumentListPage />)} />
           <Route path="/documents/:typeSlug/new" element={documents(<KeyedDocumentFormPage />)} />
           <Route path="/documents/:typeSlug/:id" element={documents(<KeyedDocumentFormPage />)} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </CommandMenuProvider>
         <Toaster />
       </AuthProvider>
     </BrowserRouter>

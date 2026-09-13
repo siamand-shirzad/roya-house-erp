@@ -4,6 +4,7 @@ import {
   ArrowUp,
   ArrowUpDown,
   Download,
+  Ellipsis,
   LoaderCircle,
   Archive,
   ArchiveRestore,
@@ -15,9 +16,17 @@ import {
   Undo2,
   Upload,
 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { AppShell } from "@/components/app-shell";
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -74,7 +83,13 @@ export function ProductsPage() {
   // transient and go to a toast.
   const [error, setError] = useState<string | null>(null);
 
-  const [q, setQ] = useState("");
+  // ?q= lets the command palette open the price list already filtered to one product.
+  const [searchParams] = useSearchParams();
+  const [q, setQ] = useState(() => searchParams.get("q") ?? "");
+  useEffect(() => {
+    const fromUrl = searchParams.get("q");
+    if (fromUrl !== null) setQ(fromUrl);
+  }, [searchParams]);
   const [category, setCategory] = useState<ProductCategory | "ALL">("ALL");
   const [showInactive, setShowInactive] = useState(false);
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 } | null>(null);
@@ -92,7 +107,7 @@ export function ProductsPage() {
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
 
-  const colCount = canEdit ? 8 : 7;
+  const colCount = canEdit ? 7 : 6;
   const units = useMemo(
     () => [...new Set(products.map((p) => p.unit).filter(Boolean))].sort(),
     [products]
@@ -429,14 +444,17 @@ export function ProductsPage() {
             <table className="w-full min-w-[900px] text-sm">
               <thead className="sticky top-0 z-10 bg-muted/95 text-muted-foreground backdrop-blur">
                 <tr className="border-b">
-                  <SortHeader k="code" className="w-32">کد کالا</SortHeader>
+                  <SortHeader k="code" className="w-24">کد کالا</SortHeader>
                   <SortHeader k="name">نام کالا</SortHeader>
                   <SortHeader k="category" className="w-36">دسته‌بندی</SortHeader>
-                  <th className="w-24 px-3 py-2.5 text-right font-medium">واحد</th>
+                  <th className="w-28 px-3 py-2.5 text-right font-medium">واحد</th>
                   <SortHeader k="unitPrice" className="w-40">قیمت واحد (تومان)</SortHeader>
                   <SortHeader k="partnerPrice" className="w-40">قیمت همکاری (تومان)</SortHeader>
-                  <th className="w-24 px-3 py-2.5 text-right font-medium">در بسته</th>
-                  {canEdit && <th className="w-24 px-3 py-2.5 text-right font-medium">عملیات</th>}
+                  {canEdit && (
+                    <th className="w-12 px-3 py-2.5">
+                      <span className="sr-only">عملیات</span>
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -470,7 +488,7 @@ export function ProductsPage() {
                           !p.active && "text-muted-foreground"
                         )}
                       >
-                        <td className="px-3 py-1.5 font-mono text-xs" dir="ltr">
+                        <td className="px-3 py-1.5 font-mono text-[11px] text-muted-foreground" dir="ltr">
                           <span className="block text-right">{p.code ?? "—"}</span>
                         </td>
                         <td className="px-3 py-1.5">
@@ -481,7 +499,15 @@ export function ProductsPage() {
                           {p.spec && <div className="text-xs text-muted-foreground">{p.spec}</div>}
                         </td>
                         <td className="px-3 py-1.5 text-xs">{CATEGORY_LABELS[p.category]}</td>
-                        <td className="px-3 py-1.5 text-xs">{p.unit}</td>
+                        <td
+                          className="px-3 py-1.5 text-xs"
+                          title={p.packSize ? `${toDisplayDigits(p.packSize)} عدد در هر بسته` : undefined}
+                        >
+                          {p.unit}
+                          {p.packSize ? (
+                            <span className="text-muted-foreground tabular-nums"> ({toDisplayDigits(p.packSize)})</span>
+                          ) : null}
+                        </td>
                         <td className="px-1.5 py-1">
                           <PriceCell
                             readOnly={!canEdit}
@@ -505,46 +531,35 @@ export function ProductsPage() {
                             onChange={(v) => setPrice(p, "partnerPrice", v)}
                           />
                         </td>
-                        <td className="px-3 py-1.5 text-xs tabular-nums">
-                          {p.packSize ? toDisplayDigits(p.packSize) : "—"}
-                        </td>
                         {canEdit && (
                           <td className="px-1.5 py-1">
-                            <div className="flex items-center gap-0.5">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => openEdit(p)}
-                                disabled={busyId === p.id}
-                                title="ویرایش کالا"
-                              >
-                                <Pencil />
-                                <span className="sr-only">ویرایش {p.name}</span>
-                              </Button>
-                              {p.active ? (
+                            <DropdownMenu dir="rtl" modal={false}>
+                              <DropdownMenuTrigger asChild>
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => setDeactivating(p)}
                                   disabled={busyId === p.id}
-                                  title="غیرفعال کردن کالا"
+                                  aria-label={`عملیات ${p.name}`}
                                 >
-                                  <Archive />
-                                  <span className="sr-only">غیرفعال کردن {p.name}</span>
+                                  {busyId === p.id ? <LoaderCircle className="animate-spin" /> : <Ellipsis />}
                                 </Button>
-                              ) : (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => reactivate(p)}
-                                  disabled={busyId === p.id}
-                                  title="فعال کردن دوباره"
-                                >
-                                  {busyId === p.id ? <LoaderCircle className="animate-spin" /> : <ArchiveRestore />}
-                                  <span className="sr-only">فعال کردن {p.name}</span>
-                                </Button>
-                              )}
-                            </div>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="min-w-44">
+                                <DropdownMenuItem onSelect={() => openEdit(p)}>
+                                  <Pencil /> ویرایش کالا
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                {p.active ? (
+                                  <DropdownMenuItem variant="destructive" onSelect={() => setDeactivating(p)}>
+                                    <Archive /> غیرفعال کردن
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem onSelect={() => reactivate(p)}>
+                                    <ArchiveRestore /> فعال کردن دوباره
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </td>
                         )}
                       </tr>

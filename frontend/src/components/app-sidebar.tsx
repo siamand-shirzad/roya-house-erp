@@ -1,12 +1,10 @@
 import * as React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Contact, LayoutDashboard, Tags, Users, type LucideIcon } from "lucide-react";
+import { Contact, FileStack, LayoutDashboard, Tags, Users, type LucideIcon } from "lucide-react";
 
 import { LogoMark } from "@/components/logo-mark";
 import { NavUser } from "@/components/nav-user";
 import { useAuth } from "@/components/auth-provider";
-import { TYPE_TO_SLUG } from "@/lib/documentTypeSlug";
-import { DOCUMENT_TYPE_ICONS } from "@/lib/icons";
 import {
   Sidebar,
   SidebarContent,
@@ -33,25 +31,13 @@ type NavGroup = { label: string; items: NavItem[]; roles?: UserRole[] };
 const NAV: NavGroup[] = [
   { label: "Overview", items: [{ to: "/", label: "داشبورد", icon: LayoutDashboard, exact: true }] },
   {
-    label: "Sales",
-    items: [
-      { to: `/documents/${TYPE_TO_SLUG.PROFORMA}`, label: "پیش‌فاکتور", icon: DOCUMENT_TYPE_ICONS.PROFORMA },
-      {
-        to: `/documents/${TYPE_TO_SLUG.INVOICE}`,
-        label: "فاکتور فروش",
-        tooltip: "صورتحساب فروش کالا و خدمات",
-        icon: DOCUMENT_TYPE_ICONS.INVOICE,
-      },
-    ],
-  },
-  {
-    label: "Warehouse",
+    label: "Documents",
     items: [
       {
-        to: `/documents/${TYPE_TO_SLUG.GOODS_ISSUE}`,
-        label: "حواله خروج",
-        tooltip: "حواله خروج از انبار کالا",
-        icon: DOCUMENT_TYPE_ICONS.GOODS_ISSUE,
+        to: "/documents/proforma",
+        label: "اسناد",
+        tooltip: "پیش‌فاکتور، فاکتور و حواله خروج",
+        icon: FileStack,
       },
     ],
   },
@@ -69,7 +55,11 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const location = useLocation();
   const { user } = useAuth();
   const isActive = (item: NavItem) =>
-    item.exact ? location.pathname === item.to : location.pathname.startsWith(item.to);
+    item.exact
+      ? location.pathname === item.to
+      : item.to.startsWith("/documents/")
+        ? location.pathname.startsWith("/documents")
+        : location.pathname.startsWith(item.to);
 
   return (
     <Sidebar collapsible="icon" {...props}>

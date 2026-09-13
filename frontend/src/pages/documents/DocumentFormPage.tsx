@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -102,6 +102,17 @@ export function DocumentFormPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+
+  // "New document for this customer" (customers page) arrives as ?customer=<id>.
+  const [searchParams] = useSearchParams();
+  const presetCustomerId = id ? null : searchParams.get("customer");
+  useEffect(() => {
+    if (!presetCustomerId) return;
+    api.customers
+      .get(presetCustomerId)
+      .then(applyCustomer)
+      .catch(() => undefined);
+  }, [presetCustomerId]);
 
   useEffect(() => {
     if (!id) return;
