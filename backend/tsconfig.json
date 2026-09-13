@@ -19,7 +19,5 @@
       "node"
     ]
   },
-  "include": ["src"],
-  // Unused Prisma Next scaffold; its generated contract files don't exist.
-  "exclude": ["src/prisma"]
+  "include": ["src"]
 }
