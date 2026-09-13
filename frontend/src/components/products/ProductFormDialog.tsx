@@ -1,18 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { LoaderCircle, TriangleAlert } from "lucide-react";
 
+import { FormDialog } from "@/components/form-dialog";
 import { NumberInput } from "@/components/number-input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -125,149 +118,134 @@ export function ProductFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{product ? "ویرایش کالا" : "کالای جدید"}</DialogTitle>
-          <DialogDescription>
-            {product
-              ? "تغییر مشخصات کالا. قیمت‌ها را می‌توانید از خود جدول هم ویرایش کنید."
-              : "کالای تازه به کاتالوگ اضافه می‌شود و بلافاصله در فرم اسناد قابل انتخاب است."}
-          </DialogDescription>
-        </DialogHeader>
+    <FormDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      busy={saving}
+      title={product ? "ویرایش کالا" : "کالای جدید"}
+      description={
+        product
+          ? "تغییر مشخصات کالا. قیمت‌ها را می‌توانید از خود جدول هم ویرایش کنید."
+          : "کالای تازه به کاتالوگ اضافه می‌شود و بلافاصله در فرم اسناد قابل انتخاب است."
+      }
+      onSubmit={submit}
+      footer={
+        <>
+          <Button type="submit" disabled={saving}>
+            {saving && <LoaderCircle className="animate-spin" />}
+            {product ? "ذخیره تغییرات" : "افزودن کالا"}
+          </Button>
+          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
+            انصراف
+          </Button>
+        </>
+      }
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-2 sm:col-span-2">
+          <Label htmlFor="product-name">نام کالا</Label>
+          <Input id="product-name" value={form.name} onChange={(e) => set("name", e.target.value)} autoFocus />
+        </div>
 
-        <form onSubmit={submit} className="flex flex-col">
-          <div className="space-y-4">
-            <div className="grid gap-2">
-              <Label htmlFor="product-name">نام کالا</Label>
-              <Input
-                id="product-name"
-                value={form.name}
-                onChange={(e) => set("name", e.target.value)}
-                autoFocus
-              />
-            </div>
+        <div className="grid gap-2">
+          <Label htmlFor="product-code">کد کالا (اختیاری)</Label>
+          <Input
+            id="product-code"
+            value={form.code}
+            onChange={(e) => set("code", e.target.value)}
+            dir="ltr"
+            className="font-mono"
+            placeholder="GYP-001"
+          />
+        </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="product-code">کد کالا (اختیاری)</Label>
-              <Input
-                id="product-code"
-                value={form.code}
-                onChange={(e) => set("code", e.target.value)}
-                dir="ltr"
-                className="font-mono"
-                placeholder="GYP-001"
-              />
-              <p className="text-xs text-muted-foreground">
-                کد باید یکتا باشد؛ ورود و خروجی CSV کالاها را با همین کد تطبیق می‌دهد.
-              </p>
-            </div>
+        <div className="grid gap-2">
+          <Label htmlFor="product-category">دسته‌بندی</Label>
+          <Select value={form.category} onValueChange={(v) => set("category", v as ProductCategory)}>
+            <SelectTrigger id="product-category" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(CATEGORY_LABELS) as ProductCategory[]).map((c) => (
+                <SelectItem key={c} value={c}>
+                  <CategoryIcon category={c} />
+                  {CATEGORY_LABELS[c]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="product-category">دسته‌بندی</Label>
-              <Select value={form.category} onValueChange={(v) => set("category", v as ProductCategory)}>
-                <SelectTrigger id="product-category" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(CATEGORY_LABELS) as ProductCategory[]).map((c) => (
-                    <SelectItem key={c} value={c}>
-                      <CategoryIcon category={c} />
-                      {CATEGORY_LABELS[c]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        <p className="-mt-2 text-xs text-muted-foreground sm:col-span-2">
+          کد باید یکتا باشد؛ ورود و خروجی CSV کالاها را با همین کد تطبیق می‌دهد.
+        </p>
 
-            <div className="grid gap-2">
-              <Label htmlFor="product-unit">واحد</Label>
-              <Input
-                id="product-unit"
-                value={form.unit}
-                onChange={(e) => set("unit", e.target.value)}
-                list="product-units"
-                placeholder="مترمربع"
-              />
-              <datalist id="product-units">
-                {units.map((u) => (
-                  <option key={u} value={u} />
-                ))}
-              </datalist>
-            </div>
+        <div className="grid gap-2">
+          <Label htmlFor="product-unit">واحد</Label>
+          <Input
+            id="product-unit"
+            value={form.unit}
+            onChange={(e) => set("unit", e.target.value)}
+            list="product-units"
+            placeholder="مترمربع"
+          />
+          <datalist id="product-units">
+            {units.map((u) => (
+              <option key={u} value={u} />
+            ))}
+          </datalist>
+        </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="product-spec">مشخصات (اختیاری)</Label>
-              <Textarea
-                id="product-spec"
-                value={form.spec}
-                onChange={(e) => set("spec", e.target.value)}
-                rows={2}
-                placeholder="240×120×12.5 سانتی‌متر"
-              />
-            </div>
+        <div className="grid gap-2">
+          <Label htmlFor="product-pack">تعداد در بسته (اختیاری)</Label>
+          <NumberInput id="product-pack" value={form.packSize} onValueChange={(v) => set("packSize", v)} />
+        </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label htmlFor="product-price">قیمت واحد (تومان)</Label>
-                <NumberInput
-                  id="product-price"
-                  value={form.unitPrice}
-                  onValueChange={(v) => set("unitPrice", v)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="product-partner-price">قیمت همکاری (اختیاری)</Label>
-                <NumberInput
-                  id="product-partner-price"
-                  value={form.partnerPrice}
-                  onValueChange={(v) => set("partnerPrice", v)}
-                />
-              </div>
-            </div>
+        <div className="grid gap-2">
+          <Label htmlFor="product-price">قیمت واحد (تومان)</Label>
+          <NumberInput id="product-price" value={form.unitPrice} onValueChange={(v) => set("unitPrice", v)} />
+        </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="product-pack">تعداد در بسته (اختیاری)</Label>
-              <NumberInput
-                id="product-pack"
-                value={form.packSize}
-                onValueChange={(v) => set("packSize", v)}
-                className="sm:w-40"
-              />
-            </div>
+        <div className="grid gap-2">
+          <Label htmlFor="product-partner-price">قیمت همکاری (اختیاری)</Label>
+          <NumberInput
+            id="product-partner-price"
+            value={form.partnerPrice}
+            onValueChange={(v) => set("partnerPrice", v)}
+          />
+        </div>
 
-            {product && (
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="product-active"
-                  checked={form.active}
-                  onCheckedChange={(checked) => set("active", checked === true)}
-                />
-                <Label htmlFor="product-active" className="font-normal">
-                  کالا فعال است و در فهرست و اسناد دیده می‌شود
-                </Label>
-              </div>
-            )}
+        <div className="grid gap-2 sm:col-span-2">
+          <Label htmlFor="product-spec">مشخصات (اختیاری)</Label>
+          <Textarea
+            id="product-spec"
+            value={form.spec}
+            onChange={(e) => set("spec", e.target.value)}
+            rows={2}
+            placeholder="240×120×12.5 سانتی‌متر"
+          />
+        </div>
+      </div>
 
-            {error && (
-              <Alert variant="destructive">
-                <TriangleAlert />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-          </div>
+      {product && (
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="product-active"
+            checked={form.active}
+            onCheckedChange={(checked) => set("active", checked === true)}
+          />
+          <Label htmlFor="product-active" className="font-normal">
+            کالا فعال است و در فهرست و اسناد دیده می‌شود
+          </Label>
+        </div>
+      )}
 
-          <DialogFooter className="mt-6">
-            <Button type="submit" disabled={saving}>
-              {saving && <LoaderCircle className="animate-spin" />}
-              {product ? "ذخیره تغییرات" : "افزودن کالا"}
-            </Button>
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
-              انصراف
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      {error && (
+        <Alert variant="destructive">
+          <TriangleAlert />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+    </FormDialog>
   );
 }

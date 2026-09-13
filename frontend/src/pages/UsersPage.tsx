@@ -9,14 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { FormDialog } from "@/components/form-dialog";
 import { api, errorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { formatJalaliDate, toDisplayDigits } from "@/lib/format";
@@ -232,14 +225,25 @@ export function UsersPage() {
         </div>
       </div>
 
-      <Sheet open={sheetOpen} onOpenChange={(o) => !saving && setSheetOpen(o)}>
-        <SheetContent side="left" className="w-full gap-0 sm:max-w-md">
-          <form onSubmit={submit} className="flex h-full flex-col">
-            <SheetHeader className="border-b">
-              <SheetTitle>{editing ? "ویرایش کاربر" : "کاربر جدید"}</SheetTitle>
-              <SheetDescription>مشخصات کاربر سامانه فروش و انبار</SheetDescription>
-            </SheetHeader>
-            <div className="flex-1 space-y-4 overflow-y-auto p-4">
+      <FormDialog
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        busy={saving}
+        title={editing ? "ویرایش کاربر" : "کاربر جدید"}
+        description="مشخصات کاربر سامانه فروش و انبار"
+        onSubmit={submit}
+        footer={
+          <>
+            <Button type="submit" disabled={saving}>
+              {saving && <LoaderCircle className="animate-spin" />}
+              {editing ? "ذخیره تغییرات" : "افزودن کاربر"}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setSheetOpen(false)} disabled={saving}>
+              انصراف
+            </Button>
+          </>
+        }
+      >
               <div className="space-y-2">
                 <Label htmlFor="u-name">نام و نام خانوادگی</Label>
                 <Input
@@ -320,19 +324,7 @@ export function UsersPage() {
                   <AlertDescription>{formError}</AlertDescription>
                 </Alert>
               )}
-            </div>
-            <SheetFooter className="flex-row gap-2 border-t">
-              <Button type="submit" disabled={saving}>
-                {saving && <LoaderCircle className="animate-spin" />}
-                {editing ? "ذخیره تغییرات" : "افزودن کاربر"}
-              </Button>
-              <Button type="button" variant="outline" onClick={() => setSheetOpen(false)} disabled={saving}>
-                انصراف
-              </Button>
-            </SheetFooter>
-          </form>
-        </SheetContent>
-      </Sheet>
+      </FormDialog>
     </AppShell>
   );
 }

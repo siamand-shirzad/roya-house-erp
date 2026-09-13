@@ -36,7 +36,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PriceCell } from "@/components/products/PriceCell";
-import { ImportCsvSheet } from "@/components/products/ImportCsvSheet";
+import { ImportCsvDialog } from "@/components/products/ImportCsvDialog";
 import { BulkAdjustPopover, type BulkAdjustment } from "@/components/products/BulkAdjustPopover";
 import { ProductFormDialog } from "@/components/products/ProductFormDialog";
 import {
@@ -635,7 +635,7 @@ export function ProductsPage() {
         </div>
       )}
 
-      <ImportCsvSheet
+      <ImportCsvDialog
         open={importOpen}
         onOpenChange={(o) => !importing && setImportOpen(o)}
         fileName={importFile}

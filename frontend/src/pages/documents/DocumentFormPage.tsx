@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
@@ -17,15 +17,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Ban, LoaderCircle, Lock, Save, Stamp, TriangleAlert, UserPlus, X } from "lucide-react";
+import { Ban, ChevronDown, LoaderCircle, Lock, Save, Stamp, TriangleAlert, UserPlus, X } from "lucide-react";
 import { DocumentTypeIcon } from "@/lib/icons";
+import { cn } from "@/lib/utils";
 import { ItemsEditor } from "@/components/documents/ItemsEditor";
 import { DocumentPrint } from "@/components/documents/DocumentPrint";
 import { ExportPdfButton } from "@/components/documents/ExportPdfButton";
 import { PrintPreview } from "@/components/documents/PrintPreview";
 import { useAuth } from "@/components/auth-provider";
 import { CustomerPicker } from "@/components/documents/CustomerPicker";
-import { CustomerFormSheet } from "@/components/customers/CustomerFormSheet";
+import { CustomerFormDialog } from "@/components/customers/CustomerFormDialog";
 import {
   BuyerForm,
   GoodsIssueForm,
@@ -96,6 +97,9 @@ export function DocumentFormPage() {
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState<string | null>(null);
   const [saveCustomerOpen, setSaveCustomerOpen] = useState(false);
+  // The buyer card folds to a one-line summary once a buyer is filled in, so
+  // the items table isn't pushed below the fold.
+  const [buyerOpen, setBuyerOpen] = useState(true);
   const [goodsIssue, setGoodsIssue] = useState<GoodsIssueFormState>(EMPTY_GOODS_ISSUE);
   const [notes, setNotes] = useState("");
   const [savedDoc, setSavedDoc] = useState<Document | null>(null);
@@ -125,6 +129,7 @@ export function DocumentFormPage() {
         setItems(doc.items);
         setCustomerId(doc.customer?.id ?? null);
         setCustomerName(doc.customer?.name ?? null);
+        setBuyerOpen(!doc.buyerName);
         setBuyer({
           buyerName: doc.buyerName ?? "",
           buyerNationalId: doc.buyerNationalId ?? "",
@@ -206,6 +211,7 @@ export function DocumentFormPage() {
   function applyCustomer(customer: Customer) {
     setCustomerId(customer.id);
     setCustomerName(customer.name);
+    setBuyerOpen(false);
     setBuyer({
       buyerName: customer.name,
       buyerNationalId: customer.nationalId ?? "",
@@ -387,11 +393,28 @@ export function DocumentFormPage() {
           </div>
         )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{DOCUMENT_TYPE_LABELS[type].title} — مشخصات خریدار</CardTitle>
+        <Card className="gap-3 py-4">
+          <CardHeader className="px-4">
+            <CardTitle className="text-base">مشخصات خریدار</CardTitle>
+            {!buyerOpen && (
+              <CardDescription className="truncate">
+                {[buyer.buyerName || "بدون نام", buyer.buyerPhone, buyer.buyerCity].filter(Boolean).join(" · ")}
+              </CardDescription>
+            )}
+            <CardAction>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setBuyerOpen((o) => !o)}
+                aria-expanded={buyerOpen}
+              >
+                {buyerOpen ? "بستن" : editable ? "ویرایش" : "جزئیات"}
+                <ChevronDown className={cn("transition-transform duration-200", buyerOpen && "rotate-180")} />
+              </Button>
+            </CardAction>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 px-4">
             {editable && (
               <div className="flex flex-wrap items-center gap-2">
                 <CustomerPicker onSelect={applyCustomer} />
@@ -420,7 +443,11 @@ export function DocumentFormPage() {
                 )}
               </div>
             )}
-            <BuyerForm value={buyer} onChange={setBuyer} disabled={!editable} />
+            {buyerOpen && (
+              <div className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:duration-200">
+                <BuyerForm value={buyer} onChange={setBuyer} disabled={!editable} />
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -477,7 +504,7 @@ export function DocumentFormPage() {
           )}
         </div>
 
-        <CustomerFormSheet
+        <CustomerFormDialog
           open={saveCustomerOpen}
           onOpenChange={setSaveCustomerOpen}
           customer={null}

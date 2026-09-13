@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
 import { useAuth } from "@/components/auth-provider";
-import { CustomerFormSheet } from "@/components/customers/CustomerFormSheet";
+import { CustomerFormDialog } from "@/components/customers/CustomerFormDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -207,7 +207,7 @@ export function CustomersPage() {
         )}
       </div>
 
-      <CustomerFormSheet
+      <CustomerFormDialog
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         customer={editing}

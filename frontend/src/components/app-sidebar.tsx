@@ -1,6 +1,8 @@
 import * as React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ChartColumn, Contact, FileStack, LayoutDashboard, Tags, Users, type LucideIcon } from "lucide-react";
+import { ChartColumn, Contact, FileStack, LayoutDashboard, Search, Tags, Users, type LucideIcon } from "lucide-react";
+
+import { useCommandMenu } from "@/components/command-menu";
 
 import { LogoMark } from "@/components/logo-mark";
 import { NavUser } from "@/components/nav-user";
@@ -59,6 +61,7 @@ const NAV: NavGroup[] = [
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const location = useLocation();
   const { user } = useAuth();
+  const { open: openCommandMenu } = useCommandMenu();
   const isActive = (item: NavItem) =>
     item.exact
       ? location.pathname === item.to
@@ -83,6 +86,27 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                   <span className="truncate text-xs text-sidebar-foreground/60">سامانه فروش و انبار</span>
                 </div>
               </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+        {/* Command palette. English like the group labels; collapses to its icon. */}
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={openCommandMenu}
+              tooltip="Search · Ctrl K"
+              className="h-9 border border-sidebar-border bg-sidebar-accent/40 text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            >
+              <Search />
+              <span dir="ltr" className="font-display text-[13px] tracking-wide">
+                Search
+              </span>
+              <kbd
+                dir="ltr"
+                className="ms-auto rounded border border-sidebar-border px-1.5 font-display text-[10px] font-medium tracking-wider text-sidebar-foreground/55 group-data-[collapsible=icon]:hidden"
+              >
+                Ctrl K
+              </kbd>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
