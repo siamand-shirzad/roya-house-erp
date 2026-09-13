@@ -163,8 +163,9 @@ reportsRouter.get("/", async (req, res, next) => {
             ORDER BY d.issue_date ASC
             LIMIT 50`
         ),
-        // Delivered means a non-cancelled goods issue made from the invoice, or one
-        // typed in by hand that names this invoice number.
+        // Delivered means an ISSUED goods issue made from the invoice, or one typed
+        // in by hand that names this invoice number. A draft goods issue doesn't
+        // count: the goods haven't left the warehouse yet.
         query(
           `WITH ${ITEMS_CTE},
            totals AS (SELECT document_id, sum(after_discount + tax) AS grand FROM items GROUP BY document_id)
@@ -179,7 +180,7 @@ reportsRouter.get("/", async (req, res, next) => {
             WHERE d.type = 'INVOICE' AND d.status = 'ISSUED'
               AND NOT EXISTS (
                 SELECT 1 FROM documents x
-                 WHERE x.type = 'GOODS_ISSUE' AND x.status <> 'CANCELLED'
+                 WHERE x.type = 'GOODS_ISSUE' AND x.status = 'ISSUED'
                    AND (x.source_document_id = d.id OR trim(x.related_invoice_no) = d.number::text)
               )
             ORDER BY d.issue_date ASC

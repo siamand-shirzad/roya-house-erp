@@ -14,12 +14,25 @@ const OPTIONS: { value: Theme; label: string; icon: typeof Sun }[] = [
 export function ThemeToggle() {
   const { theme, resolvedTheme, setTheme } = useTheme();
   const [open, setOpen] = useState(false);
+  const dark = resolvedTheme === "dark";
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="size-8" aria-label="تغییر پوسته">
-          {resolvedTheme === "dark" ? <Moon /> : <Sun />}
+        <Button variant="ghost" size="icon" className="relative size-8 overflow-hidden" aria-label="تغییر پوسته">
+          {/* Sun and moon swap by turning and fading rather than popping. */}
+          <Sun
+            className={cn(
+              "absolute motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-out",
+              dark ? "scale-50 rotate-90 opacity-0" : "scale-100 rotate-0 opacity-100"
+            )}
+          />
+          <Moon
+            className={cn(
+              "absolute motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-out",
+              dark ? "scale-100 rotate-0 opacity-100" : "scale-50 -rotate-90 opacity-0"
+            )}
+          />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-44 p-1">

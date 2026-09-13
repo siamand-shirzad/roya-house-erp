@@ -3,7 +3,10 @@ import { Link } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartColumn, Clock, TriangleAlert } from "lucide-react";
 
+import { AnimatedNumber } from "@/components/animated-number";
 import { AppShell } from "@/components/app-shell";
+import { SegmentedControl } from "@/components/segmented-control";
+import { REVEAL, stagger } from "@/lib/motion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,6 +16,7 @@ import {
   formatJalaliMonth,
   formatNumber,
   formatToman,
+  formatTomanCompact,
   jalaliToGregorian,
   toDisplayDigits,
   toIsoDate,
@@ -65,13 +69,6 @@ function rangeFor(preset: Preset): Range {
     case "all":
       return {};
   }
-}
-
-/** 35,000,000 -> "35 م" (million Toman) for axis ticks. */
-function compactToman(value: number) {
-  if (value >= 1_000_000) return `${toDisplayDigits(Math.round(value / 100_000) / 10)} م`;
-  if (value >= 1_000) return `${toDisplayDigits(Math.round(value / 1_000))} هزار`;
-  return toDisplayDigits(value);
 }
 
 type Bucket = { key: string; label: string; title: string; total: number; count: number };
@@ -160,22 +157,7 @@ export function ReportsPage() {
     <AppShell title="گزارشات">
       <div className="space-y-4 p-4 md:p-6">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-lg bg-muted p-1" role="group" aria-label="بازه‌ی گزارش">
-            {PRESETS.map((p) => (
-              <button
-                key={p.value}
-                type="button"
-                onClick={() => setPreset(p.value)}
-                aria-pressed={preset === p.value}
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                  preset === p.value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl ariaLabel="بازه‌ی گزارش" items={PRESETS} value={preset} onValueChange={setPreset} />
           <span className="text-sm text-muted-foreground tabular-nums sm:ms-auto">
             {range.from && range.to
               ? `${formatJalaliDate(range.from)} تا ${formatJalaliDate(range.to)}`
@@ -192,9 +174,10 @@ export function ReportsPage() {
 
         <div className={cn("grid gap-4 sm:grid-cols-2 xl:grid-cols-4", loading && report && "opacity-60 transition-opacity")}>
           <Kpi
+            index={0}
             label="فروش (تومان)"
             loading={firstLoad}
-            value={sales ? formatToman(sales.grandTotal) : ""}
+            value={sales ? <AnimatedNumber value={sales.grandTotal} format={formatToman} /> : ""}
             hint={
               sales
                 ? `شامل ${formatToman(sales.taxTotal)} مالیات، پس از ${formatToman(sales.discountTotal)} تخفیف`
@@ -202,21 +185,26 @@ export function ReportsPage() {
             }
           />
           <Kpi
+            index={1}
             label="فاکتورهای صادرشده"
             loading={firstLoad}
-            value={sales ? formatNumber(sales.invoiceCount) : ""}
+            value={sales ? <AnimatedNumber value={sales.invoiceCount} format={formatNumber} /> : ""}
             hint={report ? `${toDisplayDigits(report.goodsIssues.issued)} حواله‌ی خروج در همین بازه` : ""}
           />
           <Kpi
+            index={2}
             label="میانگین هر فاکتور (تومان)"
             loading={firstLoad}
-            value={sales ? formatToman(sales.averageInvoice) : ""}
+            value={sales ? <AnimatedNumber value={sales.averageInvoice} format={formatToman} /> : ""}
             hint="جمع فروش تقسیم بر تعداد فاکتور"
           />
           <Kpi
+            index={3}
             label="تبدیل پیش‌فاکتور به فاکتور"
             loading={firstLoad}
-            value={conversion === null ? "—" : `${toDisplayDigits(conversion)}%`}
+            value={
+              conversion === null ? "—" : <AnimatedNumber value={conversion} format={(n) => `${toDisplayDigits(n)}%`} />
+            }
             hint={
               report
                 ? `${toDisplayDigits(report.proformas.converted)} از ${toDisplayDigits(report.proformas.issued)} پیش‌فاکتور صادرشده`
@@ -225,7 +213,7 @@ export function ReportsPage() {
           />
         </div>
 
-        <Card>
+        <Card className={REVEAL} style={stagger(4)}>
           <CardHeader>
             <CardTitle>روند فروش</CardTitle>
             <CardDescription>
@@ -257,7 +245,7 @@ export function ReportsPage() {
                       width={56}
                       tickLine={false}
                       axisLine={false}
-                      tickFormatter={compactToman}
+                      tickFormatter={formatTomanCompact}
                       tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
                     />
                     <Tooltip
@@ -310,7 +298,7 @@ export function ReportsPage() {
         </Card>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card>
+          <Card className={REVEAL} style={stagger(5)}>
             <CardHeader>
               <CardTitle>مشتریان برتر</CardTitle>
               <CardDescription>بیشترین مبلغ فاکتور در این بازه (تومان)</CardDescription>
@@ -334,7 +322,7 @@ export function ReportsPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className={REVEAL} style={stagger(6)}>
             <CardHeader>
               <CardTitle>کالاهای پرفروش</CardTitle>
               <CardDescription>مبلغ فروش پس از تخفیف و بدون مالیات (تومان)</CardDescription>
@@ -359,7 +347,7 @@ export function ReportsPage() {
           </Card>
         </div>
 
-        <Card>
+        <Card className={REVEAL} style={stagger(7)}>
           <CardHeader>
             <CardTitle>فروش به تفکیک دسته‌بندی</CardTitle>
             <CardDescription>مبلغ فروش پس از تخفیف و بدون مالیات (تومان)</CardDescription>
@@ -403,7 +391,7 @@ export function ReportsPage() {
           <FollowUpCard
             type="INVOICE"
             title="فاکتورهای بدون حواله"
-            description="فاکتور صادر شده ولی هنوز حواله‌ی خروجی برایش ثبت نشده — کالا تحویل نشده است."
+            description="فاکتور صادر شده ولی هنوز حواله‌ی خروجِ صادرشده ندارد — کالا از انبار خارج نشده است."
             data={report?.undeliveredInvoices}
             loading={firstLoad}
             emptyText="برای همه‌ی فاکتورهای صادرشده حواله ثبت شده است."
@@ -414,9 +402,21 @@ export function ReportsPage() {
   );
 }
 
-function Kpi({ label, value, hint, loading }: { label: string; value: string; hint: string; loading: boolean }) {
+function Kpi({
+  label,
+  value,
+  hint,
+  loading,
+  index,
+}: {
+  label: string;
+  value: ReactNode;
+  hint: string;
+  loading: boolean;
+  index: number;
+}) {
   return (
-    <Card className="gap-2">
+    <Card className={cn("gap-2", REVEAL)} style={stagger(index)}>
       <CardHeader>
         <CardDescription>{label}</CardDescription>
         <CardTitle className="text-2xl font-bold tabular-nums">
@@ -474,7 +474,7 @@ function FollowUpCard({
 }) {
   const slug = type === "PROFORMA" ? "proforma" : "invoice";
   return (
-    <Card>
+    <Card className={REVEAL} style={stagger(8)}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <DocumentTypeIcon type={type} className="size-5 text-muted-foreground" />

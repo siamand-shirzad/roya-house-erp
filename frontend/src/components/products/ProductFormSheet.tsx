@@ -126,7 +126,7 @@ export function ProductFormSheet({
 
   return (
     <Sheet open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
-      <SheetContent className="w-full gap-0 overflow-y-auto sm:max-w-md">
+      <SheetContent side="left" className="w-full gap-0 overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{product ? "ویرایش کالا" : "کالای جدید"}</SheetTitle>
           <SheetDescription>

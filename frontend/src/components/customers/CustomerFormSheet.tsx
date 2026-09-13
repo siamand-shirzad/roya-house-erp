@@ -129,7 +129,7 @@ export function CustomerFormSheet({
 
   return (
     <Sheet open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
-      <SheetContent className="w-full gap-0 overflow-y-auto sm:max-w-md">
+      <SheetContent side="left" className="w-full gap-0 overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{customer ? "ویرایش مشتری" : "مشتری جدید"}</SheetTitle>
           <SheetDescription>

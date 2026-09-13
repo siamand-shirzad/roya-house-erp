@@ -20,6 +20,13 @@ export function formatToman(amount: number): string {
   return toDisplayDigits(Math.round(amount).toLocaleString("en-US"));
 }
 
+/** Short Toman for chart axes: 35,000,000 -> "35 م", 250,000 -> "250 هزار". */
+export function formatTomanCompact(value: number): string {
+  if (value >= 1_000_000) return `${toDisplayDigits(Math.round(value / 100_000) / 10)} م`;
+  if (value >= 1_000) return `${toDisplayDigits(Math.round(value / 1_000))} هزار`;
+  return toDisplayDigits(value);
+}
+
 /** Format a Rial amount (Toman * 10), matching how the paper templates print totals. */
 export function formatRial(tomanAmount: number): string {
   return formatToman(tomanAmount * 10);

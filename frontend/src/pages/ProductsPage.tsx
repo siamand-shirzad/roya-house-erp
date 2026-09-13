@@ -5,6 +5,7 @@ import {
   ArrowUpDown,
   Download,
   Ellipsis,
+  FileSpreadsheet,
   LoaderCircle,
   Archive,
   ArchiveRestore,
@@ -347,20 +348,26 @@ export function ProductsPage() {
               <Plus /> کالای جدید
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={exportCsv} disabled={loading || !products.length}>
-            <Download /> خروجی CSV
-          </Button>
-          {canEdit && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fileInput.current?.click()}
-              disabled={loading || dirtyCount > 0}
-              title={dirtyCount ? "ابتدا تغییرات را ذخیره یا لغو کنید" : undefined}
-            >
-              <Upload /> ورود از CSV
-            </Button>
-          )}
+          {/* CSV in one menu keeps the header to a single primary action on narrow screens. */}
+          <DropdownMenu dir="rtl" modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" aria-label="خروجی و ورود CSV" disabled={loading}>
+                <FileSpreadsheet />
+                <span className="hidden sm:inline">CSV</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-52">
+              <DropdownMenuItem onSelect={exportCsv} disabled={!products.length}>
+                <Download /> خروجی CSV
+              </DropdownMenuItem>
+              {canEdit && (
+                <DropdownMenuItem onSelect={() => fileInput.current?.click()} disabled={dirtyCount > 0}>
+                  <Upload /> ورود از CSV
+                  {dirtyCount > 0 && <span className="ms-auto text-xs text-muted-foreground">اول ذخیره کنید</span>}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <input
             ref={fileInput}
             type="file"

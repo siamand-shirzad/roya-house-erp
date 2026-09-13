@@ -38,11 +38,12 @@
   unicode-range: U+0030-0039;
 }
 
-/* Monochrome theme: every surface, text and control colour is a neutral grey
-   (chroma 0) between black and white. Colour is kept only where it carries
-   meaning - destructive actions and the green/red/amber status badges - and
-   on printed documents (DocumentPrint), which reproduce the company's paper
-   forms and keep the brand red. */
+/* Grey neutrals with one mellow red. Surfaces, text and borders are neutral
+   greys (chroma 0) from near-white to near-black; the accent is the logo's red
+   (#ab2c33) with its chroma turned down, so it warms the UI without shouting.
+   It marks the primary action, focus, active navigation and charts. The
+   destructive red stays hotter and more saturated so the two never read as the
+   same thing. Printed documents (DocumentPrint) keep the exact brand red. */
 :root {
   --radius: 0.625rem;
   --background: oklch(0.985 0 0);
@@ -51,34 +52,34 @@
   --card-foreground: oklch(0.16 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.16 0 0);
-  --primary: oklch(0.2 0 0);
+  --primary: oklch(0.5 0.105 22);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.955 0 0);
   --secondary-foreground: oklch(0.2 0 0);
   --muted: oklch(0.955 0 0);
   --muted-foreground: oklch(0.5 0 0);
-  --accent: oklch(0.945 0 0);
-  --accent-foreground: oklch(0.2 0 0);
+  --accent: oklch(0.955 0.01 22);
+  --accent-foreground: oklch(0.3 0.06 22);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.9 0 0);
   --input: oklch(0.9 0 0);
-  --ring: oklch(0.55 0 0);
-  /* One grey ramp, dark to light: single-series charts use chart-1. */
-  --chart-1: oklch(0.3 0 0);
-  --chart-2: oklch(0.48 0 0);
+  --ring: oklch(0.6 0.09 22);
+  /* Mellow red first (single-series charts use chart-1), then the grey ramp. */
+  --chart-1: oklch(0.55 0.11 22);
+  --chart-2: oklch(0.4 0 0);
   --chart-3: oklch(0.62 0 0);
   --chart-4: oklch(0.75 0 0);
   --chart-5: oklch(0.86 0 0);
-  /* Charcoal sidebar in both themes; the active item is lit in white. */
+  /* Charcoal sidebar in both themes; the active item's icon takes the soft red. */
   --sidebar: oklch(0.2 0 0);
   --sidebar-foreground: oklch(0.92 0 0);
-  --sidebar-primary: oklch(0.98 0 0);
+  --sidebar-primary: oklch(0.72 0.1 22);
   --sidebar-primary-foreground: oklch(0.2 0 0);
   --sidebar-accent: oklch(0.29 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 9%);
-  --sidebar-ring: oklch(0.55 0 0);
+  --sidebar-ring: oklch(0.72 0.1 22);
 }
 
 .dark {
@@ -88,32 +89,32 @@
   --card-foreground: oklch(0.975 0 0);
   --popover: oklch(0.21 0 0);
   --popover-foreground: oklch(0.975 0 0);
-  --primary: oklch(0.93 0 0);
-  --primary-foreground: oklch(0.17 0 0);
+  --primary: oklch(0.7 0.1 22);
+  --primary-foreground: oklch(0.17 0.02 22);
   --secondary: oklch(0.27 0 0);
   --secondary-foreground: oklch(0.975 0 0);
   --muted: oklch(0.26 0 0);
   --muted-foreground: oklch(0.71 0 0);
-  --accent: oklch(0.285 0 0);
-  --accent-foreground: oklch(0.975 0 0);
+  --accent: oklch(0.29 0.02 22);
+  --accent-foreground: oklch(0.95 0.02 22);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.6 0 0);
-  --chart-1: oklch(0.9 0 0);
-  --chart-2: oklch(0.75 0 0);
+  --ring: oklch(0.66 0.09 22);
+  --chart-1: oklch(0.7 0.1 22);
+  --chart-2: oklch(0.8 0 0);
   --chart-3: oklch(0.6 0 0);
   --chart-4: oklch(0.46 0 0);
   --chart-5: oklch(0.35 0 0);
   --sidebar: oklch(0.17 0 0);
   --sidebar-foreground: oklch(0.92 0 0);
-  --sidebar-primary: oklch(0.98 0 0);
+  --sidebar-primary: oklch(0.72 0.1 22);
   --sidebar-primary-foreground: oklch(0.17 0 0);
   --sidebar-accent: oklch(0.26 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 9%);
-  --sidebar-ring: oklch(0.6 0 0);
+  --sidebar-ring: oklch(0.72 0.1 22);
 }
 
 /* Font stacks: "Roya Digits" (digits only, see above) first, then the Latin

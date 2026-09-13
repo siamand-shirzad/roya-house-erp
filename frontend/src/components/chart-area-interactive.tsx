@@ -1,75 +1,82 @@
-import { useEffect, useMemo, useState } from "react";
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { DocumentTypeIcon } from "@/lib/icons";
+import { useMemo } from "react";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { api } from "@/lib/api";
-import { formatJalaliDate, formatToman, toDisplayDigits } from "@/lib/format";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { formatJalaliDate, formatToman, formatTomanCompact, toDisplayDigits, toJalali } from "@/lib/format";
+import { DocumentTypeIcon } from "@/lib/icons";
+import { REVEAL, stagger } from "@/lib/motion";
 import type { Document } from "@/types";
 
-// Compact axis labels: 35,000,000 -> "35 م" (million Toman).
-function compactToman(value: number) {
-  if (value >= 1_000_000) return `${toDisplayDigits(Math.round(value / 100_000) / 10)} م`;
-  if (value >= 1_000) return `${toDisplayDigits(Math.round(value / 1_000))} هزار`;
-  return toDisplayDigits(value);
+// Dashboard sales trend: issued invoices summed per day over the last 30 days.
+// It used to plot every invoice as its own point in date order, which drew a
+// "trend" line between unrelated invoices and hid days with no sales. Days
+// with nothing sold now show as empty bars, so gaps read as gaps.
+
+const DAYS = 30;
+
+type Day = { key: string; label: string; title: string; total: number; count: number };
+
+function localDayKey(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-export function ChartAreaInteractive() {
-  const [invoices, setInvoices] = useState<Document[]>([]);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    api.documents
-      .list("INVOICE")
-      .then(setInvoices)
-      .catch(() => setInvoices([]))
-      .finally(() => setLoaded(true));
-  }, []);
-
-  const data = useMemo(() => {
-    return [...invoices]
-      .sort((a, b) => (a.issueDate > b.issueDate ? 1 : -1))
-      .map((doc) => ({
-        date: formatJalaliDate(new Date(doc.issueDate)),
-        total: doc.totals.grandTotal,
-        label: `فاکتور ${toDisplayDigits(doc.number)} — ${doc.buyerName || doc.customer?.name || "بدون نام"}`,
-      }));
+export function ChartAreaInteractive({ invoices, loading }: { invoices: Document[]; loading: boolean }) {
+  const data = useMemo<Day[]>(() => {
+    const now = new Date();
+    const days: Day[] = [];
+    const byKey = new Map<string, Day>();
+    for (let i = DAYS - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const { jm, jd } = toJalali(d);
+      const day = { key: localDayKey(d), label: toDisplayDigits(`${jm}/${jd}`), title: formatJalaliDate(d), total: 0, count: 0 };
+      days.push(day);
+      byKey.set(day.key, day);
+    }
+    for (const doc of invoices) {
+      if (doc.status !== "ISSUED") continue;
+      const day = byKey.get(localDayKey(new Date(doc.issueDate)));
+      if (!day) continue;
+      day.total += doc.totals.grandTotal;
+      day.count += 1;
+    }
+    return days;
   }, [invoices]);
 
+  const periodTotal = data.reduce((sum, d) => sum + d.total, 0);
+  const periodCount = data.reduce((sum, d) => sum + d.count, 0);
+
   return (
-    <Card className="@container/card">
+    <Card className={REVEAL} style={stagger(4)}>
       <CardHeader>
-        <CardTitle>روند فروش</CardTitle>
-        <CardDescription>مبلغ فاکتورهای فروش به ترتیب تاریخ صدور (تومان)</CardDescription>
+        <CardTitle>فروش 30 روز اخیر</CardTitle>
+        <CardDescription>
+          {loading
+            ? "در حال بارگذاری..."
+            : `جمع فاکتورهای صادرشده در هر روز — ${formatToman(periodTotal)} تومان از ${toDisplayDigits(periodCount)} فاکتور`}
+        </CardDescription>
       </CardHeader>
       <CardContent className="px-2 sm:px-6">
-        {loaded && data.length === 0 ? (
+        {loading ? (
+          <Skeleton className="h-[250px] w-full" />
+        ) : periodCount === 0 ? (
           <div className="flex h-[250px] flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
             <DocumentTypeIcon type="INVOICE" className="size-6 opacity-50" />
-            هنوز فاکتوری برای نمایش نمودار ثبت نشده است.
+            در 30 روز اخیر فاکتور صادرشده‌ای نیست.
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={250}>
-            <AreaChart data={data} margin={{ top: 10, right: 12, left: 12, bottom: 0 }}>
-              <defs>
-                <linearGradient id="fillTotal" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.45} />
-                  <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0.03} />
-                </linearGradient>
-              </defs>
+            <BarChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }} barCategoryGap={2}>
               <CartesianGrid vertical={false} stroke="var(--border)" />
               <XAxis
-                dataKey="date"
+                dataKey="label"
                 reversed
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
+                minTickGap={16}
+                interval="preserveStartEnd"
                 tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
               />
               <YAxis
@@ -77,11 +84,11 @@ export function ChartAreaInteractive() {
                 width={56}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={compactToman}
+                tickFormatter={formatTomanCompact}
                 tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
               />
               <Tooltip
-                cursor={{ stroke: "var(--border)" }}
+                cursor={{ fill: "var(--muted)", opacity: 0.6 }}
                 contentStyle={{
                   background: "var(--popover)",
                   border: "1px solid var(--border)",
@@ -90,19 +97,21 @@ export function ChartAreaInteractive() {
                   direction: "rtl",
                   fontFamily: "inherit",
                 }}
-                formatter={(value) => [`${formatToman(Number(value ?? 0))} تومان`, "مبلغ"]}
-                labelFormatter={(_, payload) => payload?.[0]?.payload?.label ?? ""}
+                formatter={(value, _name, item) => [
+                  `${formatToman(Number(value ?? 0))} تومان — ${toDisplayDigits((item?.payload as Day)?.count ?? 0)} فاکتور`,
+                  "فروش",
+                ]}
+                labelFormatter={(_, payload) => (payload?.[0]?.payload as Day | undefined)?.title ?? ""}
               />
-              <Area
+              <Bar
                 dataKey="total"
-                type="monotone"
-                fill="url(#fillTotal)"
-                stroke="var(--chart-1)"
-                strokeWidth={2}
-                dot={{ r: 4, fill: "var(--chart-1)", stroke: "var(--card)", strokeWidth: 2 }}
-                activeDot={{ r: 6 }}
+                fill="var(--chart-1)"
+                radius={[4, 4, 0, 0]}
+                maxBarSize={24}
+                animationDuration={700}
+                animationEasing="ease-out"
               />
-            </AreaChart>
+            </BarChart>
           </ResponsiveContainer>
         )}
       </CardContent>

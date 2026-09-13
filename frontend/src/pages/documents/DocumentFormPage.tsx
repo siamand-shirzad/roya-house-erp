@@ -322,7 +322,9 @@ export function DocumentFormPage() {
   const canConvert = nextType && user && DOCUMENT_WRITE_ROLES[nextType].includes(user.role);
 
   return (
-    <div className="space-y-8 p-4 md:p-6">
+    // On very wide screens the preview sits beside the editor and stays in view;
+    // below that it follows the editor, as before.
+    <div className="grid gap-8 p-4 md:p-6 2xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)] 2xl:items-start">
       <div className="space-y-4">
         {savedDoc && (
           <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -545,7 +547,7 @@ export function DocumentFormPage() {
         )}
       </div>
 
-      <section className="space-y-3">
+      <section className="space-y-3 2xl:sticky 2xl:top-[calc(var(--header-height)+1.5rem)] 2xl:max-h-[calc(100svh-var(--header-height)-3rem)] 2xl:overflow-y-auto">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">پیش‌نمایش سند</h3>
           <ExportPdfButton

@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { useAuth } from "@/components/auth-provider";
 import { DocumentTypeTabs } from "@/components/documents/DocumentTypeTabs";
 import { useDocumentPdfExport } from "@/components/documents/useDocumentPdfExport";
+import { StatusBadge } from "@/components/documents/StatusBadge";
+import { SegmentedControl } from "@/components/segmented-control";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,23 +38,6 @@ import { DocumentTypeIcon } from "@/lib/icons";
 import { matchesSearch } from "@/lib/search";
 import { cn } from "@/lib/utils";
 import { DOCUMENT_WRITE_ROLES, type Document, type DocumentType } from "@/types";
-
-const STATUS: Record<Document["status"], { label: string; className: string }> = {
-  DRAFT: {
-    label: "پیش‌نویس",
-    className: "border-border bg-muted text-muted-foreground",
-  },
-  ISSUED: {
-    label: "صادر شده",
-    className:
-      "border-emerald-600/20 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300",
-  },
-  CANCELLED: {
-    label: "باطل شده",
-    className:
-      "border-red-600/20 bg-red-50 text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300",
-  },
-};
 
 const NEW_LABEL: Record<DocumentType, string> = {
   PROFORMA: "پیش‌فاکتور جدید",
@@ -150,22 +135,7 @@ export function DocumentListPage() {
             className="pr-8"
           />
         </div>
-        <div className="inline-flex rounded-md border p-0.5" role="group" aria-label="وضعیت سند">
-          {STATUS_FILTERS.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              onClick={() => setStatus(f.value)}
-              aria-pressed={status === f.value}
-              className={cn(
-                "rounded px-2.5 py-1 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                status === f.value ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl size="sm" ariaLabel="وضعیت سند" items={STATUS_FILTERS} value={status} onValueChange={setStatus} />
         <span className="text-sm text-muted-foreground tabular-nums sm:ms-auto">
           {loading
             ? "در حال بارگذاری..."
@@ -250,7 +220,6 @@ export function DocumentListPage() {
             {!loading &&
               rows.map((doc) => {
                 const href = `/documents/${typeSlug}/${doc.id}`;
-                const badge = STATUS[doc.status];
                 const exporting = pdf.exportingId === doc.id;
                 return (
                   <TableRow key={doc.id} className="cursor-pointer" onClick={() => navigate(href)}>
@@ -268,9 +237,7 @@ export function DocumentListPage() {
                     </TableCell>
                     <TableCell>{doc.buyerName || doc.customer?.name || "—"}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={cn(badge.className)}>
-                        {badge.label}
-                      </Badge>
+                      <StatusBadge status={doc.status} />
                     </TableCell>
                     <TableCell className="font-medium tabular-nums">{formatToman(doc.totals.grandTotal)}</TableCell>
                     {/* Menu clicks bubble through the portal in React's tree; keep them off the row. */}
