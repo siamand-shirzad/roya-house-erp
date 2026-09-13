@@ -5,23 +5,23 @@ import { NumberInput } from "@/components/number-input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { api, errorMessage } from "@/lib/api";
 import { CategoryIcon } from "@/lib/icons";
 import { CATEGORY_LABELS, type Product, type ProductCategory } from "@/types";
 
-// One sheet for both "new product" and "edit product"; `product` decides which.
+// One modal for both "new product" and "edit product"; `product` decides which.
 // Prices are Toman integers, the same unit the price list is stored in.
 
 type FormState = {
@@ -62,7 +62,7 @@ function toForm(p: Product): FormState {
   };
 }
 
-export function ProductFormSheet({
+export function ProductFormDialog({
   open,
   onOpenChange,
   product,
@@ -81,7 +81,7 @@ export function ProductFormSheet({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset every time the sheet opens, so a half-filled form never carries over.
+  // Reset every time the dialog opens, so a half-filled form never carries over.
   useEffect(() => {
     if (!open) return;
     setForm(product ? toForm(product) : EMPTY);
@@ -125,19 +125,19 @@ export function ProductFormSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
-      <SheetContent side="left" className="w-full gap-0 overflow-y-auto sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>{product ? "ویرایش کالا" : "کالای جدید"}</SheetTitle>
-          <SheetDescription>
+    <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{product ? "ویرایش کالا" : "کالای جدید"}</DialogTitle>
+          <DialogDescription>
             {product
               ? "تغییر مشخصات کالا. قیمت‌ها را می‌توانید از خود جدول هم ویرایش کنید."
               : "کالای تازه به کاتالوگ اضافه می‌شود و بلافاصله در فرم اسناد قابل انتخاب است."}
-          </SheetDescription>
-        </SheetHeader>
+          </DialogDescription>
+        </DialogHeader>
 
-        <form onSubmit={submit} className="flex flex-1 flex-col">
-          <div className="flex-1 space-y-4 p-4">
+        <form onSubmit={submit} className="flex flex-col">
+          <div className="space-y-4">
             <div className="grid gap-2">
               <Label htmlFor="product-name">نام کالا</Label>
               <Input
@@ -257,7 +257,7 @@ export function ProductFormSheet({
             )}
           </div>
 
-          <SheetFooter className="flex-row gap-2 border-t">
+          <DialogFooter className="mt-6">
             <Button type="submit" disabled={saving}>
               {saving && <LoaderCircle className="animate-spin" />}
               {product ? "ذخیره تغییرات" : "افزودن کالا"}
@@ -265,9 +265,9 @@ export function ProductFormSheet({
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
               انصراف
             </Button>
-          </SheetFooter>
+          </DialogFooter>
         </form>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

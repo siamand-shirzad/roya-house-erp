@@ -38,7 +38,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PriceCell } from "@/components/products/PriceCell";
 import { ImportCsvSheet } from "@/components/products/ImportCsvSheet";
 import { BulkAdjustPopover, type BulkAdjustment } from "@/components/products/BulkAdjustPopover";
-import { ProductFormSheet } from "@/components/products/ProductFormSheet";
+import { ProductFormDialog } from "@/components/products/ProductFormDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -578,7 +578,7 @@ export function ProductsPage() {
         </div>
       </div>
 
-      <ProductFormSheet
+      <ProductFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
         product={editing}
