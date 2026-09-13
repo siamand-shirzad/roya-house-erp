@@ -32,7 +32,7 @@ function StatCard({
   loading: boolean;
 }) {
   const card = (
-    <Card className="@container/card h-full gap-4 transition-colors group-hover:border-primary/40">
+    <Card className="@container/card h-full gap-4 transition-[border-color,box-shadow,translate] duration-200 ease-out group-hover:border-foreground/20 group-hover:shadow-md motion-safe:group-hover:-translate-y-0.5">
       <CardHeader>
         <CardDescription>{label}</CardDescription>
         <CardTitle className="text-2xl font-bold tabular-nums @[250px]/card:text-3xl">

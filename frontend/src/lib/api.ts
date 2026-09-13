@@ -7,6 +7,7 @@ import type {
   Product,
   ProductCategory,
   ProductImportRow,
+  SalesReport,
   User,
 } from "@/types";
 
@@ -134,6 +135,14 @@ export const api = {
       request<Customer>("/customers", { method: "POST", body: JSON.stringify(data) }),
     update: (id: string, data: Partial<Customer>) =>
       request<Customer>(`/customers/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  },
+  reports: {
+    sales: (range: { from?: string; to?: string }) => {
+      const qs = new URLSearchParams(
+        Object.entries(range).filter((entry): entry is [string, string] => !!entry[1])
+      ).toString();
+      return request<SalesReport>(`/reports${qs ? `?${qs}` : ""}`);
+    },
   },
   documents: {
     list: (type?: DocumentType) => request<Document[]>(`/documents${type ? `?type=${type}` : ""}`),

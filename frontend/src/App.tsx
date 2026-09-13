@@ -12,6 +12,8 @@ import { LoginPage } from "@/pages/LoginPage";
 import { ProductsPage } from "@/pages/ProductsPage";
 import { CustomersPage } from "@/pages/CustomersPage";
 import { UsersPage } from "@/pages/UsersPage";
+import { ReportsPage } from "@/pages/ReportsPage";
+import { REPORT_ROLES } from "@/types";
 
 // Remount the form whenever the type or document changes, so state from one
 // document (e.g. its id) can never leak into "new" or a different document.
@@ -41,6 +43,7 @@ export default function App() {
           <Route path="/products" element={<RequireAuth><ProductsPage /></RequireAuth>} />
           <Route path="/customers" element={<RequireAuth><CustomersPage /></RequireAuth>} />
           <Route path="/users" element={<RequireAuth roles={["ADMIN"]}><UsersPage /></RequireAuth>} />
+          <Route path="/reports" element={<RequireAuth roles={REPORT_ROLES}><ReportsPage /></RequireAuth>} />
           <Route path="/documents" element={<Navigate to="/documents/proforma" replace />} />
           <Route path="/documents/:typeSlug" element={documents(<DocumentListPage />)} />
           <Route path="/documents/:typeSlug/new" element={documents(<KeyedDocumentFormPage />)} />

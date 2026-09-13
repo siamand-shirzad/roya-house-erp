@@ -1,7 +1,7 @@
 import type { Document, DocumentItem, DocumentType } from "@/types";
 import { DOCUMENT_TYPE_LABELS } from "@/types";
 import { formatJalaliDate } from "@/lib/format";
-import { toDisplayDigits, formatToman } from "@/lib/format";
+import { toDisplayDigits, formatNumber, formatToman } from "@/lib/format";
 import { computeDocumentTotals, computeLineTotal } from "@/lib/totals";
 import { tomanToRialWords } from "@/lib/numberToWords";
 import { BrandLogo } from "@/components/brand-logo";
@@ -177,7 +177,7 @@ export function DocumentPrint({ doc, elementId }: { doc: Document; elementId?: s
                   <td className="border border-[#c9c3c0] px-1 py-1">{toDisplayDigits(idx + 1)}</td>
                   <td className="border border-[#c9c3c0] px-2 py-1 text-right">{item.name}</td>
                   <td className="border border-[#c9c3c0] px-1 py-1">{item.unit}</td>
-                  <td className="border border-[#c9c3c0] px-1 py-1">{toDisplayDigits(item.quantity)}</td>
+                  <td className="border border-[#c9c3c0] px-1 py-1">{formatNumber(Number(item.quantity))}</td>
                   {isInvoiceLike ? (
                     <>
                       <td className="border border-[#c9c3c0] px-1 py-1">{formatToman(item.unitPrice * 10)}</td>

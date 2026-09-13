@@ -10,6 +10,7 @@ import { documentsRouter } from "./routes/documents";
 import { usersRouter } from "./routes/users";
 import { authRouter } from "./routes/auth";
 import { publicRouter } from "./routes/public";
+import { reportsRouter } from "./routes/reports";
 import { authenticate, requireAuth, requireRole } from "./lib/auth";
 import { pool, SCHEMA_SQL } from "./lib/db";
 
@@ -45,6 +46,8 @@ app.use("/api/products", productsRouter);
 app.use("/api/customers", customersRouter);
 app.use("/api/documents", documentsRouter);
 app.use("/api/users", requireRole("ADMIN"), usersRouter);
+// Revenue figures: management and accounting only.
+app.use("/api/reports", requireRole("ADMIN", "ACCOUNTANT"), reportsRouter);
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof ZodError) {

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Contact, FileStack, LayoutDashboard, Tags, Users, type LucideIcon } from "lucide-react";
+import { ChartColumn, Contact, FileStack, LayoutDashboard, Tags, Users, type LucideIcon } from "lucide-react";
 
 import { LogoMark } from "@/components/logo-mark";
 import { NavUser } from "@/components/nav-user";
@@ -18,7 +18,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import type { UserRole } from "@/types";
+import { REPORT_ROLES, type UserRole } from "@/types";
 
 // Layout from the shadcn sidebar-07 block: collapses to an icon rail (always
 // partly visible), brand at the top, signed-in user at the bottom. Group
@@ -40,6 +40,11 @@ const NAV: NavGroup[] = [
         icon: FileStack,
       },
     ],
+  },
+  {
+    label: "Insights",
+    roles: REPORT_ROLES,
+    items: [{ to: "/reports", label: "گزارشات", tooltip: "گزارش فروش و پیگیری", icon: ChartColumn }],
   },
   {
     label: "Catalog",

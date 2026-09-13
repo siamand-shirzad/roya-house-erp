@@ -47,7 +47,10 @@ export function AppShell({
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader title={title} actions={actions} />
-        <div className="@container/main flex flex-1 flex-col">{children}</div>
+        {/* Each page mounts its own AppShell, so this fades every page in on navigation. */}
+        <div className="@container/main flex flex-1 flex-col motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-300">
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

@@ -90,6 +90,42 @@ export function formatJalaliDate(date: Date): string {
   return toDisplayDigits(`${jy}/${pad(jm)}/${pad(jd)}`);
 }
 
+/** Jalali (Shamsi) -> Gregorian, the inverse of toJalali (same public-domain source). Local midnight. */
+export function jalaliToGregorian(jy: number, jm: number, jd: number): Date {
+  const y = jy + 1595;
+  let days =
+    -355668 + 365 * y + div(y, 33) * 8 + div((y % 33) + 3, 4) + jd + (jm < 7 ? (jm - 1) * 31 : (jm - 7) * 30 + 186);
+  let gy = 400 * div(days, 146097);
+  days %= 146097;
+  if (days > 36524) {
+    gy += 100 * div(--days, 36524);
+    days %= 36524;
+    if (days >= 365) days++;
+  }
+  gy += 4 * div(days, 1461);
+  days %= 1461;
+  if (days > 365) {
+    gy += div(days - 1, 365);
+    days = (days - 1) % 365;
+  }
+  let gd = days + 1;
+  const monthDays = [0, 31, (gy % 4 === 0 && gy % 100 !== 0) || gy % 400 === 0 ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  let gm = 0;
+  for (gm = 0; gm < 13 && gd > monthDays[gm]; gm++) gd -= monthDays[gm];
+  return new Date(gy, gm - 1, gd);
+}
+
+/** "شهریور 1405" */
+export function formatJalaliMonth(jy: number, jm: number): string {
+  return `${JALALI_MONTHS[jm - 1]} ${toDisplayDigits(jy)}`;
+}
+
+/** Local calendar date as YYYY-MM-DD (no UTC shift, unlike toISOString). */
+export function toIsoDate(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 export function formatJalaliDateLong(date: Date): string {
   const { jy, jm, jd } = toJalali(date);
   const weekday = JALALI_WEEKDAYS[date.getDay()];

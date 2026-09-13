@@ -3,85 +3,124 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Digits 0-9 only, drawn from IBM Plex Mono: its zero carries a centre mark,
+   so 0 never reads as O, and the figures are tabular. Everything else in a
+   number - the thousands comma, the decimal point, % - still comes from the
+   text font, which keeps the comma small and tight. The family is listed
+   first in every stack below; unicode-range makes the browser use it for
+   digits alone. */
+@font-face {
+  font-family: "Roya Digits";
+  src: url("../node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 100 450;
+  font-display: swap;
+  unicode-range: U+0030-0039;
+}
+@font-face {
+  font-family: "Roya Digits";
+  src: url("../node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2") format("woff2");
+  font-weight: 451 550;
+  font-display: swap;
+  unicode-range: U+0030-0039;
+}
+@font-face {
+  font-family: "Roya Digits";
+  src: url("../node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-600-normal.woff2") format("woff2");
+  font-weight: 551 650;
+  font-display: swap;
+  unicode-range: U+0030-0039;
+}
+@font-face {
+  font-family: "Roya Digits";
+  src: url("../node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-700-normal.woff2") format("woff2");
+  font-weight: 651 900;
+  font-display: swap;
+  unicode-range: U+0030-0039;
+}
+
+/* Monochrome theme: every surface, text and control colour is a neutral grey
+   (chroma 0) between black and white. Colour is kept only where it carries
+   meaning - destructive actions and the green/red/amber status badges - and
+   on printed documents (DocumentPrint), which reproduce the company's paper
+   forms and keep the brand red. */
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: oklch(0.985 0 0);
+  --foreground: oklch(0.16 0 0);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.16 0 0);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  /* Brand palette sampled from the Roya House logo:
-     red #ab2c33 = oklch(0.495 0.163 22.7), taupe #5d514f, charcoal #464646. */
-  --primary: oklch(0.495 0.163 22.7);
-  --primary-foreground: oklch(0.985 0.004 25);
-  --secondary: oklch(0.965 0.003 29);
-  --secondary-foreground: oklch(0.24 0.004 29);
-  --muted: oklch(0.965 0.003 29);
-  --muted-foreground: oklch(0.52 0.008 29);
-  --accent: oklch(0.955 0.005 29);
-  --accent-foreground: oklch(0.24 0.004 29);
+  --popover-foreground: oklch(0.16 0 0);
+  --primary: oklch(0.2 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.955 0 0);
+  --secondary-foreground: oklch(0.2 0 0);
+  --muted: oklch(0.955 0 0);
+  --muted-foreground: oklch(0.5 0 0);
+  --accent: oklch(0.945 0 0);
+  --accent-foreground: oklch(0.2 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.915 0.003 29);
-  --input: oklch(0.915 0.003 29);
-  --ring: oklch(0.62 0.14 22.7);
-  --chart-1: oklch(0.55 0.17 22.7);
-  --chart-2: oklch(0.52 0.03 29);
-  --chart-3: oklch(0.45 0 0);
-  --chart-4: oklch(0.72 0.06 29);
-  --chart-5: oklch(0.7 0 0);
-  /* Charcoal sidebar in both themes, echoing the logo's dark backdrop. */
-  --sidebar: oklch(0.24 0.003 29);
-  --sidebar-foreground: oklch(0.93 0.003 29);
-  --sidebar-primary: oklch(0.62 0.17 22.7);
-  --sidebar-primary-foreground: oklch(0.985 0.004 25);
-  --sidebar-accent: oklch(0.31 0.006 29);
+  --border: oklch(0.9 0 0);
+  --input: oklch(0.9 0 0);
+  --ring: oklch(0.55 0 0);
+  /* One grey ramp, dark to light: single-series charts use chart-1. */
+  --chart-1: oklch(0.3 0 0);
+  --chart-2: oklch(0.48 0 0);
+  --chart-3: oklch(0.62 0 0);
+  --chart-4: oklch(0.75 0 0);
+  --chart-5: oklch(0.86 0 0);
+  /* Charcoal sidebar in both themes; the active item is lit in white. */
+  --sidebar: oklch(0.2 0 0);
+  --sidebar-foreground: oklch(0.92 0 0);
+  --sidebar-primary: oklch(0.98 0 0);
+  --sidebar-primary-foreground: oklch(0.2 0 0);
+  --sidebar-accent: oklch(0.29 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 9%);
-  --sidebar-ring: oklch(0.62 0.14 22.7);
+  --sidebar-ring: oklch(0.55 0 0);
 }
 
 .dark {
   --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.66 0.18 22.7);
-  --primary-foreground: oklch(0.2 0.04 25);
-  --secondary: oklch(0.27 0.004 29);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.27 0.004 29);
-  --muted-foreground: oklch(0.72 0.006 29);
-  --accent: oklch(0.29 0.006 29);
-  --accent-foreground: oklch(0.985 0 0);
+  --foreground: oklch(0.975 0 0);
+  --card: oklch(0.195 0 0);
+  --card-foreground: oklch(0.975 0 0);
+  --popover: oklch(0.21 0 0);
+  --popover-foreground: oklch(0.975 0 0);
+  --primary: oklch(0.93 0 0);
+  --primary-foreground: oklch(0.17 0 0);
+  --secondary: oklch(0.27 0 0);
+  --secondary-foreground: oklch(0.975 0 0);
+  --muted: oklch(0.26 0 0);
+  --muted-foreground: oklch(0.71 0 0);
+  --accent: oklch(0.285 0 0);
+  --accent-foreground: oklch(0.975 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.58 0.14 22.7);
-  --chart-1: oklch(0.66 0.18 22.7);
-  --chart-2: oklch(0.66 0.03 29);
+  --ring: oklch(0.6 0 0);
+  --chart-1: oklch(0.9 0 0);
+  --chart-2: oklch(0.75 0 0);
   --chart-3: oklch(0.6 0 0);
-  --chart-4: oklch(0.8 0.04 29);
-  --chart-5: oklch(0.45 0 0);
-  --sidebar: oklch(0.185 0.003 29);
-  --sidebar-foreground: oklch(0.93 0.003 29);
-  --sidebar-primary: oklch(0.66 0.18 22.7);
-  --sidebar-primary-foreground: oklch(0.2 0.04 25);
-  --sidebar-accent: oklch(0.27 0.006 29);
+  --chart-4: oklch(0.46 0 0);
+  --chart-5: oklch(0.35 0 0);
+  --sidebar: oklch(0.17 0 0);
+  --sidebar-foreground: oklch(0.92 0 0);
+  --sidebar-primary: oklch(0.98 0 0);
+  --sidebar-primary-foreground: oklch(0.17 0 0);
+  --sidebar-accent: oklch(0.26 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 9%);
-  --sidebar-ring: oklch(0.58 0.14 22.7);
+  --sidebar-ring: oklch(0.6 0 0);
 }
 
-/* Font stacks: the Latin font comes first so Latin letters and all digits use
-   it; Persian letters fall through to IBM Plex Sans Arabic. */
+/* Font stacks: "Roya Digits" (digits only, see above) first, then the Latin
+   font for Latin letters, then IBM Plex Sans Arabic for Persian letters. */
 @theme {
-  --font-sans: "Inter Variable", "IBM Plex Sans Arabic", system-ui, sans-serif;
-  --font-display: "Space Grotesk", "IBM Plex Sans Arabic", system-ui, sans-serif;
+  --font-sans: "Roya Digits", "Inter Variable", "IBM Plex Sans Arabic", system-ui, sans-serif;
+  --font-display: "Roya Digits", "Space Grotesk", "IBM Plex Sans Arabic", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", "IBM Plex Sans Arabic", ui-monospace, monospace;
 }
 
@@ -124,17 +163,39 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* Soft motion. Every use goes through motion-safe:, so a reduced-motion
+   setting turns it off. Ease-out curves only: things arrive, they don't bounce. */
+@keyframes bar-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* Ranking bars grow from the reading start (the right edge in RTL). */
+@utility animate-bar-grow {
+  transform-origin: right center;
+  animation: bar-grow 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-feature-settings: "cv11", "ss01";
+    font-feature-settings: "cv11";
   }
   h1,
   h2,
   h3 {
     font-family: var(--font-display);
+  }
+  /* Switching light/dark fades instead of snapping. */
+  @media (prefers-reduced-motion: no-preference) {
+    body {
+      transition:
+        background-color 300ms ease,
+        color 300ms ease;
+    }
   }
 }

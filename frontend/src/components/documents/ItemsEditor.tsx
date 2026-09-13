@@ -1,6 +1,7 @@
 import { Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/number-input";
 import {
   Table,
   TableBody,
@@ -107,31 +108,26 @@ export function ItemsEditor({
                     />
                   </TableCell>
                   <TableCell>
-                    <Input
-                      type="number"
-                      min={0}
+                    <NumberInput
+                      decimals
                       value={item.quantity}
-                      onChange={(e) => updateItem(idx, { quantity: Number(e.target.value) })}
+                      onValueChange={(v) => updateItem(idx, { quantity: v ?? 0 })}
                       disabled={disabled}
                     />
                   </TableCell>
                   {isInvoiceLike ? (
                     <>
                       <TableCell>
-                        <Input
-                          type="number"
-                          min={0}
+                        <NumberInput
                           value={item.unitPrice}
-                          onChange={(e) => updateItem(idx, { unitPrice: Number(e.target.value) })}
+                          onValueChange={(v) => updateItem(idx, { unitPrice: v ?? 0 })}
                           disabled={disabled}
                         />
                       </TableCell>
                       <TableCell>
-                        <Input
-                          type="number"
-                          min={0}
+                        <NumberInput
                           value={item.discount ?? 0}
-                          onChange={(e) => updateItem(idx, { discount: Number(e.target.value) })}
+                          onValueChange={(v) => updateItem(idx, { discount: v ?? 0 })}
                           disabled={disabled}
                         />
                       </TableCell>

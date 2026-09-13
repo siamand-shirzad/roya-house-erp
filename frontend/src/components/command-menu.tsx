@@ -9,7 +9,19 @@ import {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { Contact, FileStack, LayoutDashboard, Monitor, Moon, Search, Sun, Tags, Users, type LucideIcon } from "lucide-react";
+import {
+  ChartColumn,
+  Contact,
+  FileStack,
+  LayoutDashboard,
+  Monitor,
+  Moon,
+  Search,
+  Sun,
+  Tags,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 
 import { useAuth } from "@/components/auth-provider";
 import { Kbd } from "@/components/kbd";
@@ -29,7 +41,15 @@ import { TYPE_TO_SLUG } from "@/lib/documentTypeSlug";
 import { formatJalaliDate, toDisplayDigits } from "@/lib/format";
 import { CategoryIcon, DocumentTypeIcon } from "@/lib/icons";
 import { matchesSearch } from "@/lib/search";
-import { CATEGORY_LABELS, DOCUMENT_TYPE_LABELS, DOCUMENT_WRITE_ROLES, type Document, type DocumentType, type Product } from "@/types";
+import {
+  CATEGORY_LABELS,
+  DOCUMENT_TYPE_LABELS,
+  DOCUMENT_WRITE_ROLES,
+  REPORT_ROLES,
+  type Document,
+  type DocumentType,
+  type Product,
+} from "@/types";
 
 // Command palette (Ctrl+K / ⌘K, or "/") plus two-key shortcuts ("G D", "N P").
 // Shortcuts match on KeyboardEvent.code - the physical key - so they work the
@@ -78,6 +98,7 @@ export function CommandMenuProvider({ children }: { children: ReactNode }) {
       nav("go-products", ["G", "P"], "کالاها و قیمت‌ها", Tags, "/products"),
       nav("go-customers", ["G", "C"], "مشتریان", Contact, "/customers"),
     ];
+    if (REPORT_ROLES.includes(user.role)) list.push(nav("go-reports", ["G", "R"], "گزارشات", ChartColumn, "/reports"));
     if (user.role === "ADMIN") list.push(nav("go-users", ["G", "U"], "کاربران", Users, "/users"));
 
     const create: [DocumentType, string, string][] = [

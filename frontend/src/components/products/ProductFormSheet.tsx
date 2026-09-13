@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { LoaderCircle, TriangleAlert } from "lucide-react";
 
+import { NumberInput } from "@/components/number-input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,8 +18,6 @@ import {
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { api, errorMessage } from "@/lib/api";
-import { parseAmount } from "@/lib/csv";
-import { toDisplayDigits } from "@/lib/format";
 import { CategoryIcon } from "@/lib/icons";
 import { CATEGORY_LABELS, type Product, type ProductCategory } from "@/types";
 
@@ -31,9 +30,9 @@ type FormState = {
   category: ProductCategory;
   spec: string;
   unit: string;
-  unitPrice: string;
-  partnerPrice: string;
-  packSize: string;
+  unitPrice: number | null;
+  partnerPrice: number | null;
+  packSize: number | null;
   active: boolean;
 };
 
@@ -43,9 +42,9 @@ const EMPTY: FormState = {
   category: "GYPSUM_PANEL",
   spec: "",
   unit: "",
-  unitPrice: "",
-  partnerPrice: "",
-  packSize: "",
+  unitPrice: null,
+  partnerPrice: null,
+  packSize: null,
   active: true,
 };
 
@@ -56,9 +55,9 @@ function toForm(p: Product): FormState {
     category: p.category,
     spec: p.spec ?? "",
     unit: p.unit,
-    unitPrice: toDisplayDigits(p.unitPrice),
-    partnerPrice: p.partnerPrice === null ? "" : toDisplayDigits(p.partnerPrice),
-    packSize: p.packSize === null ? "" : toDisplayDigits(p.packSize),
+    unitPrice: p.unitPrice,
+    partnerPrice: p.partnerPrice,
+    packSize: p.packSize,
     active: p.active,
   };
 }
@@ -96,16 +95,8 @@ export function ProductFormSheet({
     e.preventDefault();
     if (!form.name.trim()) return setError("نام کالا الزامی است.");
     if (!form.unit.trim()) return setError("واحد کالا را وارد کنید (مثل مترمربع، شاخه، عدد).");
-
-    const unitPrice = parseAmount(form.unitPrice);
-    if (unitPrice === null || Number.isNaN(unitPrice)) return setError("قیمت واحد را به عدد وارد کنید.");
-
-    const partnerPrice = parseAmount(form.partnerPrice);
-    if (Number.isNaN(partnerPrice)) return setError("قیمت همکاری را به عدد وارد کنید یا خالی بگذارید.");
-
-    const packSize = parseAmount(form.packSize);
-    if (Number.isNaN(packSize)) return setError("تعداد در بسته را به عدد وارد کنید یا خالی بگذارید.");
-    if (packSize !== null && packSize < 1) return setError("تعداد در بسته باید بیشتر از صفر باشد.");
+    if (form.unitPrice === null) return setError("قیمت واحد را وارد کنید.");
+    if (form.packSize !== null && form.packSize < 1) return setError("تعداد در بسته باید بیشتر از صفر باشد.");
 
     setError(null);
     setSaving(true);
@@ -116,9 +107,9 @@ export function ProductFormSheet({
         category: form.category,
         spec: form.spec.trim() || null,
         unit: form.unit.trim(),
-        unitPrice,
-        partnerPrice,
-        packSize,
+        unitPrice: form.unitPrice,
+        partnerPrice: form.partnerPrice,
+        packSize: form.packSize,
         active: form.active,
       };
       const saved = product
@@ -219,34 +210,29 @@ export function ProductFormSheet({
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="product-price">قیمت واحد (تومان)</Label>
-                <Input
+                <NumberInput
                   id="product-price"
                   value={form.unitPrice}
-                  onChange={(e) => set("unitPrice", e.target.value)}
-                  inputMode="numeric"
-                  className="tabular-nums"
+                  onValueChange={(v) => set("unitPrice", v)}
                 />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="product-partner-price">قیمت همکاری (اختیاری)</Label>
-                <Input
+                <NumberInput
                   id="product-partner-price"
                   value={form.partnerPrice}
-                  onChange={(e) => set("partnerPrice", e.target.value)}
-                  inputMode="numeric"
-                  className="tabular-nums"
+                  onValueChange={(v) => set("partnerPrice", v)}
                 />
               </div>
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="product-pack">تعداد در بسته (اختیاری)</Label>
-              <Input
+              <NumberInput
                 id="product-pack"
                 value={form.packSize}
-                onChange={(e) => set("packSize", e.target.value)}
-                inputMode="numeric"
-                className="tabular-nums sm:w-40"
+                onValueChange={(v) => set("packSize", v)}
+                className="sm:w-40"
               />
             </div>
 

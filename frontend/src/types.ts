@@ -38,6 +38,46 @@ export type Product = {
 
 export type UserRole = "ADMIN" | "SALES" | "WAREHOUSE" | "ACCOUNTANT";
 
+/** Who may open /reports. UI mirror of the backend's requireRole on /api/reports. */
+export const REPORT_ROLES: UserRole[] = ["ADMIN", "ACCOUNTANT"];
+
+export type ReportFollowUpRow = {
+  id: string;
+  number: number;
+  issueDate: string;
+  buyerName: string | null;
+  grandTotal: number;
+  ageDays: number;
+};
+
+export type SalesReport = {
+  range: { from: string | null; to: string | null };
+  sales: {
+    invoiceCount: number;
+    subtotal: number;
+    discountTotal: number;
+    taxTotal: number;
+    grandTotal: number;
+    averageInvoice: number;
+  };
+  proformas: { issued: number; converted: number };
+  goodsIssues: { issued: number };
+  daily: { day: string; count: number; grandTotal: number }[];
+  topCustomers: { customerId: string | null; name: string; invoiceCount: number; grandTotal: number }[];
+  topProducts: {
+    productId: string | null;
+    name: string;
+    code: string | null;
+    unit: string;
+    category: ProductCategory | null;
+    quantity: number;
+    amount: number;
+  }[];
+  categories: { category: ProductCategory; amount: number }[];
+  openProformas: { total: number; rows: ReportFollowUpRow[] };
+  undeliveredInvoices: { total: number; rows: ReportFollowUpRow[] };
+};
+
 export const ROLE_LABELS: Record<UserRole, string> = {
   ADMIN: "مدیر سیستم",
   SALES: "فروش",
