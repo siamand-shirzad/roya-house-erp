@@ -3,41 +3,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Digits 0-9 only, drawn from IBM Plex Mono: its zero carries a centre mark,
-   so 0 never reads as O, and the figures are tabular. Everything else in a
-   number - the thousands comma, the decimal point, % - still comes from the
-   text font, which keeps the comma small and tight. The family is listed
-   first in every stack below; unicode-range makes the browser use it for
-   digits alone. */
-@font-face {
-  font-family: "Roya Digits";
-  src: url("../node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
-  font-weight: 100 450;
-  font-display: swap;
-  unicode-range: U+0030-0039;
-}
-@font-face {
-  font-family: "Roya Digits";
-  src: url("../node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2") format("woff2");
-  font-weight: 451 550;
-  font-display: swap;
-  unicode-range: U+0030-0039;
-}
-@font-face {
-  font-family: "Roya Digits";
-  src: url("../node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-600-normal.woff2") format("woff2");
-  font-weight: 551 650;
-  font-display: swap;
-  unicode-range: U+0030-0039;
-}
-@font-face {
-  font-family: "Roya Digits";
-  src: url("../node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-700-normal.woff2") format("woff2");
-  font-weight: 651 900;
-  font-display: swap;
-  unicode-range: U+0030-0039;
-}
-
 /* Grey neutrals with one mellow red. Surfaces, text and borders are neutral
    greys (chroma 0) from near-white to near-black; the accent is the logo's red
    (#ab2c33) with its chroma turned down, so it warms the UI without shouting.
@@ -117,11 +82,11 @@
   --sidebar-ring: oklch(0.72 0.1 22);
 }
 
-/* Font stacks: "Roya Digits" (digits only, see above) first, then the Latin
-   font for Latin letters, then IBM Plex Sans Arabic for Persian letters. */
+/* Font stacks: the Latin font comes first so Latin letters and all digits use
+   it; Persian letters fall through to IBM Plex Sans Arabic. */
 @theme {
-  --font-sans: "Roya Digits", "Inter Variable", "IBM Plex Sans Arabic", system-ui, sans-serif;
-  --font-display: "Roya Digits", "Space Grotesk", "IBM Plex Sans Arabic", system-ui, sans-serif;
+  --font-sans: "Inter Variable", "IBM Plex Sans Arabic", system-ui, sans-serif;
+  --font-display: "Space Grotesk", "IBM Plex Sans Arabic", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", "IBM Plex Sans Arabic", ui-monospace, monospace;
 }
 
@@ -184,7 +149,7 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-feature-settings: "cv11";
+    font-feature-settings: "cv11", "ss01";
   }
   h1,
   h2,
