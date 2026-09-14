@@ -20,13 +20,16 @@ export function ProductPicker({ onSelect }: { onSelect: (product: Product) => vo
   const [open, setOpen] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     if (!open || products.length) return;
     setLoading(true);
+    setFailed(false);
     api.products
       .list({ active: "true" })
       .then(setProducts)
+      .catch(() => setFailed(true))
       .finally(() => setLoading(false));
   }, [open, products.length]);
 
@@ -44,7 +47,13 @@ export function ProductPicker({ onSelect }: { onSelect: (product: Product) => vo
         <Command>
           <CommandInput placeholder="جستجوی نام یا کد کالا..." />
           <CommandList>
-            <CommandEmpty>{loading ? "در حال بارگذاری..." : "کالایی یافت نشد."}</CommandEmpty>
+            <CommandEmpty>
+              {loading
+                ? "در حال بارگذاری..."
+                : failed
+                  ? "دریافت کالاها ناموفق بود. دوباره باز کنید."
+                  : "کالایی یافت نشد."}
+            </CommandEmpty>
             <CommandGroup>
               {products.map((product) => (
                 <CommandItem

@@ -163,6 +163,47 @@ export const DOCUMENT_WRITE_ROLES: Record<DocumentType, UserRole[]> = {
   GOODS_ISSUE: ["ADMIN", "WAREHOUSE"],
 };
 
+/** Who may enter receipts, adjustments and minimum levels. UI mirror of routes/inventory.ts. */
+export const INVENTORY_WRITE_ROLES: UserRole[] = ["ADMIN", "WAREHOUSE"];
+
+export type StockRow = {
+  productId: string;
+  code: string | null;
+  name: string;
+  category: ProductCategory;
+  spec: string | null;
+  unit: string;
+  onHand: number;
+  minStock: number | null;
+  lastMovementAt: string | null;
+};
+
+export type StockMovementKind = "RECEIPT" | "ISSUE" | "ISSUE_REVERSAL" | "ADJUSTMENT";
+
+export const MOVEMENT_KIND_LABELS: Record<StockMovementKind, string> = {
+  RECEIPT: "ورود کالا",
+  ISSUE: "حواله خروج",
+  ISSUE_REVERSAL: "برگشت حواله باطل‌شده",
+  ADJUSTMENT: "اصلاح موجودی",
+};
+
+export type StockMovement = {
+  id: string;
+  productId: string;
+  productName: string;
+  productCode: string | null;
+  unit: string;
+  kind: StockMovementKind;
+  quantity: number;
+  reference: string | null;
+  document: { id: string; type: DocumentType; number: number } | null;
+  createdByName: string | null;
+  createdAt: string;
+};
+
+/** A product on a goods issue with less stock than the issue asks for. */
+export type StockWarning = { productId: string; name: string; unit: string; available: number; requested: number };
+
 export const NEXT_DOCUMENT_TYPE: Partial<Record<DocumentType, DocumentType>> = {
   PROFORMA: "INVOICE",
   INVOICE: "GOODS_ISSUE",

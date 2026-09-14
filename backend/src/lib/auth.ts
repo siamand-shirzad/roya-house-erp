@@ -61,6 +61,11 @@ export async function deleteSession(token: string) {
   await query("DELETE FROM sessions WHERE id = $1", [sha256(token)]);
 }
 
+/** Sign a user out everywhere except the session making this request. */
+export async function deleteOtherSessions(userId: string, keepToken: string | null) {
+  await query("DELETE FROM sessions WHERE user_id = $1 AND id <> $2", [userId, keepToken ? sha256(keepToken) : ""]);
+}
+
 export async function deleteUserSessions(userId: string) {
   await query("DELETE FROM sessions WHERE user_id = $1", [userId]);
 }

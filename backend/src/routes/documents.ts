@@ -1,14 +1,22 @@
 import { Router, type Response } from "express";
 import type { PoolClient } from "pg";
 import { z } from "zod";
-import { pool, query, queryOne, newId } from "../lib/db";
+import { query, queryOne, newId, withTransaction } from "../lib/db";
 import { computeDocumentTotals } from "../lib/totals";
 import type { AuthUser, Role } from "../lib/auth";
+import { currentCompany, rowToCompany } from "./company";
+import {
+  postGoodsIssueMovements,
+  reverseGoodsIssueMovements,
+  stockShortfalls,
+  type StockWarning,
+} from "./inventory";
 
 // Documents: PROFORMA, INVOICE, GOODS_ISSUE.
 // Lifecycle: DRAFT (editable, deletable) -> ISSUED (locked) -> CANCELLED.
 // Conversions copy an issued document into a new draft of the next type:
 // PROFORMA -> INVOICE -> GOODS_ISSUE, linked through source_document_id.
+// Issuing a goods issue books its products out of stock; cancelling puts them back.
 export const documentsRouter = Router();
 
 const DOCUMENT_TYPES = ["PROFORMA", "INVOICE", "GOODS_ISSUE"] as const;
@@ -33,21 +41,6 @@ const currentUser = (res: Response) => res.locals.user as AuthUser;
 const canWrite = (res: Response, type: DocType) => WRITE_ROLES[type].includes(currentUser(res).role);
 const forbidden = (res: Response) => res.status(403).json({ error: "Not allowed for your role" });
 
-async function withTransaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const result = await fn(client);
-    await client.query("COMMIT");
-    return result;
-  } catch (err) {
-    await client.query("ROLLBACK").catch(() => {});
-    throw err;
-  } finally {
-    client.release();
-  }
-}
-
 // Numbers are max+1 per type. The advisory lock (released at commit) makes
 // concurrent creates of the same type wait instead of colliding.
 async function nextDocumentNumber(client: PoolClient, type: DocType) {
@@ -55,25 +48,6 @@ async function nextDocumentNumber(client: PoolClient, type: DocType) {
   const r = await client.query<{ n: number | null }>("SELECT max(number) AS n FROM documents WHERE type = $1", [type]);
   const last = r.rows[0]?.n;
   return last ? last + 1 : STARTING_NUMBER[type];
-}
-
-function rowToCompany(r: any) {
-  if (!r) return null;
-  return {
-    id: r.id,
-    name: r.name,
-    legalName: r.legal_name,
-    nationalId: r.national_id,
-    economicCode: r.economic_code,
-    registration: r.registration,
-    province: r.province,
-    city: r.city,
-    address: r.address,
-    postalCode: r.postal_code,
-    phone: r.phone,
-    fax: r.fax,
-    logoUrl: r.logo_url,
-  };
 }
 
 function rowToCustomer(r: any) {
@@ -110,66 +84,100 @@ function rowToItem(r: any) {
 
 const rowToLink = (r: any) => (r ? { id: r.id, type: r.type, number: r.number, status: r.status } : null);
 
-async function loadDocument(id: string) {
-  const doc = await queryOne(
+const byId = (rows: any[]) => new Map(rows.map((r) => [r.id, r]));
+const distinct = (values: (string | null)[]) => [...new Set(values.filter((v): v is string => !!v))];
+
+// Loads many documents with a fixed number of queries (not five per document),
+// returned in the order of `ids`.
+async function loadDocuments(ids: string[]) {
+  if (ids.length === 0) return [];
+  const docs = await query(
     `SELECT d.*, cu.full_name AS created_by_name, iu.full_name AS issued_by_name, xu.full_name AS cancelled_by_name
      FROM documents d
      LEFT JOIN users cu ON cu.id = d.created_by
      LEFT JOIN users iu ON iu.id = d.issued_by
      LEFT JOIN users xu ON xu.id = d.cancelled_by
-     WHERE d.id = $1`,
-    [id]
+     WHERE d.id = ANY($1)`,
+    [ids]
   );
-  if (!doc) return null;
+  const companyIds = distinct(docs.map((d) => d.company_id));
+  const customerIds = distinct(docs.map((d) => d.customer_id));
+  const sourceIds = distinct(docs.map((d) => d.source_document_id));
 
-  const [company, customer, itemRows, source, derived] = await Promise.all([
-    doc.company_id ? queryOne("SELECT * FROM companies WHERE id = $1", [doc.company_id]) : null,
-    doc.customer_id ? queryOne("SELECT * FROM customers WHERE id = $1", [doc.customer_id]) : null,
-    query("SELECT * FROM document_items WHERE document_id = $1 ORDER BY row_no ASC", [id]),
-    doc.source_document_id
-      ? queryOne("SELECT id, type, number, status FROM documents WHERE id = $1", [doc.source_document_id])
-      : null,
-    query("SELECT id, type, number, status FROM documents WHERE source_document_id = $1 ORDER BY created_at", [id]),
+  const [companies, customers, itemRows, sources, derivedRows] = await Promise.all([
+    companyIds.length ? query("SELECT * FROM companies WHERE id = ANY($1)", [companyIds]) : [],
+    customerIds.length ? query("SELECT * FROM customers WHERE id = ANY($1)", [customerIds]) : [],
+    query("SELECT * FROM document_items WHERE document_id = ANY($1) ORDER BY row_no ASC", [ids]),
+    sourceIds.length ? query("SELECT id, type, number, status FROM documents WHERE id = ANY($1)", [sourceIds]) : [],
+    query(
+      "SELECT id, type, number, status, source_document_id FROM documents WHERE source_document_id = ANY($1) ORDER BY created_at",
+      [ids]
+    ),
   ]);
 
-  const items = itemRows.map(rowToItem);
-  const totals = computeDocumentTotals(
-    items.map((i: any) => ({ quantity: i.quantity, unitPrice: i.unitPrice, discount: i.discount, taxRate: i.taxRate }))
-  );
+  const companyById = byId(companies);
+  const customerById = byId(customers);
+  const sourceById = byId(sources);
+  const itemsByDoc = new Map<string, any[]>();
+  for (const r of itemRows) {
+    const list = itemsByDoc.get(r.document_id) ?? [];
+    list.push(rowToItem(r));
+    itemsByDoc.set(r.document_id, list);
+  }
+  const derivedByDoc = new Map<string, any[]>();
+  for (const r of derivedRows) {
+    const list = derivedByDoc.get(r.source_document_id) ?? [];
+    list.push(rowToLink(r));
+    derivedByDoc.set(r.source_document_id, list);
+  }
 
-  return {
-    id: doc.id,
-    type: doc.type,
-    number: doc.number,
-    status: doc.status,
-    issueDate: doc.issue_date,
-    company: rowToCompany(company),
-    customer: rowToCustomer(customer),
-    buyerName: doc.buyer_name,
-    buyerNationalId: doc.buyer_national_id,
-    buyerEconomicCode: doc.buyer_economic_code,
-    buyerProvince: doc.buyer_province,
-    buyerCity: doc.buyer_city,
-    buyerAddress: doc.buyer_address,
-    buyerPostalCode: doc.buyer_postal_code,
-    buyerPhone: doc.buyer_phone,
-    relatedInvoiceNo: doc.related_invoice_no,
-    vehiclePlate: doc.vehicle_plate,
-    vehicleColor: doc.vehicle_color,
-    deliveredToName: doc.delivered_to_name,
-    deliveredToNationalId: doc.delivered_to_national_id,
-    notes: doc.notes,
-    items,
-    totals,
-    createdByName: doc.created_by_name,
-    issuedAt: doc.issued_at,
-    issuedByName: doc.issued_by_name,
-    cancelledAt: doc.cancelled_at,
-    cancelledByName: doc.cancelled_by_name,
-    cancelReason: doc.cancel_reason,
-    source: rowToLink(source),
-    derived: derived.map(rowToLink),
-  };
+  const docById = byId(docs);
+  return ids
+    .map((id) => docById.get(id))
+    .filter(Boolean)
+    .map((doc) => {
+      const items = itemsByDoc.get(doc.id) ?? [];
+      return {
+        id: doc.id,
+        type: doc.type,
+        number: doc.number,
+        status: doc.status,
+        issueDate: doc.issue_date,
+        company: rowToCompany(companyById.get(doc.company_id)),
+        customer: rowToCustomer(customerById.get(doc.customer_id)),
+        buyerName: doc.buyer_name,
+        buyerNationalId: doc.buyer_national_id,
+        buyerEconomicCode: doc.buyer_economic_code,
+        buyerProvince: doc.buyer_province,
+        buyerCity: doc.buyer_city,
+        buyerAddress: doc.buyer_address,
+        buyerPostalCode: doc.buyer_postal_code,
+        buyerPhone: doc.buyer_phone,
+        relatedInvoiceNo: doc.related_invoice_no,
+        vehiclePlate: doc.vehicle_plate,
+        vehicleColor: doc.vehicle_color,
+        deliveredToName: doc.delivered_to_name,
+        deliveredToNationalId: doc.delivered_to_national_id,
+        notes: doc.notes,
+        items,
+        totals: computeDocumentTotals(
+          items.map((i) => ({ quantity: i.quantity, unitPrice: i.unitPrice, discount: i.discount, taxRate: i.taxRate }))
+        ),
+        createdByName: doc.created_by_name,
+        issuedAt: doc.issued_at,
+        issuedByName: doc.issued_by_name,
+        cancelledAt: doc.cancelled_at,
+        cancelledByName: doc.cancelled_by_name,
+        cancelReason: doc.cancel_reason,
+        source: rowToLink(sourceById.get(doc.source_document_id)),
+        derived: derivedByDoc.get(doc.id) ?? [],
+      };
+    });
+}
+
+async function loadDocument(id: string) {
+  const [doc] = await loadDocuments([id]);
+  return doc ?? null;
 }
 
 const itemSchema = z.object({
@@ -235,17 +243,26 @@ const totalsFor = (items: ItemInput[]) =>
     items.map((i) => ({ quantity: i.quantity, unitPrice: i.unitPrice, discount: i.discount, taxRate: i.taxRate }))
   );
 
+// GET /api/documents?type=&customerId=
 documentsRouter.get("/", async (req, res, next) => {
   try {
-    const { type } = req.query as { type?: string };
+    const { type, customerId } = req.query as { type?: string; customerId?: string };
+    const conditions: string[] = [];
+    const params: string[] = [];
+    if (type) {
+      params.push(type);
+      conditions.push(`type = $${params.length}`);
+    }
+    if (customerId) {
+      params.push(customerId);
+      conditions.push(`customer_id = $${params.length}`);
+    }
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const ids = await query<{ id: string }>(
-      type
-        ? "SELECT id FROM documents WHERE type = $1 ORDER BY number DESC"
-        : "SELECT id FROM documents ORDER BY type ASC, number DESC",
-      type ? [type] : []
+      `SELECT id FROM documents ${where} ORDER BY ${type ? "" : "type ASC, "}number DESC`,
+      params
     );
-    const docs = await Promise.all(ids.map((r) => loadDocument(r.id)));
-    res.json(docs);
+    res.json(await loadDocuments(ids.map((r) => r.id)));
   } catch (err) {
     next(err);
   }
@@ -265,7 +282,7 @@ documentsRouter.post("/", async (req, res, next) => {
   try {
     const data = documentSchema.parse(req.body);
     if (!canWrite(res, data.type)) return forbidden(res);
-    const company = await queryOne("SELECT id FROM companies LIMIT 1");
+    const company = await currentCompany();
     const totals = totalsFor(data.items);
 
     const id = await withTransaction(async (client) => {
@@ -365,7 +382,16 @@ documentsRouter.put("/:id", async (req, res, next) => {
   }
 });
 
+// Locks the document row and re-reads its status inside the transaction, so two
+// simultaneous issue/cancel requests can't both book stock.
+async function lockedStatus(client: PoolClient, id: string) {
+  const r = await client.query<{ status: string }>("SELECT status FROM documents WHERE id = $1 FOR UPDATE", [id]);
+  return r.rows[0]?.status;
+}
+
 // DRAFT -> ISSUED. The document date becomes the issue date, and it's locked from now on.
+// A goods issue is booked out of stock even when stock is short (stock may go
+// negative); the shortfalls come back as `stockWarnings`.
 documentsRouter.post("/:id/issue", async (req, res, next) => {
   try {
     const existing = await queryOne("SELECT * FROM documents WHERE id = $1", [req.params.id]);
@@ -378,12 +404,24 @@ documentsRouter.post("/:id/issue", async (req, res, next) => {
     );
     if (!items?.n) return res.status(400).json({ error: "A document needs at least one item" });
 
-    await query(
-      `UPDATE documents SET status='ISSUED', issued_at=now(), issued_by=$2, issue_date=now(), updated_at=now()
-       WHERE id=$1`,
-      [req.params.id, currentUser(res).id]
-    );
-    res.json(await loadDocument(req.params.id));
+    const userId = currentUser(res).id;
+    const stockWarnings = await withTransaction<StockWarning[] | null>(async (client) => {
+      if ((await lockedStatus(client, req.params.id)) !== "DRAFT") return null;
+      let warnings: StockWarning[] = [];
+      if (existing.type === "GOODS_ISSUE") {
+        warnings = await stockShortfalls(req.params.id, client);
+        await postGoodsIssueMovements(client, req.params.id, userId);
+      }
+      await client.query(
+        `UPDATE documents SET status='ISSUED', issued_at=now(), issued_by=$2, issue_date=now(), updated_at=now()
+         WHERE id=$1`,
+        [req.params.id, userId]
+      );
+      return warnings;
+    });
+    if (stockWarnings === null) return res.status(409).json({ error: "Only draft documents can be issued" });
+
+    res.json({ ...(await loadDocument(req.params.id)), stockWarnings });
   } catch (err) {
     next(err);
   }
@@ -406,11 +444,19 @@ documentsRouter.post("/:id/cancel", async (req, res, next) => {
       return res.status(409).json({ error: "Cancel the documents created from this one first", blocking: rowToLink(active) });
     }
 
-    await query(
-      `UPDATE documents SET status='CANCELLED', cancelled_at=now(), cancelled_by=$2, cancel_reason=$3, updated_at=now()
-       WHERE id=$1`,
-      [req.params.id, currentUser(res).id, reason || null]
-    );
+    const userId = currentUser(res).id;
+    const done = await withTransaction(async (client) => {
+      if ((await lockedStatus(client, req.params.id)) !== "ISSUED") return false;
+      if (existing.type === "GOODS_ISSUE") await reverseGoodsIssueMovements(client, req.params.id, userId);
+      await client.query(
+        `UPDATE documents SET status='CANCELLED', cancelled_at=now(), cancelled_by=$2, cancel_reason=$3, updated_at=now()
+         WHERE id=$1`,
+        [req.params.id, userId, reason || null]
+      );
+      return true;
+    });
+    if (!done) return res.status(409).json({ error: "Only issued documents can be cancelled" });
+
     res.json(await loadDocument(req.params.id));
   } catch (err) {
     next(err);

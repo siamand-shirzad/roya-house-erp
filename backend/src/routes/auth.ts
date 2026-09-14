@@ -5,6 +5,8 @@ import {
   clearFailures,
   clearSessionCookie,
   createSession,
+  deleteOtherSessions,
+  type AuthUser,
   deleteSession,
   hashPassword,
   isThrottled,
@@ -111,4 +113,36 @@ authRouter.post("/logout", async (req, res, next) => {
 
 authRouter.get("/me", requireAuth, (_req, res) => {
   res.json(res.locals.user);
+});
+
+// POST /api/auth/password: a signed-in user changes their own password.
+// Other devices are signed out; this session stays.
+authRouter.post("/password", requireAuth, async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = z
+      .object({ currentPassword: z.string().min(1), newPassword: passwordSchema })
+      .parse(req.body);
+    const user = res.locals.user as AuthUser;
+    const key = `password|${user.id}|${req.ip}`;
+    if (isThrottled(key)) {
+      return res.status(429).json({ error: "Too many failed attempts. Try again in a few minutes." });
+    }
+
+    const row = await queryOne("SELECT password_hash FROM users WHERE id = $1", [user.id]);
+    // 400, not 401: a wrong current password must not sign the user out.
+    if (!(await verifyPassword(currentPassword, row?.password_hash ?? null))) {
+      recordFailure(key);
+      return res.status(400).json({ error: "Current password is incorrect" });
+    }
+
+    clearFailures(key);
+    await query("UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1", [
+      user.id,
+      await hashPassword(newPassword),
+    ]);
+    await deleteOtherSessions(user.id, readSessionToken(req));
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
 });

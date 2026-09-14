@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { Download, Ellipsis, Eye, LoaderCircle, Plus, Search, Trash } from "lucide-react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Download, Ellipsis, Eye, LoaderCircle, Plus, Search, Trash, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-provider";
@@ -67,17 +67,30 @@ export function DocumentListPage() {
   const [deleting, setDeleting] = useState<Document | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const pdf = useDocumentPdfExport();
+  // ?customer=<id> (from the customers page) narrows the list to one customer.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const customerId = searchParams.get("customer");
+  const [customerName, setCustomerName] = useState<string | null>(null);
 
   useEffect(() => {
     if (!type) return;
     setLoading(true);
     setError(null);
     api.documents
-      .list(type)
+      .list({ type, customerId: customerId ?? undefined })
       .then(setDocs)
       .catch((err) => setError(errorMessage(err)))
       .finally(() => setLoading(false));
-  }, [type]);
+  }, [type, customerId]);
+
+  useEffect(() => {
+    setCustomerName(null);
+    if (!customerId) return;
+    api.customers
+      .get(customerId)
+      .then((c) => setCustomerName(c.name))
+      .catch(() => setCustomerName("مشتری"));
+  }, [customerId]);
 
   const rows = useMemo(
     () =>
@@ -89,13 +102,15 @@ export function DocumentListPage() {
     [docs, q, status]
   );
 
-  const pager = usePagination(rows, `${type}|${q}|${status}`);
+  const pager = usePagination(rows, `${type}|${q}|${status}|${customerId}`);
 
   if (!type) {
     return <div className="p-8 text-center text-muted-foreground">نوع سند نامعتبر است.</div>;
   }
 
-  const newHref = `/documents/${typeSlug}/new`;
+  const customerSearch = customerId ? `?customer=${encodeURIComponent(customerId)}` : "";
+  // A new document from a customer-filtered list starts with that customer as buyer.
+  const newHref = `/documents/${typeSlug}/new${customerSearch}`;
   const canWrite = user ? DOCUMENT_WRITE_ROLES[type].includes(user.role) : false;
   const filtered = q.trim() !== "" || status !== "ALL";
 
@@ -118,7 +133,7 @@ export function DocumentListPage() {
   return (
     <div className="space-y-4 p-4 md:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <DocumentTypeTabs active={type} />
+        <DocumentTypeTabs active={type} search={customerSearch} />
         {canWrite && (
           <Button asChild>
             <Link to={newHref}>
@@ -139,6 +154,20 @@ export function DocumentListPage() {
           />
         </div>
         <SegmentedControl size="sm" ariaLabel="وضعیت سند" items={STATUS_FILTERS} value={status} onValueChange={setStatus} />
+        {customerId && (
+          <Badge variant="outline" className="gap-1 py-1">
+            مشتری: {customerName ?? "..."}
+            <button
+              type="button"
+              onClick={() => setSearchParams({}, { replace: true })}
+              className="rounded-sm opacity-60 hover:opacity-100"
+              title="نمایش اسناد همه مشتریان"
+            >
+              <X className="size-3.5" />
+              <span className="sr-only">نمایش اسناد همه مشتریان</span>
+            </button>
+          </Badge>
+        )}
         <span className="text-sm text-muted-foreground tabular-nums sm:ms-auto">
           {loading
             ? "در حال بارگذاری..."

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Tags } from "lucide-react";
+import { Warehouse } from "lucide-react";
 
 import { AnimatedNumber } from "@/components/animated-number";
 import {
@@ -15,8 +15,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DocumentTypeIcon } from "@/lib/icons";
 import { formatNumber, formatToman } from "@/lib/format";
 import { REVEAL, stagger } from "@/lib/motion";
+import { stockLevel } from "@/lib/stock";
 import { cn } from "@/lib/utils";
-import type { Document, Product } from "@/types";
+import type { Document, StockRow } from "@/types";
 
 function StatCard({
   label,
@@ -59,17 +60,19 @@ function StatCard({
   );
 }
 
-// Headline counts. The dashboard loads documents and products once and passes
+// Headline counts. The dashboard loads documents and stock once and passes
 // them down; these cards used to fetch four lists of their own.
 export function SectionCards({
   documents,
-  products,
+  stock,
   loading,
 }: {
   documents: Document[];
-  products: Product[];
+  /** One row per active product (GET /api/inventory/stock). */
+  stock: StockRow[];
   loading: boolean;
 }) {
+  const lowStock = stock.filter((r) => stockLevel(r) !== "ok").length;
   const issuedInvoices = documents.filter((d) => d.type === "INVOICE" && d.status === "ISSUED");
   const invoiceTotal = issuedInvoices.reduce((sum, d) => sum + d.totals.grandTotal, 0);
   const count = (type: Document["type"]) => documents.filter((d) => d.type === type).length;
@@ -105,11 +108,11 @@ export function SectionCards({
       />
       <StatCard
         index={3}
-        label="کالاهای فهرست قیمت"
-        value={<AnimatedNumber value={products.length} format={formatNumber} />}
-        footer="کالای فعال در کاتالوگ رویا هاوس"
-        icon={<Tags />}
-        to="/products"
+        label="کالاهای کم‌موجود"
+        value={<AnimatedNumber value={lowStock} format={formatNumber} />}
+        footer={`از ${formatNumber(stock.length)} کالای فعال در انبار`}
+        icon={<Warehouse />}
+        to={lowStock ? "/inventory?low=1" : "/inventory"}
         loading={loading}
       />
     </div>

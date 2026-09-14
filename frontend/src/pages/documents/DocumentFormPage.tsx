@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,14 +39,17 @@ import {
   DOCUMENT_TYPE_LABELS,
   DOCUMENT_WRITE_ROLES,
   NEXT_DOCUMENT_TYPE,
+  type Company,
   type Customer,
   type Document,
   type DocumentItem,
+  type DocumentLink,
   type DocumentType,
+  type StockWarning,
 } from "@/types";
 import { toast } from "sonner";
-import { api, errorMessage } from "@/lib/api";
-import { toDisplayDigits, formatJalaliDate } from "@/lib/format";
+import { api, ApiError, errorMessage } from "@/lib/api";
+import { toDisplayDigits, formatJalaliDate, formatNumber } from "@/lib/format";
 
 const EMPTY_BUYER: BuyerFormState = {
   buyerName: "",
@@ -81,6 +84,76 @@ const STATUS_BADGE: Record<Document["status"], { label: string; className: strin
   },
 };
 
+const buyerFromDoc = (doc: Document): BuyerFormState => ({
+  buyerName: doc.buyerName ?? "",
+  buyerNationalId: doc.buyerNationalId ?? "",
+  buyerEconomicCode: doc.buyerEconomicCode ?? "",
+  buyerProvince: doc.buyerProvince ?? "",
+  buyerCity: doc.buyerCity ?? "",
+  buyerAddress: doc.buyerAddress ?? "",
+  buyerPostalCode: doc.buyerPostalCode ?? "",
+  buyerPhone: doc.buyerPhone ?? "",
+});
+
+const goodsIssueFromDoc = (doc: Document): GoodsIssueFormState => ({
+  relatedInvoiceNo: doc.relatedInvoiceNo ?? "",
+  deliveredToName: doc.deliveredToName ?? "",
+  deliveredToNationalId: doc.deliveredToNationalId ?? "",
+  vehicleColor: doc.vehicleColor ?? "",
+  vehiclePlate: doc.vehiclePlate ?? "",
+});
+
+// What gets sent on save. Also serialized to tell whether the form differs
+// from what the server has (so "issue" never issues a stale version).
+function buildPayload(
+  type: DocumentType,
+  items: DocumentItem[],
+  customerId: string | null,
+  buyer: BuyerFormState,
+  goodsIssue: GoodsIssueFormState,
+  notes: string
+) {
+  return {
+    type,
+    items: items.map((it) => ({
+      productId: it.productId ?? undefined,
+      name: it.name,
+      spec: it.spec ?? undefined,
+      unit: it.unit,
+      quantity: it.quantity,
+      unitPrice: it.unitPrice,
+      discount: it.discount ?? 0,
+      taxRate: it.taxRate ?? 0,
+    })),
+    customerId,
+    ...buyer,
+    ...(typeNeedsGoodsIssueFields(type) ? goodsIssue : {}),
+    notes,
+  };
+}
+
+/** Products on the form whose total quantity is more than the stock on hand. */
+function shortfallsFor(items: DocumentItem[], stock: Map<string, number>): StockWarning[] {
+  const requested = new Map<string, StockWarning>();
+  for (const it of items) {
+    if (!it.productId) continue;
+    const row = requested.get(it.productId);
+    if (row) row.requested += it.quantity;
+    else
+      requested.set(it.productId, {
+        productId: it.productId,
+        name: it.name,
+        unit: it.unit,
+        requested: it.quantity,
+        available: stock.get(it.productId) ?? 0,
+      });
+  }
+  return [...requested.values()].filter((r) => r.requested > r.available);
+}
+
+const toStockMap = (rows: { productId: string; onHand: number }[]) =>
+  new Map(rows.map((r) => [r.productId, r.onHand]));
+
 export function DocumentFormPage() {
   const { typeSlug, id } = useParams<{ typeSlug: string; id?: string }>();
   const navigate = useNavigate();
@@ -103,9 +176,16 @@ export function DocumentFormPage() {
   const [goodsIssue, setGoodsIssue] = useState<GoodsIssueFormState>(EMPTY_GOODS_ISSUE);
   const [notes, setNotes] = useState("");
   const [savedDoc, setSavedDoc] = useState<Document | null>(null);
+  // JSON of the payload the server last confirmed; compared to detect unsaved edits.
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  // Seller block for the preview of a document that hasn't been saved yet.
+  const [company, setCompany] = useState<Company | null>(null);
+  // Goods issues only: stock on hand per product, and the shortfalls awaiting confirmation.
+  const [stock, setStock] = useState<Map<string, number> | null>(null);
+  const [shortages, setShortages] = useState<StockWarning[] | null>(null);
 
   // "New document for this customer" (customers page) arrives as ?customer=<id>.
   const [searchParams] = useSearchParams();
@@ -119,39 +199,59 @@ export function DocumentFormPage() {
   }, [presetCustomerId]);
 
   useEffect(() => {
-    if (!id) return;
+    if (id) return;
+    api.company
+      .get()
+      .then(setCompany)
+      .catch(() => undefined);
+  }, [id]);
+
+  useEffect(() => {
+    if (type !== "GOODS_ISSUE") return;
+    api.inventory
+      .stock()
+      .then((rows) => setStock(toStockMap(rows)))
+      .catch(() => setStock(null));
+  }, [type]);
+
+  useEffect(() => {
+    if (!id || !type) return;
     setLoading(true);
     setError(null);
     api.documents
       .get(id)
       .then((doc) => {
+        const loadedBuyer = buyerFromDoc(doc);
+        const loadedGoodsIssue = goodsIssueFromDoc(doc);
         setSavedDoc(doc);
         setItems(doc.items);
         setCustomerId(doc.customer?.id ?? null);
         setCustomerName(doc.customer?.name ?? null);
         setBuyerOpen(!doc.buyerName);
-        setBuyer({
-          buyerName: doc.buyerName ?? "",
-          buyerNationalId: doc.buyerNationalId ?? "",
-          buyerEconomicCode: doc.buyerEconomicCode ?? "",
-          buyerProvince: doc.buyerProvince ?? "",
-          buyerCity: doc.buyerCity ?? "",
-          buyerAddress: doc.buyerAddress ?? "",
-          buyerPostalCode: doc.buyerPostalCode ?? "",
-          buyerPhone: doc.buyerPhone ?? "",
-        });
-        setGoodsIssue({
-          relatedInvoiceNo: doc.relatedInvoiceNo ?? "",
-          deliveredToName: doc.deliveredToName ?? "",
-          deliveredToNationalId: doc.deliveredToNationalId ?? "",
-          vehicleColor: doc.vehicleColor ?? "",
-          vehiclePlate: doc.vehiclePlate ?? "",
-        });
+        setBuyer(loadedBuyer);
+        setGoodsIssue(loadedGoodsIssue);
         setNotes(doc.notes ?? "");
+        setSavedSnapshot(
+          JSON.stringify(
+            buildPayload(type, doc.items, doc.customer?.id ?? null, loadedBuyer, loadedGoodsIssue, doc.notes ?? "")
+          )
+        );
       })
       .catch((err) => setError(`بارگذاری سند ناموفق بود: ${errorMessage(err)}`))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, type]);
+
+  // Warn before closing the tab or reloading with edits that aren't saved.
+  const unsavedRef = useRef(false);
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!unsavedRef.current) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
 
   if (!type) {
     return <div className="p-8 text-center text-muted-foreground">نوع سند نامعتبر است.</div>;
@@ -163,23 +263,16 @@ export function DocumentFormPage() {
   const locked = !isDraft; // issued/cancelled documents are read-only from here on
   const editable = canWrite && isDraft;
 
+  const payload = buildPayload(type, items, customerId, buyer, goodsIssue, notes);
+  const dirty = editable && (savedDoc ? JSON.stringify(payload) !== savedSnapshot : items.length > 0);
+  unsavedRef.current = dirty && !loading;
+
   const previewDoc: Document = savedDoc
     ? {
         ...savedDoc,
         items,
-        buyerName: buyer.buyerName,
-        buyerNationalId: buyer.buyerNationalId,
-        buyerEconomicCode: buyer.buyerEconomicCode,
-        buyerProvince: buyer.buyerProvince,
-        buyerCity: buyer.buyerCity,
-        buyerAddress: buyer.buyerAddress,
-        buyerPostalCode: buyer.buyerPostalCode,
-        buyerPhone: buyer.buyerPhone,
-        relatedInvoiceNo: goodsIssue.relatedInvoiceNo,
-        deliveredToName: goodsIssue.deliveredToName,
-        deliveredToNationalId: goodsIssue.deliveredToNationalId,
-        vehicleColor: goodsIssue.vehicleColor,
-        vehiclePlate: goodsIssue.vehiclePlate,
+        ...buyer,
+        ...goodsIssue,
         notes,
       }
     : {
@@ -188,21 +281,10 @@ export function DocumentFormPage() {
         number: 0,
         status: "DRAFT",
         issueDate: new Date().toISOString(),
-        company: { id: "", name: "رویا هاوس", legalName: null, nationalId: null, economicCode: null, registration: null, province: "تهران", city: "تهران", address: "تهران، چهاردانگه به آزادگان شرق، خیابان غفاری، خیابان عرفان، عرفان یکم غربی، پلاک 105", postalCode: null, phone: "09357205000 / 09356115000", fax: null, logoUrl: null },
+        company,
         customer: null,
-        buyerName: buyer.buyerName,
-        buyerNationalId: buyer.buyerNationalId,
-        buyerEconomicCode: buyer.buyerEconomicCode,
-        buyerProvince: buyer.buyerProvince,
-        buyerCity: buyer.buyerCity,
-        buyerAddress: buyer.buyerAddress,
-        buyerPostalCode: buyer.buyerPostalCode,
-        buyerPhone: buyer.buyerPhone,
-        relatedInvoiceNo: goodsIssue.relatedInvoiceNo,
-        vehiclePlate: goodsIssue.vehiclePlate,
-        vehicleColor: goodsIssue.vehicleColor,
-        deliveredToName: goodsIssue.deliveredToName,
-        deliveredToNationalId: goodsIssue.deliveredToNationalId,
+        ...buyer,
+        ...goodsIssue,
         notes,
         items,
         totals: { subtotal: 0, discountTotal: 0, taxTotal: 0, grandTotal: 0 },
@@ -224,45 +306,56 @@ export function DocumentFormPage() {
     });
   }
 
-  async function handleSave() {
-    if (items.length === 0) return;
+  /** Saves the form; returns the saved document, or null (with the error shown). */
+  async function saveDocument(): Promise<Document | null> {
+    if (items.length === 0) return null;
     const invalidRow = items.findIndex((it) => !it.name.trim() || !it.unit.trim() || !(it.quantity > 0));
     if (invalidRow !== -1) {
-      setError(`ردیف ${invalidRow + 1}: نام کالا، واحد و تعداد (بیشتر از صفر) الزامی است.`);
-      return;
+      setError(`ردیف ${toDisplayDigits(invalidRow + 1)}: نام کالا، واحد و تعداد (بیشتر از صفر) الزامی است.`);
+      return null;
     }
     setError(null);
     setSaving(true);
     try {
-      const payload = {
-        type,
-        items: items.map((it) => ({
-          productId: it.productId ?? undefined,
-          name: it.name,
-          spec: it.spec ?? undefined,
-          unit: it.unit,
-          quantity: it.quantity,
-          unitPrice: it.unitPrice,
-          discount: it.discount ?? 0,
-          taxRate: it.taxRate ?? 0,
-        })),
-        customerId,
-        ...buyer,
-        ...(typeNeedsGoodsIssueFields(type) ? goodsIssue : {}),
-        notes,
-      };
-
       const doc = savedDoc
         ? await api.documents.update(savedDoc.id, payload)
         : await api.documents.create(payload);
-
       setSavedDoc(doc);
-      if (!id) navigate(`/documents/${typeSlug}/${doc.id}`, { replace: true });
+      setSavedSnapshot(JSON.stringify(payload));
+      if (!id) {
+        // The new URL remounts this page; don't let the unsaved-changes guard fire.
+        unsavedRef.current = false;
+        navigate(`/documents/${typeSlug}/${doc.id}`, { replace: true });
+      }
+      return doc;
     } catch (err) {
       setError(`ذخیره سند ناموفق بود: ${errorMessage(err)}`);
+      return null;
     } finally {
       setSaving(false);
     }
+  }
+
+  // Issue button: for a goods issue, check stock first and ask before booking
+  // more than is on hand (stock may go negative, but not silently).
+  async function requestIssue() {
+    if (!savedDoc) return;
+    if (type === "GOODS_ISSUE") {
+      setBusyAction("issue");
+      try {
+        const fresh = toStockMap(await api.inventory.stock());
+        setStock(fresh);
+        const short = shortfallsFor(items, fresh);
+        if (short.length) {
+          setShortages(short);
+          setBusyAction(null);
+          return;
+        }
+      } catch {
+        // Stock couldn't be read; issue anyway, the server still reports shortfalls.
+      }
+    }
+    await handleIssue();
   }
 
   async function handleIssue() {
@@ -270,8 +363,20 @@ export function DocumentFormPage() {
     setError(null);
     setBusyAction("issue");
     try {
-      setSavedDoc(await api.documents.issue(savedDoc.id));
+      // Issue exactly what is on screen: save pending edits first.
+      if (dirty && !(await saveDocument())) return;
+      const { stockWarnings, ...issued } = await api.documents.issue(savedDoc.id);
+      setSavedDoc(issued);
+      setShortages(null);
+      if (stockWarnings?.length) {
+        toast.warning(`موجودی ${toDisplayDigits(stockWarnings.length)} کالا منفی شد.`, {
+          description: stockWarnings.map((w) => w.name).join("، "),
+        });
+      } else if (type === "GOODS_ISSUE") {
+        toast.success("حواله صادر شد و از موجودی انبار کسر شد.");
+      }
     } catch (err) {
+      setShortages(null);
       setError(`صدور سند ناموفق بود: ${errorMessage(err)}`);
     } finally {
       setBusyAction(null);
@@ -286,6 +391,7 @@ export function DocumentFormPage() {
       setSavedDoc(await api.documents.cancel(savedDoc.id, cancelReason.trim() || undefined));
       setConfirmingCancel(false);
       setCancelReason("");
+      if (type === "GOODS_ISSUE") toast.success("حواله باطل شد و کالاها به موجودی برگشت.");
     } catch (err) {
       // Close the dialog first, or the reason it failed renders behind it.
       setConfirmingCancel(false);
@@ -301,13 +407,14 @@ export function DocumentFormPage() {
     setBusyAction("convert");
     try {
       const doc = await api.documents.convert(savedDoc.id, to);
-      if ((doc as any).existing) {
-        const existing = (doc as any).existing;
-        navigate(`/documents/${TYPE_TO_SLUG[existing.type as DocumentType]}/${existing.id}`);
-        return;
-      }
       navigate(`/documents/${TYPE_TO_SLUG[to]}/${doc.id}`);
     } catch (err) {
+      // Already converted: open the document that exists instead of failing.
+      const existing = err instanceof ApiError && err.status === 409 ? (err.body.existing as DocumentLink) : null;
+      if (existing) {
+        navigate(`/documents/${TYPE_TO_SLUG[existing.type]}/${existing.id}`);
+        return;
+      }
       setError(`تبدیل سند ناموفق بود: ${errorMessage(err)}`);
     } finally {
       setBusyAction(null);
@@ -326,6 +433,7 @@ export function DocumentFormPage() {
   const nextType = NEXT_DOCUMENT_TYPE[type];
   const activeDerived = savedDoc?.derived?.find((d) => d.status !== "CANCELLED" && d.type === nextType);
   const canConvert = nextType && user && DOCUMENT_WRITE_ROLES[nextType].includes(user.role);
+  const SHORTAGE_PREVIEW = 5;
 
   return (
     // On very wide screens the preview sits beside the editor and stays in view;
@@ -467,22 +575,33 @@ export function DocumentFormPage() {
             <CardTitle>اقلام</CardTitle>
           </CardHeader>
           <CardContent>
-            <ItemsEditor type={type} items={items} onChange={setItems} disabled={!editable} />
+            {/* Stock is only meaningful before issuing; afterwards this document is already deducted. */}
+            <ItemsEditor
+              type={type}
+              items={items}
+              onChange={setItems}
+              disabled={!editable}
+              stock={isDraft ? (stock ?? undefined) : undefined}
+            />
           </CardContent>
         </Card>
 
         <div className="flex flex-wrap items-center gap-2">
           {editable && (
-            <Button onClick={handleSave} disabled={saving || items.length === 0}>
+            <Button onClick={saveDocument} disabled={saving || items.length === 0 || (!!savedDoc && !dirty)}>
               {saving ? <LoaderCircle className="animate-spin" /> : <Save />}
               {savedDoc ? "ذخیره تغییرات" : "ثبت سند"}
             </Button>
           )}
 
           {editable && savedDoc?.status === "DRAFT" && (
-            <Button variant="outline" onClick={handleIssue} disabled={busyAction !== null || items.length === 0}>
+            <Button
+              variant="outline"
+              onClick={requestIssue}
+              disabled={busyAction !== null || saving || items.length === 0}
+            >
               {busyAction === "issue" ? <LoaderCircle className="animate-spin" /> : <Stamp />}
-              صدور سند
+              {dirty ? "ذخیره و صدور سند" : "صدور سند"}
             </Button>
           )}
 
@@ -501,6 +620,10 @@ export function DocumentFormPage() {
               )}
               تبدیل به {DOCUMENT_TYPE_LABELS[nextType].short}
             </Button>
+          )}
+
+          {dirty && savedDoc && !saving && (
+            <span className="text-sm text-muted-foreground">تغییرات ذخیره نشده</span>
           )}
         </div>
 
@@ -525,6 +648,52 @@ export function DocumentFormPage() {
         />
 
         <AlertDialog
+          open={shortages !== null}
+          onOpenChange={(open) => {
+            if (!open && busyAction !== "issue") setShortages(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>موجودی انبار کافی نیست</AlertDialogTitle>
+              <AlertDialogDescription>
+                با صدور این حواله، موجودی کالاهای زیر منفی می‌شود. اگر کالا واقعاً تحویل شده، صادر کنید و بعد
+                ورود کالا یا اصلاح موجودی را ثبت کنید.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <ul className="divide-y rounded-md border text-sm">
+              {shortages?.slice(0, SHORTAGE_PREVIEW).map((s) => (
+                <li key={s.productId} className="flex items-center justify-between gap-3 px-3 py-2">
+                  <span className="truncate">{s.name}</span>
+                  <span className="shrink-0 tabular-nums text-muted-foreground">
+                    موجودی {formatNumber(s.available)} · درخواست{" "}
+                    <span className="font-medium text-destructive">{formatNumber(s.requested)}</span> {s.unit}
+                  </span>
+                </li>
+              ))}
+              {shortages && shortages.length > SHORTAGE_PREVIEW && (
+                <li className="px-3 py-2 text-muted-foreground">
+                  و {toDisplayDigits(shortages.length - SHORTAGE_PREVIEW)} مورد دیگر
+                </li>
+              )}
+            </ul>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busyAction === "issue"}>انصراف</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleIssue();
+                }}
+                disabled={busyAction !== null}
+              >
+                {busyAction === "issue" ? <LoaderCircle className="animate-spin" /> : <Stamp />}
+                صدور با این حال
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog
           open={confirmingCancel}
           onOpenChange={(open) => {
             if (busyAction === "cancel") return;
@@ -538,6 +707,7 @@ export function DocumentFormPage() {
               <AlertDialogDescription>
                 سند صادرشده حذف نمی‌شود؛ باطل می‌ماند و شماره‌اش دیگر استفاده نمی‌شود. این کار
                 برگشت‌پذیر نیست.
+                {type === "GOODS_ISSUE" && " کالاهای این حواله به موجودی انبار برمی‌گردند."}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="grid gap-2 text-start">

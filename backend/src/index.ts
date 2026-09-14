@@ -11,6 +11,8 @@ import { usersRouter } from "./routes/users";
 import { authRouter } from "./routes/auth";
 import { publicRouter } from "./routes/public";
 import { reportsRouter } from "./routes/reports";
+import { companyRouter, ensureCompany } from "./routes/company";
+import { inventoryRouter } from "./routes/inventory";
 import { authenticate, requireAuth, requireRole } from "./lib/auth";
 import { pool, SCHEMA_SQL } from "./lib/db";
 
@@ -45,6 +47,9 @@ app.use("/api/products", (req, res, next) => (req.method === "GET" ? next() : re
 app.use("/api/products", productsRouter);
 app.use("/api/customers", customersRouter);
 app.use("/api/documents", documentsRouter);
+app.use("/api/company", companyRouter);
+// Everyone reads stock; the router itself limits writes to ADMIN and WAREHOUSE.
+app.use("/api/inventory", inventoryRouter);
 app.use("/api/users", requireRole("ADMIN"), usersRouter);
 // Revenue figures: management and accounting only.
 app.use("/api/reports", requireRole("ADMIN", "ACCOUNTANT"), reportsRouter);
@@ -104,6 +109,7 @@ if (!process.env.DATABASE_URL) {
 
 pool
   .query(SCHEMA_SQL)
+  .then(ensureCompany)
   .then(() => {
     // Bind all IPv4 interfaces explicitly: platforms such as Liara route to
     // 0.0.0.0 inside the container, and node's default (::) is not guaranteed there.

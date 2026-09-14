@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Contact, Ellipsis, LoaderCircle, Pencil, Plus, Search, TriangleAlert } from "lucide-react";
+import { Contact, Ellipsis, FileStack, LoaderCircle, Pencil, Plus, Search, Trash, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
@@ -8,6 +8,16 @@ import { useAuth } from "@/components/auth-provider";
 import { CustomerFormDialog } from "@/components/customers/CustomerFormDialog";
 import { ListPagination, usePagination } from "@/components/list-pagination";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -37,6 +47,25 @@ export function CustomersPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const canSell = user ? DOCUMENT_WRITE_ROLES.PROFORMA.includes(user.role) : false;
+  // Same roles as the API's DELETE /customers/:id.
+  const canDelete = user ? user.role === "ADMIN" || user.role === "SALES" : false;
+  const [deleting, setDeleting] = useState<Customer | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  async function confirmDelete() {
+    if (!deleting) return;
+    setDeleteBusy(true);
+    try {
+      await api.customers.remove(deleting.id);
+      setCustomers((list) => list.filter((c) => c.id !== deleting.id));
+      toast.success(`«${deleting.name}» حذف شد.`);
+    } catch (err) {
+      toast.error("حذف مشتری ناموفق بود.", { description: errorMessage(err) });
+    } finally {
+      setDeleting(null);
+      setDeleteBusy(false);
+    }
+  }
 
   useEffect(() => {
     api.customers
@@ -183,6 +212,9 @@ export function CustomersPage() {
                           <DropdownMenuItem onSelect={() => openEdit(c)}>
                             <Pencil /> ویرایش مشتری
                           </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => navigate(`/documents/invoice?customer=${c.id}`)}>
+                            <FileStack /> اسناد این مشتری
+                          </DropdownMenuItem>
                           {canSell && (
                             <>
                               <DropdownMenuSeparator />
@@ -191,6 +223,14 @@ export function CustomersPage() {
                               </DropdownMenuItem>
                               <DropdownMenuItem onSelect={() => navigate(`/documents/invoice/new?customer=${c.id}`)}>
                                 <DocumentTypeIcon type="INVOICE" /> فاکتور برای این مشتری
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {canDelete && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(c)}>
+                                <Trash /> حذف مشتری
                               </DropdownMenuItem>
                             </>
                           )}
@@ -226,6 +266,36 @@ export function CustomersPage() {
         customer={editing}
         onSaved={onSaved}
       />
+
+      <AlertDialog
+        open={deleting !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleteBusy) setDeleting(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>«{deleting?.name}» حذف شود؟</AlertDialogTitle>
+            <AlertDialogDescription>
+              فقط مشتری‌ای که هیچ سندی برایش ثبت نشده قابل حذف است. این کار برگشت‌پذیر نیست.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteBusy}>انصراف</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={deleteBusy}
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDelete();
+              }}
+            >
+              {deleteBusy ? <LoaderCircle className="animate-spin" /> : <Trash />}
+              حذف مشتری
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   );
 }
