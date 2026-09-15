@@ -10,6 +10,6 @@
     "build": "npm --prefix backend install --no-audit --no-fund && npm --prefix backend run build && npm --prefix frontend install --no-audit --no-fund && npm --prefix frontend run build",
     "start": "node backend/dist/index.js",
     "seed": "npm --prefix backend run prisma:seed",
-    "hash-password": "npm --prefix backend run hash-password"
+    "hash-password": "npm --prefix backend run hash-password --"
   }
 }

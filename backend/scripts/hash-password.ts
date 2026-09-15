@@ -6,8 +6,11 @@
 //
 //   npm run hash-password
 import { writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import "../src/lib/env";
 import { hashPassword } from "../src/lib/auth";
+import { pool } from "../src/lib/db";
 
 // Lines read but not yet asked for: piped input can deliver several at once.
 let pending = "";
@@ -96,6 +99,39 @@ async function main() {
   }
 
   const hash = await hashPassword(password);
+
+  // --apply: write straight to the database this process can reach
+  // (DATABASE_URL). Inside the Liara container that is the production
+  // database, which skips pgAdmin and any copy-pasting.
+  if (process.argv.includes("--apply")) {
+    if (!process.env.DATABASE_URL) {
+      console.error("DATABASE_URL is not set, so there is no database to apply this to.");
+      process.exit(1);
+    }
+    try {
+      const updated = await pool.query(
+        "UPDATE users SET password_hash = $2, active = true, updated_at = now() WHERE username = $1",
+        [username, hash]
+      );
+      if (updated.rowCount === 0) {
+        const admins = await pool.query("SELECT username FROM users ORDER BY username");
+        console.error(
+          `No user named "${username}". Existing usernames: ${admins.rows.map((r) => r.username).join(", ")}`
+        );
+        process.exit(1);
+      }
+      // Sign the user out everywhere; the new password starts fresh.
+      const sessions = await pool.query(
+        "DELETE FROM sessions WHERE user_id = (SELECT id FROM users WHERE username = $1)",
+        [username]
+      );
+      console.log(`\nPassword updated for "${username}" (sessions closed: ${sessions.rowCount}). Sign in with it now.`);
+    } finally {
+      await pool.end();
+    }
+    return;
+  }
+
   // The username is validated above, so it can't break out of the quotes.
   // Deleting the user's sessions signs out anyone still logged in as them.
   const sql = `-- Run on the production database (Liara pgAdmin -> Query Tool).
@@ -110,8 +146,15 @@ COMMIT;
   // Written to a file, never printed: a terminal wraps the long hash and
   // copying it back out of the scrollback silently corrupts it, which shows
   // up later as "wrong password" even though the UPDATE reported 1 row.
-  const file = path.resolve(__dirname, "../../reset-password.sql");
-  writeFileSync(file, sql, { encoding: "utf8", mode: 0o600 });
+  // The project folder is read-only inside a deployed container; fall back to
+  // the temp folder there rather than failing after the password was typed.
+  let file = path.resolve(__dirname, "../../reset-password.sql");
+  try {
+    writeFileSync(file, sql, { encoding: "utf8", mode: 0o600 });
+  } catch {
+    file = path.join(os.tmpdir(), "reset-password.sql");
+    writeFileSync(file, sql, { encoding: "utf8", mode: 0o600 });
+  }
   console.log(`
 Wrote the SQL for user "${username}" to:
 
