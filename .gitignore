@@ -9,3 +9,5 @@ frontend/dist/
 backend/dist/
 *.tsbuildinfo
 .claude/settings.local.json
+# Written by `npm run hash-password`; holds a password hash. Delete after use.
+reset-password.sql

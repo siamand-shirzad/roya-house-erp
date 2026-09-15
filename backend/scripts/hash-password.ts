@@ -5,6 +5,8 @@
 // only its scrypt hash, in the same format the app writes.
 //
 //   npm run hash-password
+import { writeFileSync } from "node:fs";
+import path from "node:path";
 import { hashPassword } from "../src/lib/auth";
 
 // Lines read but not yet asked for: piped input can deliver several at once.
@@ -96,14 +98,28 @@ async function main() {
   const hash = await hashPassword(password);
   // The username is validated above, so it can't break out of the quotes.
   // Deleting the user's sessions signs out anyone still logged in as them.
-  console.log(`
-Run this on the production database (Liara pgAdmin -> Query Tool).
-It should report "UPDATE 1"; "UPDATE 0" means the username is wrong.
-
+  const sql = `-- Run on the production database (Liara pgAdmin -> Query Tool).
+-- It should report "UPDATE 1"; "UPDATE 0" means the username is wrong.
+-- Delete this file afterwards: the hash below is as good as the password.
 BEGIN;
 UPDATE users SET password_hash = '${hash}', active = true, updated_at = now() WHERE username = '${username}';
 DELETE FROM sessions WHERE user_id = (SELECT id FROM users WHERE username = '${username}');
 COMMIT;
+`;
+
+  // Written to a file, never printed: a terminal wraps the long hash and
+  // copying it back out of the scrollback silently corrupts it, which shows
+  // up later as "wrong password" even though the UPDATE reported 1 row.
+  const file = path.resolve(__dirname, "../../reset-password.sql");
+  writeFileSync(file, sql, { encoding: "utf8", mode: 0o600 });
+  console.log(`
+Wrote the SQL for user "${username}" to:
+
+  ${file}
+
+1. Open that file (in the editor, not the terminal) and copy all of it.
+2. Run it in Liara's pgAdmin -> Query Tool. It must report "UPDATE 1".
+3. Sign in with the new password, then delete the file.
 `);
 }
 
