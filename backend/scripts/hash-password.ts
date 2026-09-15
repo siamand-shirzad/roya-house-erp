@@ -82,6 +82,16 @@ async function main() {
     console.error("The two passwords don't match.");
     process.exit(1);
   }
+  // The input is hidden, so a Persian keyboard layout goes unnoticed: the hash
+  // would then only match the Persian characters, never the Latin ones typed
+  // at the login page. Refuse rather than print an unusable statement.
+  if (/[^\x20-\x7e]/.test(password)) {
+    console.error(
+      "The password contains non-English characters (was the keyboard set to Persian?).\n" +
+        "Switch the keyboard to English and run this again."
+    );
+    process.exit(1);
+  }
 
   const hash = await hashPassword(password);
   // The username is validated above, so it can't break out of the quotes.
