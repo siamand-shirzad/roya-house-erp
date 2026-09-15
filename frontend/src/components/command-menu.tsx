@@ -10,6 +10,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
+  Building2,
   ChartColumn,
   Contact,
   FileStack,
@@ -20,6 +21,7 @@ import {
   Sun,
   Tags,
   Users,
+  Warehouse,
   type LucideIcon,
 } from "lucide-react";
 
@@ -97,9 +99,13 @@ export function CommandMenuProvider({ children }: { children: ReactNode }) {
       nav("go-documents", ["G", "S"], "اسناد", FileStack, "/documents/proforma"),
       nav("go-products", ["G", "P"], "کالاها و قیمت‌ها", Tags, "/products"),
       nav("go-customers", ["G", "C"], "مشتریان", Contact, "/customers"),
+      nav("go-inventory", ["G", "I"], "انبار", Warehouse, "/inventory"),
     ];
     if (REPORT_ROLES.includes(user.role)) list.push(nav("go-reports", ["G", "R"], "گزارشات", ChartColumn, "/reports"));
-    if (user.role === "ADMIN") list.push(nav("go-users", ["G", "U"], "کاربران", Users, "/users"));
+    if (user.role === "ADMIN") {
+      list.push(nav("go-users", ["G", "U"], "کاربران", Users, "/users"));
+      list.push(nav("go-company", ["G", "O"], "اطلاعات شرکت", Building2, "/settings/company"));
+    }
 
     const create: [DocumentType, string, string][] = [
       ["PROFORMA", "P", "پیش‌فاکتور جدید"],

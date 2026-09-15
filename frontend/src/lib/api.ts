@@ -1,13 +1,16 @@
 import type {
   AuthUser,
+  Company,
   Customer,
   Document,
-  DocumentLink,
   DocumentType,
   Product,
   ProductCategory,
   ProductImportRow,
   SalesReport,
+  StockMovement,
+  StockRow,
+  StockWarning,
   User,
 } from "@/types";
 
@@ -19,7 +22,9 @@ export const UNAUTHORIZED_EVENT = "rh:unauthorized";
 export class ApiError extends Error {
   constructor(
     message: string,
-    public status: number
+    public status: number,
+    /** The parsed JSON error body, e.g. `existing` on a 409 from /convert. */
+    public body: Record<string, unknown> = {}
   ) {
     super(message);
   }
@@ -34,6 +39,8 @@ const SERVER_MESSAGES: Record<string, string> = {
   "At least one active admin is required": "حداقل یک مدیر فعال باید باقی بماند.",
   "Cancel the documents created from this one first":
     "ابتدا سندهایی که از این سند ساخته شده‌اند را باطل کنید.",
+  "Current password is incorrect": "رمز عبور فعلی درست نیست.",
+  "Customer has documents": "برای این مشتری سند ثبت شده و قابل حذف نیست.",
   "Customer not found": "مشتری پیدا نشد.",
   "Document not found": "سند پیدا نشد.",
   "Duplicate product codes in file": "در فایل، کد کالای تکراری وجود دارد.",
@@ -48,7 +55,7 @@ const SERVER_MESSAGES: Record<string, string> = {
   "Product code already exists": "کالای دیگری با این کد ثبت شده است.",
   "Product not found": "کالا پیدا نشد.",
   "Setup already completed": "راه‌اندازی اولیه قبلاً انجام شده است. صفحه را دوباره باز کنید.",
-  "Some products were not found": "بعضی از کالاهای این سند پیدا نشدند.",
+  "Some products were not found": "بعضی از کالاها پیدا نشدند.",
   "Too many failed attempts. Try again in a few minutes.":
     "تعداد تلاش‌های ناموفق زیاد بود. چند دقیقه بعد دوباره امتحان کنید.",
   "User not found": "کاربر پیدا نشد.",
@@ -80,10 +87,18 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     if (res.status === 401 && !path.startsWith("/auth/")) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
-    throw new ApiError(body.error ?? `Request failed: ${res.status}`, res.status);
+    throw new ApiError(body.error ?? `Request failed: ${res.status}`, res.status, body);
   }
   if (res.status === 204) return undefined as T;
   return res.json();
+}
+
+/** "?a=1&b=2" from the params that have a value, or "". */
+function queryString(params: Record<string, string | undefined | null>) {
+  const qs = new URLSearchParams(
+    Object.entries(params).filter((entry): entry is [string, string] => !!entry[1])
+  ).toString();
+  return qs ? `?${qs}` : "";
 }
 
 export const api = {
@@ -95,15 +110,20 @@ export const api = {
     setup: (data: { fullName: string; username: string; password: string }) =>
       request<AuthUser>("/auth/setup", { method: "POST", body: JSON.stringify(data) }),
     logout: () => request<void>("/auth/logout", { method: "POST" }),
+    changePassword: (currentPassword: string, newPassword: string) =>
+      request<void>("/auth/password", { method: "POST", body: JSON.stringify({ currentPassword, newPassword }) }),
   },
   public: {
     catalog: () => request<{ category: ProductCategory; count: number }[]>("/public/catalog"),
   },
+  company: {
+    get: () => request<Company | null>("/company"),
+    update: (data: Partial<Omit<Company, "id" | "logoUrl">>) =>
+      request<Company>("/company", { method: "PUT", body: JSON.stringify(data) }),
+  },
   products: {
-    list: (params?: { q?: string; category?: string; active?: "true" | "false" }) => {
-      const qs = new URLSearchParams(params as Record<string, string>).toString();
-      return request<Product[]>(`/products${qs ? `?${qs}` : ""}`);
-    },
+    list: (params?: { q?: string; category?: string; active?: "true" | "false" }) =>
+      request<Product[]>(`/products${queryString(params ?? {})}`),
     get: (id: string) => request<Product>(`/products/${id}`),
     create: (data: Partial<Product>) =>
       request<Product>("/products", { method: "POST", body: JSON.stringify(data) }),
@@ -129,36 +149,51 @@ export const api = {
       request<User>(`/users/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   },
   customers: {
-    list: (q?: string) => request<Customer[]>(`/customers${q ? `?q=${q}` : ""}`),
+    list: (q?: string) => request<Customer[]>(`/customers${queryString({ q })}`),
     get: (id: string) => request<Customer>(`/customers/${id}`),
     create: (data: Partial<Customer>) =>
       request<Customer>("/customers", { method: "POST", body: JSON.stringify(data) }),
     update: (id: string, data: Partial<Customer>) =>
       request<Customer>(`/customers/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    remove: (id: string) => request<void>(`/customers/${id}`, { method: "DELETE" }),
   },
   reports: {
-    sales: (range: { from?: string; to?: string }) => {
-      const qs = new URLSearchParams(
-        Object.entries(range).filter((entry): entry is [string, string] => !!entry[1])
-      ).toString();
-      return request<SalesReport>(`/reports${qs ? `?${qs}` : ""}`);
-    },
+    sales: (range: { from?: string; to?: string }) => request<SalesReport>(`/reports${queryString(range)}`),
+  },
+  inventory: {
+    stock: () => request<StockRow[]>("/inventory/stock"),
+    movements: (params?: { productId?: string; from?: string; to?: string }) =>
+      request<StockMovement[]>(`/inventory/movements${queryString(params ?? {})}`),
+    receipt: (data: { reference?: string | null; items: { productId: string; quantity: number }[] }) =>
+      request<{ created: number }>("/inventory/receipts", { method: "POST", body: JSON.stringify(data) }),
+    adjust: (data: { productId: string; countedQuantity: number; reason: string }) =>
+      request<{ before: number; after: number; difference: number }>("/inventory/adjustments", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    setMinStock: (productId: string, minStock: number | null) =>
+      request<{ productId: string; minStock: number | null }>("/inventory/min-stock", {
+        method: "PATCH",
+        body: JSON.stringify({ productId, minStock }),
+      }),
   },
   documents: {
-    list: (type?: DocumentType) => request<Document[]>(`/documents${type ? `?type=${type}` : ""}`),
+    list: (params?: { type?: DocumentType; customerId?: string }) =>
+      request<Document[]>(`/documents${queryString(params ?? {})}`),
     get: (id: string) => request<Document>(`/documents/${id}`),
     create: (data: Record<string, unknown>) =>
       request<Document>("/documents", { method: "POST", body: JSON.stringify(data) }),
     update: (id: string, data: Record<string, unknown>) =>
       request<Document>(`/documents/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     remove: (id: string) => request<void>(`/documents/${id}`, { method: "DELETE" }),
-    issue: (id: string) => request<Document>(`/documents/${id}/issue`, { method: "POST" }),
+    issue: (id: string) =>
+      request<Document & { stockWarnings?: StockWarning[] }>(`/documents/${id}/issue`, { method: "POST" }),
     cancel: (id: string, reason?: string) =>
       request<Document>(`/documents/${id}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }),
     convert: (id: string, to: DocumentType) =>
       request<Document>(`/documents/${id}/convert`, {
         method: "POST",
         body: JSON.stringify({ to }),
-      }) as Promise<Document & { existing?: DocumentLink }>,
+      }),
   },
 };

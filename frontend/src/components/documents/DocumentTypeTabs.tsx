@@ -13,7 +13,8 @@ const TABS: { type: DocumentType; label: string }[] = [
 // not local state, so each tab keeps its own URL (bookmarks, back button,
 // dashboard cards pointing straight at invoices). Switching tabs keeps the
 // list page mounted, so the selection pill slides across.
-export function DocumentTypeTabs({ active }: { active: DocumentType }) {
+// `search` (e.g. "?customer=<id>") is carried across tabs so a filter survives switching type.
+export function DocumentTypeTabs({ active, search = "" }: { active: DocumentType; search?: string }) {
   return (
     <nav aria-label="نوع سند">
       <SegmentedControl
@@ -23,7 +24,7 @@ export function DocumentTypeTabs({ active }: { active: DocumentType }) {
           value: tab.type,
           label: tab.label,
           icon: <DocumentTypeIcon type={tab.type} />,
-          href: `/documents/${TYPE_TO_SLUG[tab.type]}`,
+          href: `/documents/${TYPE_TO_SLUG[tab.type]}${search}`,
         }))}
       />
     </nav>

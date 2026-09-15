@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronsUpDown, Globe, LogOut, Monitor, Moon, Sun } from "lucide-react";
+import { ChevronsUpDown, Globe, KeyRound, LogOut, Monitor, Moon, Sun } from "lucide-react";
+import { ChangePasswordDialog } from "@/components/change-password-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -52,12 +54,15 @@ export function NavUser() {
   const { theme, setTheme } = useTheme();
   const { isMobile } = useSidebar();
   const navigate = useNavigate();
+  const [passwordOpen, setPasswordOpen] = useState(false);
   if (!user) return null;
 
   return (
     <SidebarMenu>
+      <ChangePasswordDialog open={passwordOpen} onOpenChange={setPasswordOpen} />
       <SidebarMenuItem>
-        <DropdownMenu dir="rtl">
+        {/* Non-modal so the password dialog opened from it doesn't inherit a locked body. */}
+        <DropdownMenu dir="rtl" modal={false}>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
@@ -93,6 +98,9 @@ export function NavUser() {
             </DropdownMenuRadioGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
+              <DropdownMenuItem onSelect={() => setPasswordOpen(true)}>
+                <KeyRound /> تغییر رمز عبور
+              </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => window.open("/site", "_blank", "noopener")}>
                 <Globe /> صفحه‌ی معرفی (سایت)
               </DropdownMenuItem>

@@ -10,7 +10,7 @@ import { SectionCards } from "@/components/section-cards";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { TYPE_TO_SLUG } from "@/lib/documentTypeSlug";
-import { DOCUMENT_WRITE_ROLES, type Document, type DocumentType, type Product } from "@/types";
+import { DOCUMENT_WRITE_ROLES, type Document, type DocumentType, type StockRow } from "@/types";
 
 const CREATE_ORDER: DocumentType[] = ["PROFORMA", "INVOICE", "GOODS_ISSUE"];
 const NEW_LABEL: Record<DocumentType, string> = {
@@ -20,17 +20,17 @@ const NEW_LABEL: Record<DocumentType, string> = {
 };
 
 // Headline cards, the last 30 days of sales, and the most recent documents.
-// Everything comes from two requests made here and shared by the widgets.
+// Everything comes from two requests (documents, stock) made here and shared by the widgets.
 export function DashboardPage() {
   const { user } = useAuth();
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [stock, setStock] = useState<StockRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       api.documents.list().then(setDocuments).catch(() => setDocuments([])),
-      api.products.list({ active: "true" }).then(setProducts).catch(() => setProducts([])),
+      api.inventory.stock().then(setStock).catch(() => setStock([])),
     ]).finally(() => setLoading(false));
   }, []);
 
@@ -52,7 +52,7 @@ export function DashboardPage() {
       }
     >
       <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-        <SectionCards documents={documents} products={products} loading={loading} />
+        <SectionCards documents={documents} stock={stock} loading={loading} />
         <div className="grid gap-4 px-4 md:gap-6 lg:px-6 @5xl/main:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <ChartAreaInteractive invoices={documents.filter((d) => d.type === "INVOICE")} loading={loading} />
           <RecentDocuments documents={documents} loading={loading} />

@@ -13,6 +13,8 @@ import { ProductsPage } from "@/pages/ProductsPage";
 import { CustomersPage } from "@/pages/CustomersPage";
 import { UsersPage } from "@/pages/UsersPage";
 import { ReportsPage } from "@/pages/ReportsPage";
+import { InventoryPage } from "@/pages/InventoryPage";
+import { CompanySettingsPage } from "@/pages/CompanySettingsPage";
 import { REPORT_ROLES } from "@/types";
 
 // Remount the form whenever the type or document changes, so state from one
@@ -44,6 +46,11 @@ export default function App() {
           <Route path="/customers" element={<RequireAuth><CustomersPage /></RequireAuth>} />
           <Route path="/users" element={<RequireAuth roles={["ADMIN"]}><UsersPage /></RequireAuth>} />
           <Route path="/reports" element={<RequireAuth roles={REPORT_ROLES}><ReportsPage /></RequireAuth>} />
+          <Route path="/inventory" element={<RequireAuth><InventoryPage /></RequireAuth>} />
+          <Route
+            path="/settings/company"
+            element={<RequireAuth roles={["ADMIN"]}><CompanySettingsPage /></RequireAuth>}
+          />
           <Route path="/documents" element={<Navigate to="/documents/proforma" replace />} />
           <Route path="/documents/:typeSlug" element={documents(<DocumentListPage />)} />
           <Route path="/documents/:typeSlug/new" element={documents(<KeyedDocumentFormPage />)} />

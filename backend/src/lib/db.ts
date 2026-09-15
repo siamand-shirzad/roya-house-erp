@@ -1,4 +1,4 @@
-import { Pool } from "pg";
+import { Pool, type PoolClient } from "pg";
 import { randomUUID } from "crypto";
 
 // Plain `pg` data-access layer. This project was originally written against
@@ -27,6 +27,25 @@ export async function queryOne<T = any>(text: string, params: any[] = []): Promi
   const rows = await query<T>(text, params);
   return rows[0] ?? null;
 }
+
+export async function withTransaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await fn(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/** Postgres error code of a failed query, e.g. "23505" (unique) or "23503" (foreign key). */
+export const pgErrorCode = (err: unknown) =>
+  typeof err === "object" && err !== null ? (err as { code?: string }).code : undefined;
 
 export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS companies (
@@ -157,4 +176,22 @@ CREATE TABLE IF NOT EXISTS document_items (
   tax_rate integer NOT NULL DEFAULT 0,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE INDEX IF NOT EXISTS document_items_document_idx ON document_items(document_id);
+CREATE INDEX IF NOT EXISTS documents_customer_idx ON documents(customer_id);
+
+-- Inventory. Stock on hand is sum(quantity) per product, never stored, so it
+-- can't drift. Positive = in (receipt, reversal), negative = out (goods issue).
+ALTER TABLE products ADD COLUMN IF NOT EXISTS min_stock numeric(12,2);
+CREATE TABLE IF NOT EXISTS stock_movements (
+  id text PRIMARY KEY,
+  product_id text NOT NULL REFERENCES products(id),
+  kind text NOT NULL CHECK (kind IN ('RECEIPT', 'ISSUE', 'ISSUE_REVERSAL', 'ADJUSTMENT')),
+  quantity numeric(12,2) NOT NULL,
+  document_id text REFERENCES documents(id),
+  reference text,
+  created_by text REFERENCES users(id),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS stock_movements_product_idx ON stock_movements(product_id, created_at);
+CREATE INDEX IF NOT EXISTS stock_movements_document_idx ON stock_movements(document_id);
 `;

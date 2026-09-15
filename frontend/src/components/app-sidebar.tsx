@@ -1,6 +1,16 @@
 import * as React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ChartColumn, Contact, FileStack, LayoutDashboard, Tags, Users, type LucideIcon } from "lucide-react";
+import {
+  Building2,
+  ChartColumn,
+  Contact,
+  FileStack,
+  LayoutDashboard,
+  Tags,
+  Users,
+  Warehouse,
+  type LucideIcon,
+} from "lucide-react";
 
 import { useCommandMenu } from "@/components/command-menu";
 import { WindowsIcon } from "@/components/windows-icon";
@@ -45,6 +55,10 @@ const NAV: NavGroup[] = [
     ],
   },
   {
+    label: "Warehouse",
+    items: [{ to: "/inventory", label: "انبار", tooltip: "موجودی و گردش کالا", icon: Warehouse }],
+  },
+  {
     label: "Insights",
     roles: REPORT_ROLES,
     items: [{ to: "/reports", label: "گزارشات", tooltip: "گزارش فروش و پیگیری", icon: ChartColumn }],
@@ -56,7 +70,14 @@ const NAV: NavGroup[] = [
       { to: "/customers", label: "مشتریان", tooltip: "فهرست مشتریان", icon: Contact },
     ],
   },
-  { label: "Admin", roles: ["ADMIN"], items: [{ to: "/users", label: "کاربران", icon: Users }] },
+  {
+    label: "Admin",
+    roles: ["ADMIN"],
+    items: [
+      { to: "/users", label: "کاربران", icon: Users },
+      { to: "/settings/company", label: "اطلاعات شرکت", tooltip: "مشخصات فروشنده روی اسناد", icon: Building2 },
+    ],
+  },
 ];
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {

@@ -12,21 +12,30 @@ import {
 } from "@/components/ui/table";
 import { ProductPicker } from "./ProductPicker";
 import type { DocumentItem, DocumentType, Product } from "@/types";
-import { formatToman, toDisplayDigits } from "@/lib/format";
+import { formatNumber, formatToman, toDisplayDigits } from "@/lib/format";
 import { computeLineTotal } from "@/lib/totals";
+import { cn } from "@/lib/utils";
 
 export function ItemsEditor({
   type,
   items,
   onChange,
   disabled,
+  stock,
 }: {
   type: DocumentType;
   items: DocumentItem[];
   onChange: (items: DocumentItem[]) => void;
   disabled?: boolean;
+  /** Goods issues: stock on hand by product id, shown next to the quantity. */
+  stock?: Map<string, number>;
 }) {
   const isInvoiceLike = type === "INVOICE" || type === "PROFORMA";
+  const showStock = !isInvoiceLike && !!stock;
+  const columnCount = (isInvoiceLike ? 8 : 5) + (showStock ? 1 : 0) + (disabled ? 0 : 1);
+  // Total asked for per product, so two rows of the same product are compared together.
+  const requested = new Map<string, number>();
+  for (const it of items) if (it.productId) requested.set(it.productId, (requested.get(it.productId) ?? 0) + it.quantity);
 
   function addProduct(product: Product) {
     onChange([
@@ -65,6 +74,7 @@ export function ItemsEditor({
               <TableHead className="min-w-48">نام کالا</TableHead>
               <TableHead className="w-28">واحد</TableHead>
               <TableHead className="w-24">تعداد</TableHead>
+              {showStock && <TableHead className="w-24">موجودی</TableHead>}
               {isInvoiceLike && (
                 <>
                   <TableHead className="w-32">قیمت واحد (ت)</TableHead>
@@ -81,7 +91,7 @@ export function ItemsEditor({
             {items.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={(isInvoiceLike ? 9 : 6) - (disabled ? 1 : 0)}
+                  colSpan={columnCount}
                   className="text-center text-muted-foreground py-6"
                 >
                   هنوز کالایی اضافه نشده است.
@@ -115,6 +125,19 @@ export function ItemsEditor({
                       disabled={disabled}
                     />
                   </TableCell>
+                  {showStock && (
+                    <TableCell
+                      className={cn(
+                        "whitespace-nowrap tabular-nums",
+                        item.productId &&
+                          (requested.get(item.productId) ?? 0) > (stock.get(item.productId) ?? 0) &&
+                          "font-medium text-destructive"
+                      )}
+                      title={item.productId ? undefined : "کالای دستی؛ در انبار حساب نمی‌شود"}
+                    >
+                      {item.productId ? formatNumber(stock.get(item.productId) ?? 0) : "—"}
+                    </TableCell>
+                  )}
                   {isInvoiceLike ? (
                     <>
                       <TableCell>
