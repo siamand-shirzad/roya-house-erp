@@ -16,6 +16,7 @@ docker compose up -d        # from repo root: optional local Postgres 16 (postgr
 npm run prisma:seed         # creates tables (SCHEMA_SQL) + upserts the price list and sample docs; same as `npm run db:setup`
 npm run dev                 # tsx watch src/index.ts (also runs SCHEMA_SQL on startup, so new tables appear automatically)
 npm run build               # tsc -> dist/
+npm run hash-password       # locked-out admin: prompts for username + new password, prints an UPDATE to run on the production DB
 ```
 Health check: `GET /api/health`. `backend/.env` needs `DATABASE_URL`, and optionally `PORT` and `CORS_ORIGIN` (comma-separated, default `http://localhost:5173`).
 
