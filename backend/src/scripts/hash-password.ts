@@ -1,16 +1,18 @@
 // Recover a locked-out admin without leaving the app with no admin password.
-// Runs locally: asks for the username and a new password (not echoed), then
-// prints one SQL statement to run on the production database (e.g. in Liara's
-// pgAdmin Query Tool). The password itself is never printed or sent anywhere;
-// only its scrypt hash, in the same format the app writes.
 //
-//   npm run hash-password
+//   npm run hash-password            -> writes reset-password.sql to run yourself
+//   npm run hash-password -- --apply -> updates the database this process can reach
+//
+// Asks for the username and a new password (not echoed). The password is
+// never printed or stored; only its scrypt hash, in the format the app uses.
+// Lives under src/ so `tsc` compiles it into dist/, which is what lets it run
+// in a deployed container after the build-only packages (tsx) are pruned.
 import { writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import "../src/lib/env";
-import { hashPassword } from "../src/lib/auth";
-import { pool } from "../src/lib/db";
+import "../lib/env";
+import { hashPassword } from "../lib/auth";
+import { pool } from "../lib/db";
 
 // Lines read but not yet asked for: piped input can deliver several at once.
 let pending = "";
@@ -146,12 +148,12 @@ COMMIT;
   // Written to a file, never printed: a terminal wraps the long hash and
   // copying it back out of the scrollback silently corrupts it, which shows
   // up later as "wrong password" even though the UPDATE reported 1 row.
-  // The project folder is read-only inside a deployed container; fall back to
-  // the temp folder there rather than failing after the password was typed.
-  let file = path.resolve(__dirname, "../../reset-password.sql");
+  // src/scripts and dist/scripts are both three levels below the repo root.
+  let file = path.resolve(__dirname, "../../../reset-password.sql");
   try {
     writeFileSync(file, sql, { encoding: "utf8", mode: 0o600 });
   } catch {
+    // A deployed container's project folder is read-only.
     file = path.join(os.tmpdir(), "reset-password.sql");
     writeFileSync(file, sql, { encoding: "utf8", mode: 0o600 });
   }
@@ -163,6 +165,8 @@ Wrote the SQL for user "${username}" to:
 1. Open that file (in the editor, not the terminal) and copy all of it.
 2. Run it in Liara's pgAdmin -> Query Tool. It must report "UPDATE 1".
 3. Sign in with the new password, then delete the file.
+
+On the server you can skip all of that: npm run hash-password -- --apply
 `);
 }
 
