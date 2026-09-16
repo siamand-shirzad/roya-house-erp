@@ -32,7 +32,7 @@ async function loadAlerts(user: NonNullable<ReturnType<typeof useAuth>["user"]>)
     jobs.push(
       api.inventory.stock().then((rows) => {
         const low = rows.filter((r) => stockLevel(r) !== "ok").length;
-        if (low) alerts.push({ key: "stock", icon: <Warehouse />, text: `${toDisplayDigits(low)} کالا کم‌موجود یا منفی است`, to: "/inventory?low=1" });
+        if (low) alerts.push({ key: "stock", icon: <Warehouse />, text: `${toDisplayDigits(low)} کالا زیر حداقل موجودی یا منفی است`, to: "/inventory?low=1" });
       })
     );
   }

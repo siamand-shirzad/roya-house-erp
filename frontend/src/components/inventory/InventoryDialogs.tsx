@@ -365,7 +365,7 @@ export function MinStockDialog({
       onOpenChange={(open) => !open && onClose()}
       busy={saving}
       title="حداقل موجودی"
-      description={row ? `${row.name} — وقتی موجودی کمتر از این مقدار شود، «کم‌موجود» نشان داده می‌شود.` : undefined}
+      description={row ? `${row.name} — وقتی موجودی کمتر از این مقدار شود، «زیر حداقل» نشان داده می‌شود.` : undefined}
       onSubmit={submit}
       footer={<Footer busy={saving} label="ذخیره" onCancel={onClose} />}
     >

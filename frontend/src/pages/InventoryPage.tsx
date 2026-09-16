@@ -248,7 +248,7 @@ export function InventoryPage() {
               ariaLabel="فیلتر موجودی"
               items={[
                 { value: "all", label: "همه" },
-                { value: "low", label: `کم‌موجود (${toDisplayDigits(lowCount)})` },
+                { value: "low", label: `زیر حداقل (${toDisplayDigits(lowCount)})` },
               ]}
               value={lowOnly ? "low" : "all"}
               onValueChange={(value) => setQuery({ low: value === "low" ? "1" : null })}
@@ -351,7 +351,7 @@ export function InventoryPage() {
                   {!stockLoading && stockRows.length === 0 && (
                     <tr>
                       <td colSpan={7} className="px-3 py-14 text-center text-muted-foreground">
-                        {lowOnly ? "کالای کم‌موجودی وجود ندارد." : "کالایی با این جستجو پیدا نشد."}
+                        {lowOnly ? "کالایی زیر حداقل موجودی نیست." : "کالایی با این جستجو پیدا نشد."}
                       </td>
                     </tr>
                   )}

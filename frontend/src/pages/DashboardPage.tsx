@@ -13,11 +13,9 @@ import { Button } from "@/components/ui/button";
 import { FollowUpTasks } from "@/components/follow-up-tasks";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { TYPE_TO_SLUG } from "@/lib/documentTypeSlug";
-import { formatJalaliDateLong, toIsoDate } from "@/lib/format";
-import { REVEAL } from "@/lib/motion";
+import { toIsoDate } from "@/lib/format";
 import { type Document, type DocumentType, type StockRow } from "@/types";
 
 const CREATE_ORDER: DocumentType[] = ["PROFORMA", "INVOICE", "GOODS_ISSUE"];
@@ -27,7 +25,7 @@ const NEW_LABEL: Record<DocumentType, string> = {
   GOODS_ISSUE: "حواله خروج جدید",
 };
 
-// Layout after the studio-admin CRM dashboard: greeting, headline cards with
+// Layout after the studio-admin CRM dashboard: headline cards with
 // period comparison, sales activity, follow-ups beside recent documents, then
 // the top products and customers.
 // Everything comes from two requests (documents, stock) made here and shared by the widgets.
@@ -86,18 +84,6 @@ export function DashboardPage() {
       }
     >
       <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
-        <section className={cn("flex flex-wrap items-end justify-between gap-2", REVEAL)}>
-          <div className="space-y-1">
-            <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
-              {user?.fullName ? `سلام، ${user.fullName.split(" ")[0]}` : "نمای کلی فروش"}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              فروش، تبدیل پیش‌فاکتور و تحویل از انبار در یک نگاه — ارقام فقط از اسناد صادرشده.
-            </p>
-          </div>
-          <p className="text-sm text-muted-foreground tabular-nums">{formatJalaliDateLong(new Date())}</p>
-        </section>
-
         {(documentsFailed || stockFailed) && <Alert variant="destructive"><AlertDescription>
           دریافت {documentsFailed && stockFailed ? "اسناد و موجودی" : documentsFailed ? "اسناد" : "موجودی"} ناموفق بود.
           <Button variant="outline" size="sm" onClick={retry} disabled={loading}>تلاش مجدد</Button>

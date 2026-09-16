@@ -224,12 +224,6 @@ export function ReportsPage() {
       }
     >
       <div className="space-y-4 p-4 md:space-y-6 md:p-6">
-        <section className={cn("space-y-1", REVEAL)}>
-          <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">گزارش فروش</h2>
-          <p className="text-sm text-muted-foreground">
-            فروش، مشتریان و کالاها در بازه‌ی انتخابی و مقایسه با بازه‌ی هم‌طول قبل از آن — فقط اسناد صادرشده حساب می‌شوند.
-          </p>
-        </section>
         <div className="flex flex-wrap items-center gap-2">
           <SegmentedControl ariaLabel="بازه‌ی گزارش" items={PRESETS} value={customRange ? "custom" as Preset : preset} onValueChange={(value) => { setPreset(value); setCustomRange(null); }} />
           <ShamsiDatePicker label="از تاریخ (شمسی)" value={range.from ? toIsoDate(range.from) : ""} max={range.to ? toIsoDate(range.to) : undefined} onChange={(value) => setCustomRange({...range,from:value ? parseDay(value) : undefined})} />

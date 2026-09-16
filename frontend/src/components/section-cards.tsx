@@ -159,9 +159,9 @@ export function SectionCards({
     },
     {
       key: "stock",
-      label: "کالاهای کم‌موجود",
+      label: "کالاهای زیر حداقل موجودی",
       value: <AnimatedNumber value={lowStock} format={formatNumber} />,
-      context: `از ${formatNumber(stock.length)} کالای فعال`,
+      context: `منفی یا کمتر از حداقل · از ${formatNumber(stock.length)} کالا`,
       to: lowStock ? "/inventory?low=1" : "/inventory",
       failed: stockFailed,
     },
