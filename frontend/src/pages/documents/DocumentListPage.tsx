@@ -2,7 +2,7 @@ import { can, type Module } from "@/lib/permissions";
 import { ShamsiDatePicker } from "@/components/shamsi-date-picker";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Download, Ellipsis, Eye, LoaderCircle, Plus, Search, Trash, X } from "lucide-react";
+import { ChevronDown, Download, Ellipsis, Eye, LoaderCircle, Plus, Search, Settings2, Trash, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-provider";
@@ -27,8 +27,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -77,6 +79,8 @@ export function DocumentListPage() {
   const setStatus = (value: StatusFilter) => update({ status: value === "ALL" ? null : value });
   const [deleting, setDeleting] = useState<Document | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [columns, setColumns] = useState({ date: true, total: true });
+  const visibleColumnCount = 4 + (columns.date ? 1 : 0) + (columns.total ? 1 : 0);
   const pdf = useDocumentPdfExport();
   // ?customer=<id> (from the customers page) narrows the list to one customer.
   const [searchParams] = useSearchParams();
@@ -179,20 +183,39 @@ export function DocumentListPage() {
             </button>
           </Badge>
         )}
-        <span className="text-sm text-muted-foreground tabular-nums sm:ms-auto">
-          {loading ? "در حال بارگذاری..." : `${toDisplayDigits(pageInfo.total)} سند`}
-        </span>
       </div>
 
-      <Card className="overflow-hidden py-0">
+      <Card className="overflow-hidden p-0">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 md:px-5">
+          <p className="text-sm text-muted-foreground tabular-nums">
+            {loading ? "در حال بارگذاری..." : `${toDisplayDigits(pageInfo.total)} سند`}
+          </p>
+          <DropdownMenu dir="rtl">
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Settings2 /> نمایش ستون‌ها <ChevronDown />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuLabel>ستون‌های جدول</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem checked={columns.date} onCheckedChange={(v) => setColumns((c) => ({ ...c, date: Boolean(v) }))}>
+                تاریخ
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={columns.total} onCheckedChange={(v) => setColumns((c) => ({ ...c, total: Boolean(v) }))}>
+                جمع کل
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         <Table className="mobile-data-table">
           <TableHeader className="bg-muted/50">
             <TableRow>
               <TableHead className="ps-4">شماره</TableHead>
-              <TableHead>تاریخ</TableHead>
+              {columns.date && <TableHead>تاریخ</TableHead>}
               <TableHead>خریدار</TableHead>
               <TableHead>وضعیت</TableHead>
-              <TableHead>جمع کل (تومان)</TableHead>
+              {columns.total && <TableHead>جمع کل (تومان)</TableHead>}
               <TableHead className="w-12">
                 <span className="sr-only">عملیات</span>
               </TableHead>
@@ -202,7 +225,7 @@ export function DocumentListPage() {
             {loading &&
               Array.from({ length: 3 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 6 }).map((__, j) => (
+                  {Array.from({ length: visibleColumnCount }).map((__, j) => (
                     <TableCell key={j} className={j === 0 ? "ps-4" : undefined}>
                       <Skeleton className="h-4 w-full max-w-24" />
                     </TableCell>
@@ -212,7 +235,7 @@ export function DocumentListPage() {
 
             {!loading && error && (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-destructive">
+                <TableCell colSpan={visibleColumnCount} className="py-10 text-center text-destructive">
                   دریافت اسناد ناموفق بود: {error}
                   <Button variant="outline" size="sm" onClick={() => setRetryKey((v) => v + 1)}>تلاش مجدد</Button>
                 </TableCell>
@@ -221,7 +244,7 @@ export function DocumentListPage() {
 
             {!loading && !error && rows.length === 0 && (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={6} className="py-14">
+                <TableCell colSpan={visibleColumnCount} className="py-14">
                   <div className="flex flex-col items-center gap-3 text-muted-foreground">
                     <div className="flex size-12 items-center justify-center rounded-full bg-muted">
                       <DocumentTypeIcon type={type} className="size-5" />
@@ -271,14 +294,18 @@ export function DocumentListPage() {
                         {toDisplayDigits(doc.number)}
                       </Link>
                     </TableCell>
-                    <TableCell data-label="تاریخ" className="tabular-nums text-muted-foreground">
-                      {formatJalaliDate(new Date(doc.issueDate))}
-                    </TableCell>
+                    {columns.date && (
+                      <TableCell data-label="تاریخ" className="tabular-nums text-muted-foreground">
+                        {formatJalaliDate(new Date(doc.issueDate))}
+                      </TableCell>
+                    )}
                     <TableCell data-label="خریدار">{doc.buyerName || doc.customer?.name || "—"}</TableCell>
                     <TableCell data-label="وضعیت">
                       <StatusBadge status={doc.status} />
                     </TableCell>
-                    <TableCell data-label="جمع کل (تومان)" className="font-medium tabular-nums">{formatToman(doc.totals.grandTotal)}</TableCell>
+                    {columns.total && (
+                      <TableCell data-label="جمع کل (تومان)" className="font-medium tabular-nums">{formatToman(doc.totals.grandTotal)}</TableCell>
+                    )}
                     {/* Menu clicks bubble through the portal in React's tree; keep them off the row. */}
                     <TableCell className="pe-2" onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu dir="rtl" modal={false}>

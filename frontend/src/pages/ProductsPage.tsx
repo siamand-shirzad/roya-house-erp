@@ -468,7 +468,7 @@ export function ProductsPage() {
         )}
 
         <div className="overflow-hidden rounded-xl border bg-card">
-          <div className="md:max-h-[calc(100svh-var(--header-height)-10rem)] overflow-auto">
+          <div className="overflow-x-auto overflow-y-hidden">
             <table className="mobile-data-table w-full md:min-w-[760px] text-sm">
               <thead className="sticky top-0 z-10 bg-muted/95 text-muted-foreground backdrop-blur">
                 <tr className="border-b">

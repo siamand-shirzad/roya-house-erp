@@ -103,7 +103,8 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuButton size="lg" asChild tooltip="رویا هاوس">
               <Link to="/" aria-label="رویا هاوس">
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-accent">
-                  <LogoMark onDark className="size-7" />
+                  <LogoMark className="size-7 dark:hidden" />
+                  <LogoMark onDark className="hidden size-7 dark:block" />
                 </span>
                 <div className="grid flex-1 text-right leading-tight group-data-[collapsible=icon]:hidden">
                   <span dir="ltr" className="truncate text-right font-display text-[15px] font-semibold tracking-tight">
@@ -139,7 +140,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent className="gap-0 [scrollbar-color:var(--sidebar-border)_transparent] [scrollbar-width:thin]">
+      <SidebarContent className="gap-0 overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {NAV.map((g) => ({...g, items:g.items.filter((item) => canAccessPath(user, item.to))})).filter((g) => g.items.length > 0).map((group) => (
           <SidebarGroup key={group.label} className="py-2">
             <SidebarGroupLabel className="h-7 text-xs font-medium text-sidebar-foreground/45">

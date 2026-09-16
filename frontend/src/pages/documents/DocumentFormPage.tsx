@@ -847,7 +847,7 @@ export function DocumentFormPage() {
         )}
       </div>
 
-      <section className={cn("min-w-0 space-y-3 2xl:sticky 2xl:top-[calc(var(--header-height)+1.5rem)] 2xl:max-h-[calc(100svh-var(--header-height)-3rem)] 2xl:overflow-y-auto", editorView === "entry" && "hidden 2xl:block")}>
+      <section className={cn("min-w-0 space-y-3 2xl:sticky 2xl:top-[calc(var(--header-height)+1.5rem)]", editorView === "entry" && "hidden 2xl:block")}>
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">پیش‌نمایش سند</h3>
           <ExportPdfButton

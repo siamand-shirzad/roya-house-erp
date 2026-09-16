@@ -1,15 +1,14 @@
 import { can, type Module } from "@/lib/permissions";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { matchesSearch } from "@/lib/search";
-import { Contact, Ellipsis, FileStack, LoaderCircle, Pencil, Plus, Search, Trash, TriangleAlert } from "lucide-react";
+import { LoaderCircle, Plus, Search, Trash, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
 import { useAuth } from "@/components/auth-provider";
+import { CustomerDataTable } from "@/components/customers/CustomerDataTable";
 import { CustomerFormDialog } from "@/components/customers/CustomerFormDialog";
-import { ListPagination } from "@/components/list-pagination";
-import { useUrlPagination } from "@/lib/list-state";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -22,18 +21,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { api, errorMessage } from "@/lib/api";
 import { toDisplayDigits } from "@/lib/format";
-import { DocumentTypeIcon } from "@/lib/icons";
 import { type Customer } from "@/types";
 
 // Customers are shared address-book entries. A document copies them into its
@@ -86,8 +76,6 @@ export function CustomersPage() {
     );
   }, [customers, q]);
 
-  const pager = useUrlPagination(rows);
-
   function openCreate() {
     setEditing(null);
     setSheetOpen(true);
@@ -139,120 +127,19 @@ export function CustomersPage() {
           </Alert>
         )}
 
-        <div className="overflow-x-auto rounded-xl border bg-card">
-          <table className="mobile-data-table w-full md:min-w-[760px] text-sm">
-            <thead className="bg-muted/50 text-muted-foreground">
-              <tr className="border-b">
-                <th className="px-3 py-2.5 text-right font-medium">نام مشتری</th>
-                <th className="w-28 px-3 py-2.5 text-right font-medium">کد</th>
-                <th className="w-36 px-3 py-2.5 text-right font-medium">تلفن</th>
-                <th className="w-36 px-3 py-2.5 text-right font-medium">شهرستان</th>
-                <th className="w-40 px-3 py-2.5 text-right font-medium">شناسه ملی</th>
-                <th className="w-12 px-3 py-2.5">
-                  <span className="sr-only">عملیات</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {loading &&
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}>
-                    {Array.from({ length: 6 }).map((__, j) => (
-                      <td key={j} className="px-3 py-3">
-                        <Skeleton className="h-4 w-full max-w-28" />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-
-              {!loading && rows.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-3 py-14">
-                    <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                      <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-                        <Contact className="size-6" />
-                      </div>
-                      {customers.length === 0 ? (
-                        <>
-                          <p>هنوز مشتری‌ای ثبت نشده است.</p>
-                          <Button size="sm" onClick={openCreate} disabled={!canDelete}>
-                            <Plus /> افزودن اولین مشتری
-                          </Button>
-                        </>
-                      ) : (
-                        <p>مشتری‌ای با این جستجو پیدا نشد.</p>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )}
-
-              {!loading &&
-                pager.pageRows.map((c) => (
-                  <tr key={c.id} className="transition-colors hover:bg-muted/40">
-                    <td data-label="نام" className="px-3 py-2 font-medium">
-                      <Link className="underline-offset-4 hover:underline focus-visible:underline" to={`/customers/${c.id}`}>{c.name}</Link>
-                      {c.address && (
-                        <div className="text-xs font-normal text-muted-foreground">{c.address}</div>
-                      )}
-                    </td>
-                    <td data-label="کد مشتری" className="px-3 py-2 tabular-nums">{c.customerCode ?? "—"}</td>
-                    <td data-label="تلفن" className="px-3 py-2 tabular-nums" dir="ltr">
-                      <span className="block text-right">{c.phone ?? "—"}</span>
-                    </td>
-                    <td data-label="شهر" className="px-3 py-2">{c.city ?? "—"}</td>
-                    <td data-label="شناسه ملی" className="px-3 py-2 tabular-nums">{c.nationalId ?? "—"}</td>
-                    <td className="px-1.5 py-1">
-                      <DropdownMenu dir="rtl" modal={false}>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" aria-label={`عملیات ${c.name}`}>
-                            <Ellipsis />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="min-w-52">
-                          <DropdownMenuItem disabled={!canDelete} onSelect={() => openEdit(c)}>
-                            <Pencil /> ویرایش مشتری
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => navigate(`/documents/invoice?customer=${c.id}`)}>
-                            <FileStack /> اسناد این مشتری
-                          </DropdownMenuItem>
-                          {canSell && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onSelect={() => navigate(`/documents/proforma/new?customer=${c.id}`)}>
-                                <DocumentTypeIcon type="PROFORMA" /> پیش‌فاکتور برای این مشتری
-                              </DropdownMenuItem>
-                              <DropdownMenuItem disabled={!can(user, "invoice", true)} onSelect={() => navigate(`/documents/invoice/new?customer=${c.id}`)}>
-                                <DocumentTypeIcon type="INVOICE" /> فاکتور برای این مشتری
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                          {canDelete && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(c)}>
-                                <Trash /> حذف مشتری
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-
-        {!loading && (
-          <ListPagination
-            page={pager.page}
-            pageCount={pager.pageCount}
-            total={pager.total}
-            pageSize={pager.pageSize}
-            onPageChange={pager.setPage}
-          />
-        )}
+        <CustomerDataTable
+          rows={rows}
+          loading={loading}
+          totalCustomers={customers.length}
+          canEdit={canDelete}
+          canSell={canSell}
+          canInvoice={Boolean(user && can(user, "invoice", true))}
+          onCreate={openCreate}
+          onEdit={openEdit}
+          onDelete={setDeleting}
+          onOpenDocuments={(customer) => navigate(`/documents/invoice?customer=${customer.id}`)}
+          onCreateDocument={(customer, type) => navigate(`/documents/${type === "INVOICE" ? "invoice" : "proforma"}/new?customer=${customer.id}`)}
+        />
 
         {loading && (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">

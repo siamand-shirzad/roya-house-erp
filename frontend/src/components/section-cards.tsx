@@ -2,7 +2,7 @@ import { canAccessPath } from "@/lib/permissions";
 import { useAuth } from "@/components/auth-provider";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Warehouse } from "lucide-react";
+import { TrendingDown, TrendingUp, Warehouse } from "lucide-react";
 
 import { AnimatedNumber } from "@/components/animated-number";
 import {
@@ -15,11 +15,43 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DocumentTypeIcon } from "@/lib/icons";
-import { formatNumber, formatToman } from "@/lib/format";
+import { formatNumber, formatToman, toDisplayDigits } from "@/lib/format";
 import { REVEAL, stagger } from "@/lib/motion";
 import { stockLevel } from "@/lib/stock";
 import { cn } from "@/lib/utils";
 import type { Document, StockRow } from "@/types";
+
+const DAY_MS = 86_400_000;
+
+type Trend = { pct: number; up: boolean };
+
+// Percentage change vs. the 30 days before the current 30-day window. Skipped
+// (not "0%") when there's nothing to compare against or nothing changed —
+// showing a real zero would read as noise, not a fabricated stat.
+function periodTrend(current: number, previous: number): Trend | null {
+  if (previous <= 0) return null;
+  const pct = Math.round(((current - previous) / previous) * 100);
+  return pct === 0 ? null : { pct: Math.abs(pct), up: pct > 0 };
+}
+
+function TrendBadge({ pct, up }: Trend) {
+  const Icon = up ? TrendingUp : TrendingDown;
+  return (
+    <span
+      title="نسبت به ۳۰ روز پیش از آن"
+      className={cn(
+        "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-medium tabular-nums",
+        up
+          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300"
+          : "bg-red-50 text-red-700 dark:bg-red-400/10 dark:text-red-300",
+      )}
+    >
+      <Icon className="size-3" />
+      {up ? "+" : "-"}
+      {toDisplayDigits(pct)}٪
+    </span>
+  );
+}
 
 function StatCard({
   label,
@@ -29,6 +61,7 @@ function StatCard({
   to,
   loading,
   failed,
+  trend,
   index,
 }: {
   label: string;
@@ -39,6 +72,8 @@ function StatCard({
   loading: boolean;
   /** The request behind this card failed: show that, never a zero. */
   failed?: boolean;
+  /** 30-day-over-30-day change, when there's enough history to compare. */
+  trend?: Trend | null;
   index: number;
 }) {
   const { user } = useAuth();
@@ -61,8 +96,9 @@ function StatCard({
             </div>
           </CardAction>
         </CardHeader>
-        <CardFooter className={cn("text-sm", failed ? "text-destructive" : "text-muted-foreground")}>
-          {failed ? "دریافت اطلاعات ناموفق بود" : footer}
+        <CardFooter className={cn("flex items-center justify-between gap-2 text-sm", failed ? "text-destructive" : "text-muted-foreground")}>
+          <span>{failed ? "دریافت اطلاعات ناموفق بود" : footer}</span>
+          {!loading && !failed && trend && <TrendBadge {...trend} />}
         </CardFooter>
       </Card>
     </Link>
@@ -91,6 +127,25 @@ export function SectionCards({
   const invoiceTotal = issuedInvoices.reduce((sum, d) => sum + d.totals.grandTotal, 0);
   const count = (type: Document["type"]) => documents.filter((d) => d.type === type).length;
 
+  const now = Date.now();
+  const last30Start = now - 30 * DAY_MS;
+  const prev30Start = now - 60 * DAY_MS;
+  const inWindow = (dateStr: string, start: number, end: number) => {
+    const t = new Date(dateStr).getTime();
+    return t >= start && t < end;
+  };
+  const sumIn = (docs: Document[], start: number, end: number) =>
+    docs.filter((d) => inWindow(d.issueDate, start, end)).reduce((sum, d) => sum + d.totals.grandTotal, 0);
+  const countIn = (type: Document["type"], start: number, end: number) =>
+    documents.filter((d) => d.type === type && inWindow(d.issueDate, start, end)).length;
+
+  const invoiceTrend = periodTrend(
+    sumIn(issuedInvoices, last30Start, now),
+    sumIn(issuedInvoices, prev30Start, last30Start),
+  );
+  const proformaTrend = periodTrend(countIn("PROFORMA", last30Start, now), countIn("PROFORMA", prev30Start, last30Start));
+  const goodsIssueTrend = periodTrend(countIn("GOODS_ISSUE", last30Start, now), countIn("GOODS_ISSUE", prev30Start, last30Start));
+
   return (
     <div className="grid grid-cols-1 gap-4 px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
       <StatCard
@@ -102,6 +157,7 @@ export function SectionCards({
         to="/documents/invoice"
         loading={loading}
         failed={documentsFailed}
+        trend={invoiceTrend}
       />
       <StatCard
         index={1}
@@ -112,6 +168,7 @@ export function SectionCards({
         to="/documents/proforma"
         loading={loading}
         failed={documentsFailed}
+        trend={proformaTrend}
       />
       <StatCard
         index={2}
@@ -122,6 +179,7 @@ export function SectionCards({
         to="/documents/goods-issue"
         loading={loading}
         failed={documentsFailed}
+        trend={goodsIssueTrend}
       />
       <StatCard
         index={3}

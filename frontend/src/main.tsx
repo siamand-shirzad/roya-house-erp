@@ -1,14 +1,13 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 // Self-hosted fonts (bundled, no Google Fonts request). Latin + digits:
-// Inter (text), Space Grotesk (headings), IBM Plex Mono (codes). Persian
+// Inter (text), Space Grotesk (headings), Geist Mono (numbers/codes). Persian
 // letters fall back to IBM Plex Sans Arabic. Stacks are defined in index.css.
 import "@fontsource-variable/inter";
 import "@fontsource/space-grotesk/500.css";
 import "@fontsource/space-grotesk/600.css";
 import "@fontsource/space-grotesk/700.css";
-import "@fontsource/ibm-plex-mono/400.css";
-import "@fontsource/ibm-plex-mono/500.css";
+import "@fontsource-variable/geist-mono";
 import "@fontsource/ibm-plex-sans-arabic/400.css";
 import "@fontsource/ibm-plex-sans-arabic/500.css";
 import "@fontsource/ibm-plex-sans-arabic/600.css";

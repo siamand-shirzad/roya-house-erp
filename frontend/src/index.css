@@ -36,15 +36,15 @@
   --chart-3: oklch(0.62 0 0);
   --chart-4: oklch(0.75 0 0);
   --chart-5: oklch(0.86 0 0);
-  /* Charcoal sidebar in both themes; the active item's icon takes the soft red. */
-  --sidebar: oklch(0.2 0 0);
-  --sidebar-foreground: oklch(0.92 0 0);
-  --sidebar-primary: oklch(0.72 0.1 22);
-  --sidebar-primary-foreground: oklch(0.2 0 0);
-  --sidebar-accent: oklch(0.29 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 9%);
-  --sidebar-ring: oklch(0.72 0.1 22);
+  /* In light mode the sidebar is part of the same paper-like surface system. */
+  --sidebar: oklch(0.975 0 0);
+  --sidebar-foreground: oklch(0.2 0 0);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: oklch(0.925 0.008 22);
+  --sidebar-accent-foreground: oklch(0.25 0 0);
+  --sidebar-border: oklch(0.875 0 0);
+  --sidebar-ring: var(--ring);
 }
 
 .dark {
@@ -87,7 +87,7 @@
 @theme {
   --font-sans: "Inter Variable", "IBM Plex Sans Arabic", system-ui, sans-serif;
   --font-display: "Space Grotesk", "IBM Plex Sans Arabic", system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", "IBM Plex Sans Arabic", ui-monospace, monospace;
+  --font-mono: "Geist Mono Variable", "IBM Plex Sans Arabic", ui-monospace, monospace;
 }
 
 @theme inline {
@@ -150,6 +150,7 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-feature-settings: "cv11", "ss01";
+    overflow-x: hidden;
   }
   h1,
   h2,
@@ -164,6 +165,14 @@
         color 300ms ease;
     }
   }
+}
+
+/* Numeric data gets a stable rhythm without changing Persian body copy. */
+.tabular-nums,
+[data-numeric],
+input[type="number"] {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
 }
 
 .shamsi-calendar.rdp-root {

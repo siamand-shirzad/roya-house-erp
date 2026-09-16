@@ -51,7 +51,7 @@ export function SegmentedControl<T extends string>({
       ref={containerRef}
       role={isNav ? undefined : "group"}
       aria-label={isNav ? undefined : ariaLabel}
-      className={cn("relative inline-flex max-w-full overflow-x-auto rounded-lg bg-muted p-1", className)}
+      className={cn("relative inline-flex max-w-full overflow-x-auto rounded-lg bg-muted p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", className)}
     >
       {pill && (
         <span
