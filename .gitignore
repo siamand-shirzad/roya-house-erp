@@ -11,3 +11,8 @@ backend/dist/
 .claude/settings.local.json
 # Written by `npm run hash-password`; holds a password hash. Delete after use.
 reset-password.sql
+
+# Skills installed by `npx skills add`; symlinked into .claude/skills
+.agents/
+.claude/skills/shadcn/
+.claude/skills/migrate-radix-to-base/
