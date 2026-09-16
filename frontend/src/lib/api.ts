@@ -2,11 +2,15 @@ import type {
   AuthUser,
   Company,
   Customer,
+  CustomerBalance,
   Document,
   DocumentType,
   Product,
   ProductCategory,
   ProductImportRow,
+  Payment,
+  PaymentInput,
+  SepidarSummary,
   SalesReport,
   StockMovement,
   StockRow,
@@ -52,6 +56,14 @@ const SERVER_MESSAGES: Record<string, string> = {
     "ابتدا سندهایی که از این سند ساخته شده‌اند را باطل کنید.",
   "Current password is incorrect": "رمز عبور فعلی درست نیست.",
   "Customer has documents": "برای این مشتری سند ثبت شده و قابل حذف نیست.",
+  "Customer has payments or receipts": "برای این طرف حساب دریافت یا رسید انبار ثبت شده و قابل حذف نیست.",
+  "Cancel the payments recorded against this invoice first": "برای این فاکتور دریافت ثبت شده؛ ابتدا دریافت‌ها را باطل کنید.",
+  "Payments can only be recorded against issued invoices": "دریافت فقط برای فاکتور صادرشده ثبت می‌شود.",
+  "The invoice belongs to another customer": "این فاکتور متعلق به مشتری دیگری است.",
+  "Invoice not found": "فاکتور پیدا نشد.",
+  "Only an active cheque can change status": "وضعیت فقط برای چک فعال قابل تغییر است.",
+  "Only an active payment can be cancelled": "این دریافت قبلاً باطل شده است.",
+  "Only admins can download backups": "فقط مدیر سیستم می‌تواند پشتیبان بگیرد.",
   "Customer not found": "مشتری پیدا نشد.",
   "Document not found": "سند پیدا نشد.",
   "Duplicate product codes in file": "در فایل، کد کالای تکراری وجود دارد.",
@@ -161,7 +173,8 @@ export const api = {
       request<User>(`/users/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   },
   customers: {
-    list: (q?: string) => request<Customer[]>(`/customers${queryString({ q })}`),
+    list: (q?: string, kind?: "CUSTOMER" | "SUPPLIER") =>
+      request<Customer[]>(`/customers${queryString({ q, kind })}`),
     get: (id: string) => request<Customer>(`/customers/${id}`),
     create: (data: Partial<Customer>) =>
       request<Customer>("/customers", { method: "POST", body: JSON.stringify(data) }),
@@ -176,7 +189,11 @@ export const api = {
     stock: () => request<StockRow[]>("/inventory/stock"),
     movements: (params?: { productId?: string; from?: string; to?: string; offset?: string; limit?: string }) =>
       request<StockMovement[]>(`/inventory/movements${queryString(params ?? {})}`),
-    receipt: (data: { reference?: string | null; items: { productId: string; quantity: number }[] }) =>
+    receipt: (data: {
+      reference?: string | null;
+      supplierId?: string | null;
+      items: { productId: string; quantity: number; unitCost?: number | null }[];
+    }) =>
       request<{ created: number }>("/inventory/receipts", { method: "POST", body: JSON.stringify(data) }),
     adjust: (data: { productId: string; countedQuantity: number; reason: string }) =>
       request<{ before: number; after: number; difference: number }>("/inventory/adjustments", {
@@ -189,11 +206,33 @@ export const api = {
         body: JSON.stringify({ productId, minStock }),
       }),
   },
+  payments: {
+    list: (params?: {
+      customerId?: string;
+      documentId?: string;
+      method?: string;
+      chequeStatus?: string;
+      from?: string;
+      to?: string;
+    }) => request<Payment[]>(`/payments${queryString(params ?? {})}`),
+    balances: () => request<CustomerBalance[]>("/payments/balances"),
+    create: (data: PaymentInput) => request<Payment>("/payments", { method: "POST", body: JSON.stringify(data) }),
+    setChequeStatus: (id: string, status: NonNullable<Payment["chequeStatus"]>) =>
+      request<Payment>(`/payments/${id}/cheque-status`, { method: "POST", body: JSON.stringify({ status }) }),
+    cancel: (id: string, reason: string) =>
+      request<Payment>(`/payments/${id}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }),
+  },
+  exchange: {
+    summary: () => request<SepidarSummary>("/exchange/sepidar/summary"),
+    /** A download link; the session cookie goes along because the app and API share an origin (or CORS allows it). */
+    url: (path: string, params?: { from?: string; to?: string }) =>
+      `${BASE_URL}/exchange/${path}${queryString(params ?? {})}`,
+  },
   documents: {
     company: () => request<Company | null>("/documents/company"),
     page: (params: { type?: DocumentType; customerId?: string; status?: string; q?: string; from?: string; to?: string; page?: string }) =>
       request<{ rows: Document[]; total: number; page: number; pageSize: number }>(`/documents/page${queryString(params)}`),
-    list: (params?: { type?: DocumentType; customerId?: string }) =>
+    list: (params?: { type?: DocumentType; customerId?: string; since?: string }) =>
       request<Document[]>(`/documents${queryString(params ?? {})}`),
     get: (id: string) => request<Document>(`/documents/${id}`),
     create: (data: Record<string, unknown>) =>

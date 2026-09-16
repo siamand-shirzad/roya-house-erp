@@ -11,6 +11,9 @@ import {
 import { useNavigate } from "react-router-dom";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
+  ArrowLeftRight,
+  BookOpen,
+  HandCoins,
   Building2,
   ChartColumn,
   Contact,
@@ -103,6 +106,9 @@ export function CommandMenuProvider({ children }: { children: ReactNode }) {
       nav("go-products", ["G", "P"], "Products & Prices", Tags, "/products"),
       nav("go-customers", ["G", "C"], "Customers", Contact, "/customers"),
       nav("go-inventory", ["G", "I"], "Inventory", Warehouse, "/inventory"),
+      nav("go-payments", ["G", "M"], "Payments & Cheques", HandCoins, "/payments"),
+      nav("go-exchange", ["G", "X"], "Sepidar Export", ArrowLeftRight, "/exchange"),
+      nav("go-guide", ["G", "H"], "Guide", BookOpen, "/guide"),
     ];
     if (can(user, "reports")) list.push(nav("go-reports", ["G", "R"], "Reports", ChartColumn, "/reports"));
     if (user.role === "ADMIN") {

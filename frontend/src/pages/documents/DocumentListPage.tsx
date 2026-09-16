@@ -9,6 +9,8 @@ import { useAuth } from "@/components/auth-provider";
 import { DocumentTypeTabs } from "@/components/documents/DocumentTypeTabs";
 import { useDocumentPdfExport } from "@/components/documents/useDocumentPdfExport";
 import { StatusBadge } from "@/components/documents/StatusBadge";
+import { PaymentStateBadge } from "@/components/payments/InvoicePaymentsCard";
+import { toIsoDate } from "@/lib/format";
 import { ListPagination } from "@/components/list-pagination";
 import { useListState } from "@/lib/list-state";
 import { SegmentedControl } from "@/components/segmented-control";
@@ -301,7 +303,13 @@ export function DocumentListPage() {
                     )}
                     <TableCell data-label="خریدار">{doc.buyerName || doc.customer?.name || "—"}</TableCell>
                     <TableCell data-label="وضعیت">
-                      <StatusBadge status={doc.status} />
+                      <span className="inline-flex flex-wrap items-center gap-1">
+                        <StatusBadge status={doc.status} />
+                        <PaymentStateBadge doc={doc} />
+                        {doc.type === "PROFORMA" && doc.status === "ISSUED" && doc.validUntil && doc.validUntil < toIsoDate(new Date()) && (
+                          <span className="rounded-md border border-destructive/30 px-1.5 py-0.5 text-xs text-destructive">منقضی</span>
+                        )}
+                      </span>
                     </TableCell>
                     {columns.total && (
                       <TableCell data-label="جمع کل (تومان)" className="font-medium tabular-nums">{formatToman(doc.totals.grandTotal)}</TableCell>

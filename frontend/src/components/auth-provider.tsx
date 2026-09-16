@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { Navigate, useLocation } from "react-router-dom";
 import { LoaderCircle } from "lucide-react";
 import { api, ApiError, UNAUTHORIZED_EVENT } from "@/lib/api";
-import { BrandLogo } from "@/components/brand-logo";
+import { LogoMark } from "@/components/logo-mark";
 import type { AuthUser, UserRole } from "@/types";
 
 // Session state for the app. The server owns the session (HttpOnly cookie);
@@ -97,7 +97,7 @@ export function useAuth() {
 export function FullScreenStatus({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-6 bg-background p-6 text-center">
-      <BrandLogo className="h-16" />
+      <LogoMark title="رویا هاوس" className="h-16 w-auto text-foreground" />
       <div className="flex flex-col items-center gap-3 text-sm text-muted-foreground">{children}</div>
     </div>
   );

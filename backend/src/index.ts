@@ -14,6 +14,8 @@ import { publicRouter } from "./routes/public";
 import { reportsRouter } from "./routes/reports";
 import { companyRouter, ensureCompany } from "./routes/company";
 import { inventoryRouter } from "./routes/inventory";
+import { paymentsRouter } from "./routes/payments";
+import { exchangeRouter } from "./routes/exchange";
 import { authenticate, requireAuth, requireRole } from "./lib/auth";
 import { pool, SCHEMA_SQL } from "./lib/db";
 
@@ -50,6 +52,9 @@ app.use("/api/documents", documentsRouter);
 app.use("/api/company", companyRouter);
 // Everyone reads stock; the router itself limits writes to ADMIN and WAREHOUSE.
 app.use("/api/inventory", inventoryRouter);
+app.use("/api/payments", paymentsRouter);
+// Sepidar exports (report readers) and the JSON backup (admins); checked inside.
+app.use("/api/exchange", exchangeRouter);
 app.use("/api/users", requireRole("ADMIN"), usersRouter);
 // Revenue figures: management and accounting only.
 app.use("/api/reports", requirePermission("reports"), reportsRouter);

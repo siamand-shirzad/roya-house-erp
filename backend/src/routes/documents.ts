@@ -64,6 +64,7 @@ function rowToCustomer(r: any) {
     id: r.id,
     name: r.name,
     customerCode: r.customer_code,
+    partyKind: r.party_kind ?? "CUSTOMER",
     nationalId: r.national_id,
     economicCode: r.economic_code,
     registration: r.registration,
@@ -91,6 +92,10 @@ function rowToItem(r: any) {
 }
 
 const rowToLink = (r: any) => (r ? { id: r.id, type: r.type, number: r.number, status: r.status } : null);
+
+// pg returns `date` columns as a local-midnight Date; send the calendar day.
+const isoDay = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 const byId = (rows: any[]) => new Map(rows.map((r) => [r.id, r]));
 const distinct = (values: (string | null)[]) => [...new Set(values.filter((v): v is string => !!v))];
@@ -123,6 +128,15 @@ async function loadDocuments(ids: string[]) {
     ),
   ]);
 
+  // Money received against each invoice (routes/payments.ts): active receipts,
+  // minus cheques that bounced.
+  const paidRows = await query(
+    `SELECT document_id, sum(amount) AS paid FROM payments
+     WHERE document_id = ANY($1) AND status = 'ACTIVE' AND COALESCE(cheque_status, '') <> 'BOUNCED'
+     GROUP BY document_id`,
+    [ids]
+  );
+  const paidByDoc = new Map(paidRows.map((r: any) => [r.document_id, Number(r.paid)]));
   const revisionRows = await query("SELECT id, type, number, status, revision_of_id FROM documents WHERE revision_of_id = ANY($1) ORDER BY created_at", [ids]);
   const companyById = byId(companies);
   const customerById = byId(customers);
@@ -170,6 +184,8 @@ async function loadDocuments(ids: string[]) {
         deliveredToName: doc.delivered_to_name,
         deliveredToNationalId: doc.delivered_to_national_id,
         notes: doc.notes,
+        validUntil: doc.valid_until ? isoDay(doc.valid_until) : null,
+        paidAmount: paidByDoc.get(doc.id) ?? 0,
         items,
         totals: computeDocumentTotals(
           items.map((i) => ({ quantity: i.quantity, unitPrice: i.unitPrice, discount: i.discount, taxRate: i.taxRate }))
@@ -222,6 +238,7 @@ const documentSchema = z.object({
   deliveredToName: z.string().optional().nullable(),
   deliveredToNationalId: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  validUntil: z.string().date().optional().nullable(),
   items: z.array(itemSchema).min(1),
   // The `updatedAt` the client loaded, so a save made against a document that
   // someone else has since changed is rejected instead of silently
@@ -262,7 +279,9 @@ const totalsFor = (items: ItemInput[]) =>
 // GET /api/documents?type=&customerId=
 documentsRouter.get("/", async (req, res, next) => {
   try {
-    const { type, customerId } = req.query as { type?: string; customerId?: string };
+    const { type, customerId, since } = z
+      .object({ type: z.string().optional(), customerId: z.string().optional(), since: z.string().date().optional() })
+      .parse(req.query);
     const conditions: string[] = ["type = ANY($1::text[])"];
     const params: unknown[] = [allowedTypes(res)];
     if (type && !allowedTypes(res).includes(type as DocType)) return forbidden(res);
@@ -273,6 +292,12 @@ documentsRouter.get("/", async (req, res, next) => {
     if (customerId) {
       params.push(customerId);
       conditions.push(`customer_id = $${params.length}`);
+    }
+    // The dashboard only needs recent documents, plus drafts of any age
+    // (they are still someone's open work).
+    if (since) {
+      params.push(since);
+      conditions.push(`(issue_date >= $${params.length}::date OR status = 'DRAFT')`);
     }
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const ids = await query<{ id: string }>(
@@ -356,8 +381,8 @@ documentsRouter.post("/", async (req, res, next) => {
         `INSERT INTO documents (id, type, number, status, issue_date, company_id, customer_id,
           buyer_name, buyer_national_id, buyer_economic_code, buyer_province, buyer_city, buyer_address,
           buyer_postal_code, buyer_phone, related_invoice_no, vehicle_plate, vehicle_color,
-          delivered_to_name, delivered_to_national_id, notes, discount_total, tax_total, created_by)
-         VALUES ($1,$2,$3,'DRAFT',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)`,
+          delivered_to_name, delivered_to_national_id, notes, discount_total, tax_total, created_by, valid_until)
+         VALUES ($1,$2,$3,'DRAFT',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)`,
         [
           docId,
           data.type,
@@ -382,6 +407,7 @@ documentsRouter.post("/", async (req, res, next) => {
           totals.discountTotal,
           totals.taxTotal,
           currentUser(res).id,
+          data.type === "PROFORMA" ? data.validUntil ?? null : null,
         ]
       );
       await insertItems(client, docId, data.items);
@@ -419,7 +445,7 @@ documentsRouter.put("/:id", async (req, res, next) => {
         `UPDATE documents SET issue_date=$1, customer_id=$2, buyer_name=$3, buyer_national_id=$4,
           buyer_economic_code=$5, buyer_province=$6, buyer_city=$7, buyer_address=$8, buyer_postal_code=$9,
           buyer_phone=$10, related_invoice_no=$11, vehicle_plate=$12, vehicle_color=$13, delivered_to_name=$14,
-          delivered_to_national_id=$15, notes=$16, discount_total=$17, tax_total=$18, updated_at=now()
+          delivered_to_national_id=$15, notes=$16, discount_total=$17, tax_total=$18, valid_until=$20, updated_at=now()
          WHERE id=$19`,
         [
           data.issueDate ? new Date(data.issueDate) : locked.issue_date,
@@ -441,6 +467,7 @@ documentsRouter.put("/:id", async (req, res, next) => {
           totals ? totals.discountTotal : locked.discount_total,
           totals ? totals.taxTotal : locked.tax_total,
           req.params.id,
+          locked.type === "PROFORMA" ? pick(data.validUntil, locked.valid_until) : null,
         ]
       );
       if (data.items) {
@@ -522,7 +549,7 @@ documentsRouter.post("/:id/cancel", async (req, res, next) => {
     // "not-issued": raced with something that already moved it off ISSUED.
     // "blocked": raced with (or lost to) a /convert of this same document —
     // /convert takes this same row lock, so only one of the two can win.
-    const result = await withTransaction<"ok" | "not-issued" | { blocking: unknown }>(async (client) => {
+    const result = await withTransaction<"ok" | "not-issued" | "has-payments" | { blocking: unknown }>(async (client) => {
       const locked = await lockDocument(client, req.params.id);
       if (!locked || locked.status !== "ISSUED") return "not-issued";
 
@@ -531,6 +558,13 @@ documentsRouter.post("/:id/cancel", async (req, res, next) => {
         [req.params.id]
       );
       if (active.rows[0]) return { blocking: rowToLink(active.rows[0]) };
+      // Money received against an invoice has to be cancelled (or moved) first,
+      // or the customer's balance would count a payment for nothing.
+      const paid = await client.query(
+        "SELECT 1 FROM payments WHERE document_id = $1 AND status = 'ACTIVE' LIMIT 1",
+        [req.params.id]
+      );
+      if (paid.rows[0]) return "has-payments";
 
       if (existing.type === "GOODS_ISSUE") await reverseGoodsIssueMovements(client, req.params.id, userId);
       await client.query(
@@ -542,6 +576,9 @@ documentsRouter.post("/:id/cancel", async (req, res, next) => {
     });
 
     if (result === "not-issued") return res.status(409).json({ error: "Only issued documents can be cancelled" });
+    if (result === "has-payments") {
+      return res.status(409).json({ error: "Cancel the payments recorded against this invoice first" });
+    }
     if (result !== "ok") {
       return res.status(409).json({ error: "Cancel the documents created from this one first", blocking: result.blocking });
     }

@@ -2,6 +2,10 @@ import { can, type Module } from "@/lib/permissions";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useUnsavedChangesBlocker } from "@/lib/unsaved-changes";
+import { useHeaderTitle } from "@/components/app-shell";
+import { InvoicePaymentsCard, PaymentStateBadge } from "@/components/payments/InvoicePaymentsCard";
+import { SharePdfButton } from "@/components/documents/SharePdfButton";
+import { ShamsiDatePicker } from "@/components/shamsi-date-picker";
 import { StatusBadge } from "@/components/documents/StatusBadge";
 import { SegmentedControl } from "@/components/segmented-control";
 import { computeDocumentTotals } from "@/lib/totals";
@@ -54,7 +58,7 @@ import {
 } from "@/types";
 import { toast } from "sonner";
 import { api, ApiError, errorMessage, STALE_WRITE } from "@/lib/api";
-import { toDisplayDigits, formatJalaliDate, formatNumber, formatToman } from "@/lib/format";
+import { toDisplayDigits, formatJalaliDate, formatNumber, formatToman, toIsoDate } from "@/lib/format";
 
 const EMPTY_BUYER: BuyerFormState = {
   buyerName: "",
@@ -102,7 +106,8 @@ function buildPayload(
   customerId: string | null,
   buyer: BuyerFormState,
   goodsIssue: GoodsIssueFormState,
-  notes: string
+  notes: string,
+  validUntil: string
 ) {
   return {
     type,
@@ -119,6 +124,7 @@ function buildPayload(
     customerId,
     ...buyer,
     ...(typeNeedsGoodsIssueFields(type) ? goodsIssue : {}),
+    ...(type === "PROFORMA" ? { validUntil: validUntil || null } : {}),
     notes,
   };
 }
@@ -166,6 +172,8 @@ export function DocumentFormPage() {
   const [buyerOpen, setBuyerOpen] = useState(!id);
   const [goodsIssue, setGoodsIssue] = useState<GoodsIssueFormState>(EMPTY_GOODS_ISSUE);
   const [notes, setNotes] = useState("");
+  // Proformas: last day the prices hold (YYYY-MM-DD, "" = not stated).
+  const [validUntil, setValidUntil] = useState("");
   const [editorView, setEditorView] = useState<"entry" | "preview">("entry");
   const [savedDoc, setSavedDoc] = useState<Document | null>(null);
   // JSON of the payload the server last confirmed; compared to detect unsaved
@@ -174,7 +182,7 @@ export function DocumentFormPage() {
   // only a buyer typed in (no items yet) would read as "not dirty" and the
   // unsaved-changes guard below would let it be navigated away from silently.
   const [savedSnapshot, setSavedSnapshot] = useState<string | null>(() =>
-    id ? null : JSON.stringify(buildPayload(type, [], null, EMPTY_BUYER, EMPTY_GOODS_ISSUE, ""))
+    id ? null : JSON.stringify(buildPayload(type, [], null, EMPTY_BUYER, EMPTY_GOODS_ISSUE, "", ""))
   );
   const [error, setError] = useState<string | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
@@ -235,9 +243,10 @@ export function DocumentFormPage() {
         setBuyer(loadedBuyer);
         setGoodsIssue(loadedGoodsIssue);
         setNotes(doc.notes ?? "");
+        setValidUntil(doc.validUntil ?? "");
         setSavedSnapshot(
           JSON.stringify(
-            buildPayload(type, doc.items, doc.customer?.id ?? null, loadedBuyer, loadedGoodsIssue, doc.notes ?? "")
+            buildPayload(type, doc.items, doc.customer?.id ?? null, loadedBuyer, loadedGoodsIssue, doc.notes ?? "", doc.validUntil ?? "")
           )
         );
       })
@@ -251,7 +260,7 @@ export function DocumentFormPage() {
   const locked = !isDraft; // issued/cancelled documents are read-only from here on
   const editable = canWrite && isDraft && (!id || !!savedDoc);
 
-  const payload = buildPayload(type, items, customerId, buyer, goodsIssue, notes);
+  const payload = buildPayload(type, items, customerId, buyer, goodsIssue, notes, validUntil);
   // Any difference from what the server last confirmed counts, including a
   // buyer or note with no items yet (see savedSnapshot's initial value).
   const dirty = editable && savedSnapshot !== null && JSON.stringify(payload) !== savedSnapshot;
@@ -260,6 +269,17 @@ export function DocumentFormPage() {
   // palette) while there are unsaved edits, and warns on tab close. Must run
   // before the invalid-type return below: hooks can't sit after one.
   const { blocker, skipNext } = useUnsavedChangesBlocker(dirty && !loading);
+  useHeaderTitle(savedDoc && type ? `${DOCUMENT_TYPE_LABELS[type].name} ${toDisplayDigits(savedDoc.number)}` : null);
+
+  // Re-read the document after a payment so its paid amount (and the print) update.
+  async function refreshSaved() {
+    if (!savedDoc) return;
+    try {
+      setSavedDoc(await api.documents.get(savedDoc.id));
+    } catch {
+      // The payment itself is saved; the figure refreshes on the next visit.
+    }
+  }
 
   if (!type) {
     return <div className="p-8 text-center text-muted-foreground">نوع سند نامعتبر است.</div>;
@@ -272,6 +292,7 @@ export function DocumentFormPage() {
         ...buyer,
         ...goodsIssue,
         notes,
+        validUntil: validUntil || null,
       }
     : {
         id: "draft",
@@ -286,6 +307,7 @@ export function DocumentFormPage() {
         ...buyer,
         ...goodsIssue,
         notes,
+        validUntil: validUntil || null,
         items,
         totals: { subtotal: 0, discountTotal: 0, taxTotal: 0, grandTotal: 0 },
       };
@@ -478,6 +500,7 @@ export function DocumentFormPage() {
         {savedDoc && (
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <StatusBadge status={savedDoc.status} />
+            <PaymentStateBadge doc={savedDoc} />
             <span className="text-muted-foreground">
               شماره سند: <span className="font-medium text-foreground">{toDisplayDigits(savedDoc.number)}</span>
             </span>
@@ -600,6 +623,41 @@ export function DocumentFormPage() {
             </CardContent>
           </Card>
         )}
+
+        {type === "PROFORMA" && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card px-4 py-3 text-sm">
+            <span className="font-medium">اعتبار پیش‌فاکتور تا</span>
+            {editable ? (
+              <>
+                <ShamsiDatePicker label="بدون تاریخ" value={validUntil} min={toIsoDate(new Date())} onChange={setValidUntil} />
+                {[3, 7, 15, 30].map((days) => (
+                  <Button
+                    key={days}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + days);
+                      setValidUntil(toIsoDate(d));
+                    }}
+                  >
+                    {toDisplayDigits(days)} روز
+                  </Button>
+                ))}
+              </>
+            ) : (
+              <span className="tabular-nums">
+                {validUntil ? formatJalaliDate(new Date(`${validUntil}T12:00:00`)) : "ثبت نشده"}
+              </span>
+            )}
+            {validUntil && validUntil < toIsoDate(new Date()) && (
+              <Badge variant="outline" className="border-destructive/30 text-destructive">منقضی شده</Badge>
+            )}
+          </div>
+        )}
+
+        {savedDoc && type === "INVOICE" && isIssued && <InvoicePaymentsCard doc={savedDoc} onChanged={refreshSaved} />}
 
         <Card>
           <CardHeader>
@@ -850,10 +908,18 @@ export function DocumentFormPage() {
       <section className={cn("min-w-0 space-y-3 2xl:sticky 2xl:top-[calc(var(--header-height)+1.5rem)]", editorView === "entry" && "hidden 2xl:block")}>
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">پیش‌نمایش سند</h3>
-          <ExportPdfButton
-            elementId={printElementId}
-            fileName={`${TYPE_TO_SLUG[type]}-${savedDoc?.number ?? "draft"}.pdf`}
-          />
+          <div className="flex items-center gap-2">
+            <SharePdfButton
+              elementId={printElementId}
+              fileName={`${TYPE_TO_SLUG[type]}-${savedDoc?.number ?? "draft"}.pdf`}
+              phone={buyer.buyerPhone}
+              message={`${DOCUMENT_TYPE_LABELS[type].name}${savedDoc ? ` شماره ${toDisplayDigits(savedDoc.number)}` : ""} — ${company?.name ?? savedDoc?.company?.name ?? "رویا هاوس"}${type !== "GOODS_ISSUE" ? ` — جمع کل ${formatToman(computeDocumentTotals(items).grandTotal)} تومان` : ""}`}
+            />
+            <ExportPdfButton
+              elementId={printElementId}
+              fileName={`${TYPE_TO_SLUG[type]}-${savedDoc?.number ?? "draft"}.pdf`}
+            />
+          </div>
         </div>
         <Separator />
         {/* The sheet itself is always "paper" white; only the backdrop follows the theme. */}

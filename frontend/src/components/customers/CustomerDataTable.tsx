@@ -118,7 +118,7 @@ export function CustomerDataTable(props: Props) {
     },
     {
       accessorKey: "customerCode",
-      header: "کد مشتری",
+      header: "کد طرف حساب",
       cell: ({ row }) => <span className="tabular-nums">{row.original.customerCode || "—"}</span>,
     },
     {

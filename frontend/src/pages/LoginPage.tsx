@@ -4,7 +4,7 @@ import { Eye, EyeOff, LoaderCircle, LogIn, ShieldCheck, TriangleAlert } from "lu
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BrandLogo } from "@/components/brand-logo";
+import { LogoMark } from "@/components/logo-mark";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FullScreenStatus, useAuth } from "@/components/auth-provider";
@@ -104,7 +104,8 @@ export function LoginPage() {
       </div>
       <div className="w-full max-w-sm space-y-6">
         <div className="flex flex-col items-center gap-2 text-center">
-          <BrandLogo className="h-20" />
+          <LogoMark className="h-16 w-auto text-foreground" />
+          <p className="mt-2 font-display text-xl font-semibold tracking-tight">رویا هاوس</p>
           <p className="font-display text-sm tracking-wide text-muted-foreground">Sales &amp; Warehouse</p>
         </div>
 

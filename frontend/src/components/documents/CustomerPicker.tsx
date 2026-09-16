@@ -13,6 +13,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { api } from "@/lib/api";
 import { matchesSearch } from "@/lib/search";
+import { cn } from "@/lib/utils";
 import type { Customer } from "@/types";
 
 // Picking a customer copies their details into the buyer fields; the document
@@ -20,9 +21,16 @@ import type { Customer } from "@/types";
 export function CustomerPicker({
   onSelect,
   disabled,
+  kind,
+  label = "انتخاب از مشتریان...",
+  className,
 }: {
   onSelect: (customer: Customer) => void;
   disabled?: boolean;
+  /** Only customers (or only suppliers); parties that are both always show. */
+  kind?: "CUSTOMER" | "SUPPLIER";
+  label?: string;
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -36,18 +44,18 @@ export function CustomerPicker({
     setLoading(true);
     setFailed(false);
     api.customers
-      .list()
+      .list(undefined, kind)
       .then(setCustomers)
       .catch(() => setFailed(true))
       .finally(() => setLoading(false));
-  }, [open, customers.length]);
+  }, [open, customers.length, kind]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" aria-label="انتخاب از مشتریان" aria-expanded={open} disabled={disabled} className="justify-between sm:w-72">
-          <span className="flex items-center gap-2 text-muted-foreground">
-            <UserSearch className="size-4" /> انتخاب از مشتریان...
+        <Button variant="outline" role="combobox" aria-label={label} aria-expanded={open} disabled={disabled} className={cn("justify-between sm:w-72", className)}>
+          <span className="flex min-w-0 items-center gap-2 truncate text-muted-foreground">
+            <UserSearch className="size-4" /> {label}
           </span>
           <ChevronsUpDown className="opacity-50" />
         </Button>

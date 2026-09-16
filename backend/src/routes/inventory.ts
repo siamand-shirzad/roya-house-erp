@@ -84,7 +84,7 @@ export async function reverseGoodsIssueMovements(client: PoolClient, documentId:
 inventoryRouter.get("/stock", async (_req, res, next) => {
   try {
     const rows = await query(
-      `SELECT p.id, p.code, p.name, p.category, p.spec, p.unit, p.min_stock,
+      `SELECT p.id, p.code, p.name, p.category, p.spec, p.unit, p.min_stock, p.cost_price,
               COALESCE(sum(m.quantity), 0) AS on_hand, max(m.created_at) AS last_movement_at
        FROM products p
        LEFT JOIN stock_movements m ON m.product_id = p.id
@@ -102,6 +102,7 @@ inventoryRouter.get("/stock", async (_req, res, next) => {
         unit: r.unit,
         onHand: Number(r.on_hand),
         minStock: num(r.min_stock),
+        costPrice: r.cost_price,
         lastMovementAt: r.last_movement_at,
       }))
     );
@@ -139,8 +140,10 @@ inventoryRouter.get("/movements", async (req, res, next) => {
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
     const rows = await query(
       `SELECT m.*, p.name AS product_name, p.code AS product_code, p.unit AS product_unit,
-              u.full_name AS created_by_name, d.type AS document_type, d.number AS document_number
+              u.full_name AS created_by_name, d.type AS document_type, d.number AS document_number,
+              s.name AS supplier_name
        FROM stock_movements m
+       LEFT JOIN customers s ON s.id = m.supplier_id
        JOIN products p ON p.id = m.product_id
        LEFT JOIN users u ON u.id = m.created_by
        LEFT JOIN documents d ON d.id = m.document_id
@@ -159,6 +162,8 @@ inventoryRouter.get("/movements", async (req, res, next) => {
         kind: r.kind,
         quantity: Number(r.quantity),
         reference: r.reference,
+        supplierName: r.supplier_name,
+        unitCost: r.unit_cost,
         document: r.document_id && can(currentUser(res), r.document_type.toLowerCase() as Module) ? { id: r.document_id, type: r.document_type, number: r.document_number } : null,
         createdByName: r.created_by_name,
         createdAt: r.created_at,
@@ -170,10 +175,20 @@ inventoryRouter.get("/movements", async (req, res, next) => {
 });
 
 // POST /api/inventory/receipts: goods arriving at the warehouse.
+// A receipt with a supplier and unit costs is a purchase (رسید خرید in
+// Sepidar): each stated cost also becomes the product's cost_price, which the
+// gross-profit report uses.
 const receiptSchema = z.object({
   reference: z.string().trim().max(300).optional().nullable(),
+  supplierId: z.string().max(100).optional().nullable(),
   items: z
-    .array(z.object({ productId: z.string().min(1), quantity: z.number().positive().max(9_999_999_999) }))
+    .array(
+      z.object({
+        productId: z.string().min(1),
+        quantity: z.number().positive().max(9_999_999_999),
+        unitCost: z.number().int().nonnegative().max(1_000_000_000_000).optional().nullable(),
+      })
+    )
     .min(1)
     .max(500),
 });
@@ -184,10 +199,24 @@ inventoryRouter.post("/receipts", async (req, res, next) => {
     await withTransaction(async (client) => {
       for (const item of data.items) {
         await client.query(
-          `INSERT INTO stock_movements (id, product_id, kind, quantity, reference, created_by)
-           VALUES ($1,$2,'RECEIPT',$3,$4,$5)`,
-          [newId("move"), item.productId, item.quantity, data.reference || null, currentUser(res).id]
+          `INSERT INTO stock_movements (id, product_id, kind, quantity, reference, created_by, supplier_id, unit_cost)
+           VALUES ($1,$2,'RECEIPT',$3,$4,$5,$6,$7)`,
+          [
+            newId("move"),
+            item.productId,
+            item.quantity,
+            data.reference || null,
+            currentUser(res).id,
+            data.supplierId || null,
+            item.unitCost ?? null,
+          ]
         );
+        if (item.unitCost !== undefined && item.unitCost !== null) {
+          await client.query("UPDATE products SET cost_price = $2, updated_at = now() WHERE id = $1", [
+            item.productId,
+            item.unitCost,
+          ]);
+        }
       }
     });
     res.status(201).json({ created: data.items.length });

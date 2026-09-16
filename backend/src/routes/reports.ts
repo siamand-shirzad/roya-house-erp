@@ -188,6 +188,36 @@ reportsRouter.get("/", async (req, res, next) => {
         ),
       ]);
 
+    // Gross profit uses each product's current purchase cost (products.cost_price,
+    // the latest receipt that stated one). Lines without a known cost are left
+    // out of both sides and reported as `uncostedAmount`.
+    const [profit, collections] = await Promise.all([
+      query(
+        `WITH ${ITEMS_CTE}
+         SELECT COALESCE(sum(it.after_discount) FILTER (WHERE p.cost_price IS NOT NULL), 0) AS costed_amount,
+                COALESCE(sum(it.quantity * p.cost_price) FILTER (WHERE p.cost_price IS NOT NULL), 0) AS cost_total,
+                COALESCE(sum(it.after_discount) FILTER (WHERE p.cost_price IS NULL), 0) AS uncosted_amount
+           FROM documents d
+           JOIN items it ON it.document_id = d.id
+           LEFT JOIN products p ON p.id = it.product_id
+          WHERE d.type = 'INVOICE' AND d.status = 'ISSUED' AND ${IN_RANGE}`,
+        params
+      ),
+      // Money received in the range (payments.paid_at is a Tehran calendar day).
+      query(
+        `SELECT COALESCE(sum(amount), 0) AS received,
+                COALESCE(sum(amount) FILTER (WHERE method = 'CHEQUE' AND cheque_status = 'PENDING'), 0) AS pending_cheques,
+                count(*)::int AS count
+           FROM payments
+          WHERE status = 'ACTIVE' AND COALESCE(cheque_status, '') <> 'BOUNCED'
+            AND ($1::date IS NULL OR paid_at >= $1::date)
+            AND ($2::date IS NULL OR paid_at <= $2::date)`,
+        params
+      ),
+    ]);
+    const costedAmount = num(profit[0]?.costed_amount);
+    const costTotal = Math.round(num(profit[0]?.cost_total));
+
     const s = summary[0];
     const invoiceCount = num(s?.invoice_count);
     const grandTotal = num(s?.grand_total);
@@ -213,6 +243,17 @@ reportsRouter.get("/", async (req, res, next) => {
         taxTotal: num(s?.tax_total),
         grandTotal,
         averageInvoice: invoiceCount ? Math.round(grandTotal / invoiceCount) : 0,
+      },
+      profit: {
+        costedAmount,
+        costTotal,
+        grossProfit: costedAmount - costTotal,
+        uncostedAmount: num(profit[0]?.uncosted_amount),
+      },
+      collections: {
+        received: num(collections[0]?.received),
+        pendingCheques: num(collections[0]?.pending_cheques),
+        count: num(collections[0]?.count),
       },
       proformas: { issued: num(proformas[0]?.issued), converted: num(proformas[0]?.converted) },
       goodsIssues: { issued: num(goodsIssues[0]?.issued) },

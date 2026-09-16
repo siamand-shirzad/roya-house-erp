@@ -1,26 +1,14 @@
 import { canAccessPath } from "@/lib/permissions";
 import * as React from "react";
 import { Link, useLocation } from "react-router-dom";
-import {
-  Building2,
-  Command,
-  ReceiptText,
-  Truck,
-  ChartColumn,
-  Contact,
-  FileStack,
-  LayoutDashboard,
-  Tags,
-  Users,
-  Warehouse,
-  type LucideIcon,
-} from "lucide-react";
+import { BookOpen, Command } from "lucide-react";
 
 import { useCommandMenu } from "@/components/command-menu";
 
 
 import { LogoMark } from "@/components/logo-mark";
-import { NavUser } from "@/components/nav-user";
+import { Badge } from "@/components/ui/badge";
+import { NAV, type NavItem } from "@/lib/navigation";
 import { useAuth } from "@/components/auth-provider";
 import {
   Sidebar,
@@ -39,51 +27,8 @@ import {
 
 
 // Layout from the shadcn sidebar-07 block: collapses to an icon rail (always
-// partly visible), brand at the top, signed-in user at the bottom. Group
-// labels use the Latin display font; item labels are short Persian names with
-// the full name as the collapsed-state tooltip.
-
-type NavItem = { to: string; label: string; tooltip?: string; icon: LucideIcon; exact?: boolean };
-type NavGroup = { label: string; items: NavItem[] };
-
-const NAV: NavGroup[] = [
-  { label: "نمای کلی", items: [{ to: "/", label: "داشبورد", icon: LayoutDashboard, exact: true }] },
-  {
-    label: "اسناد",
-    items: [
-      {
-        to: "/documents/proforma",
-        label: "پیش‌فاکتورها",
-        tooltip: "پیش‌فاکتورها",
-        icon: FileStack,
-      },
-      {to:"/documents/invoice",label:"فاکتورها",icon:ReceiptText},
-      {to:"/documents/goods-issue",label:"حواله خروج",icon:Truck},
-    ],
-  },
-  {
-    label: "انبار",
-    items: [{ to: "/inventory", label: "انبار", tooltip: "موجودی و گردش کالا", icon: Warehouse }],
-  },
-  {
-    label: "تحلیل",
-    items: [{ to: "/reports", label: "گزارشات", tooltip: "گزارش فروش و پیگیری", icon: ChartColumn }],
-  },
-  {
-    label: "کاتالوگ",
-    items: [
-      { to: "/products", label: "کالاها و قیمت‌ها", icon: Tags },
-      { to: "/customers", label: "مشتریان", tooltip: "فهرست مشتریان", icon: Contact },
-    ],
-  },
-  {
-    label: "مدیریت",
-    items: [
-      { to: "/users", label: "کاربران", icon: Users },
-      { to: "/settings/company", label: "اطلاعات شرکت", tooltip: "مشخصات فروشنده روی اسناد", icon: Building2 },
-    ],
-  },
-];
+// partly visible), brand at the top, the guide at the bottom (the signed-in
+// user moved to the header). Sections come from lib/navigation.ts.
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const location = useLocation();
@@ -103,8 +48,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuButton size="lg" asChild tooltip="رویا هاوس">
               <Link to="/" aria-label="رویا هاوس">
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-accent">
-                  <LogoMark className="size-7 dark:hidden" />
-                  <LogoMark onDark className="hidden size-7 dark:block" />
+                  <LogoMark className="h-6 w-auto text-sidebar-foreground" />
                 </span>
                 <div className="grid flex-1 text-right leading-tight group-data-[collapsible=icon]:hidden">
                   <span dir="ltr" className="truncate text-right font-display text-[15px] font-semibold tracking-tight">
@@ -143,9 +87,11 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent className="gap-0 overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {NAV.map((g) => ({...g, items:g.items.filter((item) => canAccessPath(user, item.to))})).filter((g) => g.items.length > 0).map((group) => (
           <SidebarGroup key={group.label} className="py-2">
-            <SidebarGroupLabel className="h-7 text-xs font-medium text-sidebar-foreground/45">
-              {group.label}
-            </SidebarGroupLabel>
+            {group.label && (
+              <SidebarGroupLabel className="h-7 text-xs font-medium text-sidebar-foreground/45">
+                {group.label}
+              </SidebarGroupLabel>
+            )}
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => (
@@ -159,6 +105,11 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                       <Link to={item.to} aria-label={item.label} onClick={() => setOpenMobile(false)}>
                         <item.icon />
                         <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
+                        {item.soon && (
+                          <Badge variant="outline" className="ms-auto px-1.5 py-0 text-[10px] font-normal text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden">
+                            به‌زودی
+                          </Badge>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -170,7 +121,16 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
       </SidebarContent>
 
       <SidebarFooter>
-        <NavUser />
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild tooltip="راهنمای کار" isActive={location.pathname === "/guide"} className="h-9 text-sidebar-foreground/70">
+              <Link to="/guide" onClick={() => setOpenMobile(false)}>
+                <BookOpen />
+                <span className="group-data-[collapsible=icon]:hidden">راهنمای کار</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

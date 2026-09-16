@@ -199,4 +199,39 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions jsonb NOT NULL DEFAULT '{
 ALTER TABLE products ADD COLUMN IF NOT EXISTS brand text;
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS revision_of_id text REFERENCES documents(id);
 CREATE INDEX IF NOT EXISTS documents_revision_of_idx ON documents(revision_of_id);
+
+-- Parties (طرف حساب, as in Sepidar): one table for customers and suppliers.
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS party_kind text NOT NULL DEFAULT 'CUSTOMER';
+-- Purchase cost: the unit cost of the latest receipt that stated one.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_price integer;
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS unit_cost integer;
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS supplier_id text REFERENCES customers(id);
+-- How long a proforma's prices hold.
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS valid_until date;
+
+-- Money received from customers (رسید دریافت). A cheque counts towards the
+-- balance until it bounces; a cancelled receipt never counts.
+CREATE TABLE IF NOT EXISTS payments (
+  id text PRIMARY KEY,
+  number integer NOT NULL UNIQUE,
+  customer_id text REFERENCES customers(id),
+  document_id text REFERENCES documents(id),
+  payer_name text,
+  method text NOT NULL CHECK (method IN ('CASH', 'CARD', 'TRANSFER', 'CHEQUE')),
+  amount integer NOT NULL CHECK (amount > 0),
+  paid_at date NOT NULL,
+  reference text,
+  cheque_number text,
+  cheque_bank text,
+  cheque_due_date date,
+  cheque_status text CHECK (cheque_status IN ('PENDING', 'CLEARED', 'BOUNCED')),
+  notes text,
+  status text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'CANCELLED')),
+  cancel_reason text,
+  created_by text REFERENCES users(id),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS payments_customer_idx ON payments(customer_id);
+CREATE INDEX IF NOT EXISTS payments_document_idx ON payments(document_id);
 `;

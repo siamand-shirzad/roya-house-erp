@@ -12,6 +12,10 @@ import { Label } from "@/components/ui/label";
 import { api, errorMessage } from "@/lib/api";
 import { formatNumber, toDisplayDigits } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { CustomerPicker } from "@/components/documents/CustomerPicker";
+import { invalidateHeaderAlerts } from "@/components/header/header-notifications";
+import { Badge } from "@/components/ui/badge";
+import { X } from "lucide-react";
 import type { Product, StockRow } from "@/types";
 
 // Receipts, stock counts and minimum levels (ADMIN / WAREHOUSE). Each writes
@@ -41,18 +45,32 @@ function Footer({ busy, label, onCancel, disabled }: { busy: boolean; label: str
   );
 }
 
-type ReceiptRow = { productId: string; name: string; code: string | null; unit: string; quantity: number | null };
+type ReceiptRow = {
+  productId: string;
+  name: string;
+  code: string | null;
+  unit: string;
+  quantity: number | null;
+  /** Purchase price per unit (Toman); optional, becomes the product's cost. */
+  unitCost: number | null;
+};
+
+/** A product to start a receipt with (the stock page's selected rows). */
+export type ReceiptSeed = Pick<StockRow, "productId" | "name" | "code" | "unit"> & { costPrice?: number | null };
 
 export function ReceiptDialog({
   open,
   onOpenChange,
   onSaved,
+  seed,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
+  seed?: ReceiptSeed[];
 }) {
   const [reference, setReference] = useState("");
+  const [supplier, setSupplier] = useState<{ id: string; name: string } | null>(null);
   const [rows, setRows] = useState<ReceiptRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,15 +78,26 @@ export function ReceiptDialog({
   useEffect(() => {
     if (!open) return;
     setReference("");
-    setRows([]);
+    setSupplier(null);
+    setRows(
+      (seed ?? []).map((s) => ({
+        productId: s.productId,
+        name: s.name,
+        code: s.code,
+        unit: s.unit,
+        quantity: null,
+        unitCost: s.costPrice ?? null,
+      }))
+    );
     setError(null);
+    // Seed is read when the dialog opens only.
   }, [open]);
 
   function addProduct(p: Product) {
     setRows((prev) =>
       prev.some((r) => r.productId === p.id)
         ? prev
-        : [...prev, { productId: p.id, name: p.name, code: p.code, unit: p.unit, quantity: null }]
+        : [...prev, { productId: p.id, name: p.name, code: p.code, unit: p.unit, quantity: null, unitCost: null }]
     );
   }
 
@@ -82,8 +111,10 @@ export function ReceiptDialog({
     try {
       await api.inventory.receipt({
         reference: reference.trim() || null,
-        items: rows.map((r) => ({ productId: r.productId, quantity: r.quantity! })),
+        supplierId: supplier?.id ?? null,
+        items: rows.map((r) => ({ productId: r.productId, quantity: r.quantity!, unitCost: r.unitCost })),
       });
+      invalidateHeaderAlerts();
       toast.success(`ورود ${toDisplayDigits(rows.length)} کالا ثبت شد.`);
       onSaved();
       onOpenChange(false);
@@ -100,15 +131,34 @@ export function ReceiptDialog({
       onOpenChange={onOpenChange}
       busy={saving}
       size="lg"
-      title="ورود کالا به انبار"
-      description="کالاهای رسیده را با تعداد وارد کنید؛ به موجودی اضافه می‌شوند."
+      title="ورود کالا به انبار (رسید)"
+      description="کالاهای رسیده را با تعداد وارد کنید. با تأمین‌کننده و فی خرید، رسید خرید سپیدار می‌شود و سود ناخالص محاسبه می‌شود."
       onSubmit={submit}
       footer={<Footer busy={saving} label="ثبت ورود" onCancel={() => onOpenChange(false)} disabled={rows.length === 0} />}
     >
-      <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-3">
+        <div className={FIELD}>
+          <span className={LABEL}>تأمین‌کننده (اختیاری)</span>
+          {supplier ? (
+            <Badge variant="outline" className="h-8 w-fit gap-1 px-2 text-sm">
+              {supplier.name}
+              <button type="button" onClick={() => setSupplier(null)} className="opacity-60 hover:opacity-100" title="حذف">
+                <X className="size-3.5" />
+                <span className="sr-only">حذف تأمین‌کننده</span>
+              </button>
+            </Badge>
+          ) : (
+            <CustomerPicker
+              kind="SUPPLIER"
+              label="انتخاب تأمین‌کننده..."
+              className="h-8 w-full sm:w-full"
+              onSelect={(c) => setSupplier({ id: c.id, name: c.name })}
+            />
+          )}
+        </div>
         <div className={FIELD}>
           <Label htmlFor="receipt-reference" className={LABEL}>
-            مرجع (تأمین‌کننده، شماره بارنامه یا فاکتور خرید)
+            مرجع (شماره بارنامه یا فاکتور خرید)
           </Label>
           <Input
             id="receipt-reference"
@@ -152,6 +202,15 @@ export function ReceiptDialog({
                   }
                 />
                 <span className="w-14 truncate text-muted-foreground">{row.unit}</span>
+                <NumberInput
+                  aria-label={`فی خرید ${row.name} (تومان)`}
+                  placeholder="فی خرید"
+                  className={cn(INPUT, "w-32")}
+                  value={row.unitCost}
+                  onValueChange={(v) =>
+                    setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, unitCost: v } : r)))
+                  }
+                />
                 <Button
                   type="button"
                   variant="ghost"

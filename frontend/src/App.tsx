@@ -16,6 +16,10 @@ const ReportsPage = lazy(() => import("@/pages/ReportsPage").then((m) => ({ defa
 const InventoryPage = lazy(() => import("@/pages/InventoryPage").then((m) => ({ default: m.InventoryPage })));
 const CompanySettingsPage = lazy(() => import("@/pages/CompanySettingsPage").then((m) => ({ default: m.CompanySettingsPage })));
 import { CustomerDetailPage } from "@/pages/CustomerDetailPage";
+const PaymentsPage = lazy(() => import("@/pages/PaymentsPage").then((m) => ({ default: m.PaymentsPage })));
+const ExchangePage = lazy(() => import("@/pages/ExchangePage").then((m) => ({ default: m.ExchangePage })));
+const ReturnsPage = lazy(() => import("@/pages/ReturnsPage").then((m) => ({ default: m.ReturnsPage })));
+const GuidePage = lazy(() => import("@/pages/GuidePage").then((m) => ({ default: m.GuidePage })));
 
 // Remount the form whenever the type or document changes, so state from one
 // document (e.g. its id) can never leak into "new" or a different document.
@@ -63,6 +67,10 @@ const router = createBrowserRouter(
       <Route path="/users" element={<RequireAuth roles={["ADMIN"]}><UsersPage /></RequireAuth>} />
       <Route path="/reports" element={<RequireAuth><ReportsPage /></RequireAuth>} />
       <Route path="/inventory" element={<RequireAuth><InventoryPage /></RequireAuth>} />
+      <Route path="/payments" element={<RequireAuth><PaymentsPage /></RequireAuth>} />
+      <Route path="/exchange" element={<RequireAuth><ExchangePage /></RequireAuth>} />
+      <Route path="/returns" element={<RequireAuth><ReturnsPage /></RequireAuth>} />
+      <Route path="/guide" element={<RequireAuth><GuidePage /></RequireAuth>} />
       <Route
         path="/settings/company"
         element={<RequireAuth><CompanySettingsPage /></RequireAuth>}

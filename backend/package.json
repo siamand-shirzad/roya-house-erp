@@ -10,6 +10,7 @@
     "db:setup": "tsx prisma/seed.ts",
     "prisma:seed": "tsx prisma/seed.ts",
     "hash-password": "node -e \"require('fs').existsSync('dist/scripts/hash-password.js') ? require('child_process').spawnSync(process.execPath, ['dist/scripts/hash-password.js', ...process.argv.slice(1)], {stdio:'inherit'}) : require('child_process').spawnSync('npx', ['tsx', 'src/scripts/hash-password.ts', ...process.argv.slice(1)], {stdio:'inherit', shell:true})\" --",
+    "test": "npm run build && node --test tests/unit.cjs",
     "test:integration": "npm run build && node --test tests/lifecycle.cjs"
   },
   "dependencies": {

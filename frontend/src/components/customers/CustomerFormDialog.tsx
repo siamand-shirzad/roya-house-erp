@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api, errorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import type { Customer } from "@/types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PARTY_KIND_LABELS, type Customer, type PartyKind } from "@/types";
 
 // The same modal backs "new customer", "edit customer", and the shortcut on
 // the document form that turns typed buyer details into a saved customer.
@@ -16,6 +17,7 @@ import type { Customer } from "@/types";
 export type CustomerDraft = Partial<Omit<Customer, "id">>;
 
 type FormState = {
+  partyKind: PartyKind;
   name: string;
   customerCode: string;
   nationalId: string;
@@ -30,6 +32,7 @@ type FormState = {
 };
 
 const EMPTY: FormState = {
+  partyKind: "CUSTOMER",
   name: "",
   customerCode: "",
   nationalId: "",
@@ -45,6 +48,7 @@ const EMPTY: FormState = {
 
 function toForm(source: CustomerDraft): FormState {
   return {
+    partyKind: source.partyKind ?? "CUSTOMER",
     name: source.name ?? "",
     customerCode: source.customerCode ?? "",
     nationalId: source.nationalId ?? "",
@@ -63,6 +67,7 @@ function trimmed(form: FormState) {
   const out: Record<string, string | null> = {};
   for (const [key, value] of Object.entries(form)) out[key] = value.trim() || null;
   out.name = form.name.trim();
+  out.partyKind = form.partyKind;
   return out;
 }
 
@@ -91,11 +96,12 @@ export function CustomerFormDialog({
     setError(null);
   }, [open, customer, draft]);
 
-  const set = (key: keyof FormState) => (value: string) => setForm((prev) => ({ ...prev, [key]: value }));
+  const set = (key: Exclude<keyof FormState, "partyKind">) => (value: string) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!form.name.trim()) return setError("نام مشتری الزامی است.");
+    if (!form.name.trim()) return setError("نام طرف حساب الزامی است.");
 
     setError(null);
     setSaving(true);
@@ -114,7 +120,7 @@ export function CustomerFormDialog({
   }
 
   // Compact label + input; `span` widens it across the 4-column grid.
-  const field = (id: keyof FormState, label: string, span?: string) => (
+  const field = (id: Exclude<keyof FormState, "partyKind">, label: string, span?: string) => (
     <div className={cn(FIELD, span)}>
       <Label htmlFor={`customer-${id}`} className={LABEL}>
         {label}
@@ -129,14 +135,14 @@ export function CustomerFormDialog({
       onOpenChange={onOpenChange}
       busy={saving}
       size="lg"
-      title={customer ? "ویرایش مشتری" : "مشتری جدید"}
-      description="هنگام ساخت سند در فرم خریدار کپی می‌شود؛ تغییرش روی اسناد قبلی اثر ندارد."
+      title={customer ? "ویرایش طرف حساب" : "طرف حساب جدید"}
+      description="مشتری یا تأمین‌کننده (مثل طرف حساب سپیدار). برای خروجی سپیدار، کد طرف حساب را همان کد سپیدار وارد کنید."
       onSubmit={submit}
       footer={
         <>
           <Button type="submit" size="sm" disabled={saving}>
             {saving && <LoaderCircle className="animate-spin" />}
-            {customer ? "ذخیره تغییرات" : "افزودن مشتری"}
+            {customer ? "ذخیره تغییرات" : "افزودن"}
           </Button>
           <Button type="button" size="sm" variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
             انصراف
@@ -145,8 +151,25 @@ export function CustomerFormDialog({
       }
     >
       <div className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-4">
-        {field("name", "نام مشتری", "sm:col-span-2")}
-        {field("customerCode", "کد مشتری")}
+        {field("name", "نام", "sm:col-span-2")}
+        {field("customerCode", "کد طرف حساب (سپیدار)")}
+        <div className={FIELD}>
+          <Label htmlFor="customer-partyKind" className={LABEL}>
+            نوع
+          </Label>
+          <Select value={form.partyKind} onValueChange={(v) => setForm((prev) => ({ ...prev, partyKind: v as PartyKind }))}>
+            <SelectTrigger id="customer-partyKind" size="sm" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(PARTY_KIND_LABELS) as PartyKind[]).map((k) => (
+                <SelectItem key={k} value={k}>
+                  {PARTY_KIND_LABELS[k]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         {field("phone", "تلفن")}
         {field("nationalId", "شناسه ملی / کد ملی")}
         {field("economicCode", "شماره اقتصادی")}
@@ -154,7 +177,7 @@ export function CustomerFormDialog({
         {field("fax", "نمابر")}
         {field("province", "استان")}
         {field("city", "شهرستان")}
-        {field("postalCode", "کدپستی", "sm:col-span-2")}
+        {field("postalCode", "کدپستی")}
         {field("address", "آدرس", "sm:col-span-4")}
       </div>
 

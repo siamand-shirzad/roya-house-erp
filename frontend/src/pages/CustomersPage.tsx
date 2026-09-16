@@ -24,7 +24,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api, errorMessage } from "@/lib/api";
 import { toDisplayDigits } from "@/lib/format";
-import { type Customer } from "@/types";
+import { SegmentedControl } from "@/components/segmented-control";
+import { PARTY_KIND_LABELS, type Customer } from "@/types";
 
 // Customers are shared address-book entries. A document copies them into its
 // own buyer_* columns when it is created, so editing one here never rewrites
@@ -36,7 +37,18 @@ export function CustomersPage() {
   const [error, setError] = useState<string | null>(null);
   const [params, setParams] = useSearchParams();
   const q = params.get("q") ?? "";
-  const setQ = (value: string) => setParams(value ? { q: value } : {}, { replace: true });
+  const kindFilter = params.get("kind") === "SUPPLIER" ? "SUPPLIER" : params.get("kind") === "CUSTOMER" ? "CUSTOMER" : "ALL";
+  const setParam = (key: string, value: string | null) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value) next.set(key, value);
+        else next.delete(key);
+        return next;
+      },
+      { replace: true }
+    );
+  const setQ = (value: string) => setParam("q", value || null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
   const navigate = useNavigate();
@@ -62,6 +74,14 @@ export function CustomersPage() {
     }
   }
 
+  // Quick create in the header links here with ?new=1.
+  const wantsNew = params.get("new") === "1";
+  useEffect(() => {
+    if (!wantsNew) return;
+    if (canDelete) openCreate();
+    setParam("new", null);
+  }, [wantsNew]);
+
   useEffect(() => {
     api.customers
       .list()
@@ -71,10 +91,12 @@ export function CustomersPage() {
   }, []);
 
   const rows = useMemo(() => {
-    return customers.filter((c) =>
-      matchesSearch([c.name, c.customerCode, c.phone, c.city, c.nationalId].filter(Boolean).join(" "), q)
+    return customers.filter(
+      (c) =>
+        (kindFilter === "ALL" || (c.partyKind ?? "CUSTOMER") === kindFilter || c.partyKind === "BOTH") &&
+        matchesSearch([c.name, c.customerCode, c.phone, c.city, c.nationalId].filter(Boolean).join(" "), q)
     );
-  }, [customers, q]);
+  }, [customers, q, kindFilter]);
 
   function openCreate() {
     setEditing(null);
@@ -92,15 +114,15 @@ export function CustomersPage() {
         ? [...list, saved].sort((a, b) => a.name.localeCompare(b.name, "fa"))
         : list.map((c) => (c.id === saved.id ? saved : c))
     );
-    toast.success(mode === "created" ? `«${saved.name}» به فهرست مشتریان اضافه شد.` : `«${saved.name}» ذخیره شد.`);
+    toast.success(mode === "created" ? `«${saved.name}» به فهرست طرف حساب‌ها اضافه شد.` : `«${saved.name}» ذخیره شد.`);
   }
 
   return (
     <AppShell
-      title="مشتریان"
+      title="مشتریان و تأمین‌کنندگان"
       actions={
         <Button size="sm" onClick={openCreate} disabled={loading || !canDelete}>
-          <Plus /> مشتری جدید
+          <Plus /> طرف حساب جدید
         </Button>
       }
     >
@@ -115,8 +137,19 @@ export function CustomersPage() {
               className="pr-8"
             />
           </div>
+          <SegmentedControl
+            size="sm"
+            ariaLabel="نوع طرف حساب"
+            value={kindFilter}
+            onValueChange={(v) => setParam("kind", v === "ALL" ? null : v)}
+            items={[
+              { value: "ALL", label: "همه" },
+              { value: "CUSTOMER", label: PARTY_KIND_LABELS.CUSTOMER },
+              { value: "SUPPLIER", label: PARTY_KIND_LABELS.SUPPLIER },
+            ]}
+          />
           <span className="text-sm text-muted-foreground tabular-nums sm:ms-auto">
-            {toDisplayDigits(rows.length)} مشتری
+            {toDisplayDigits(rows.length)} طرف حساب
           </span>
         </div>
 

@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 
-export const MODULES = ["dashboard", "proforma", "invoice", "goods_issue", "products", "customers", "inventory", "reports", "company"] as const;
+export const MODULES = ["dashboard", "proforma", "invoice", "goods_issue", "products", "customers", "inventory", "payments", "reports", "company"] as const;
 export type Module = typeof MODULES[number];
 export type Access = "none" | "view" | "edit";
 export type Permissions = Partial<Record<Module, Access>>;
@@ -12,6 +12,7 @@ export function accessFor(user: Principal, module: Module): Access {
   if (user.permissions?.[module]) return user.permissions[module]!;
   if (module === "company") return "none";
   if (module === "reports") return user.role === "ACCOUNTANT" ? "view" : "none";
+  if (module === "payments") return user.role === "ACCOUNTANT" ? "edit" : user.role === "SALES" ? "view" : "none";
   if ((module === "proforma" || module === "invoice" || module === "customers") && user.role === "SALES") return "edit";
   if ((module === "inventory" || module === "goods_issue") && user.role === "WAREHOUSE") return "edit";
   return "view";

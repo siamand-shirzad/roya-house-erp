@@ -1,31 +1,38 @@
 import { cn } from "@/lib/utils";
 
-// The tile grid from the Roya House logo as a compact square mark (collapsed
-// sidebar, favicon). Same geometry as the favicon in index.html: 3x3 rounded
-// tiles in an isometric diamond, taupe centre, red bottom tile.
-const POSITIONS = [-10.5, -3, 4.5];
+// The app mark: a geometric "S" folded out of two hexagon halves (black) with
+// grey facets between them. Drawn in `currentColor` with the facets as lower
+// opacities of the same colour, so one SVG works on light and dark surfaces —
+// set the colour with a text class (`text-foreground`, `text-sidebar-foreground`).
+// The shape is point-symmetric around the origin; index.html's favicon uses
+// the same paths.
+export const S_MARK_PATHS = {
+  top: "M-316-332L0-516L316-332L-316-52Z",
+  bottom: "M316 332L0 516L-316 332L316 52Z",
+  facetTop: "M316-332L316-68L43-211Z",
+  facetBottom: "M-316 332L-316 68L-43 211Z",
+  middleStart: "M-316-52L-80-156L0-114L0 114Z",
+  middleEnd: "M0-114L316 52L80 156L0 114Z",
+} as const;
 
-export function LogoMark({ onDark = false, className }: { onDark?: boolean; className?: string }) {
-  const grey = onDark ? "#d4d4d8" : "#5a5a5c";
-  const taupe = onDark ? "#a0918b" : "#6d625c";
-  const red = onDark ? "#d0404a" : "#ab2c33";
+export const S_MARK_VIEWBOX = "-340 -540 680 1080";
+
+export function LogoMark({ className, title }: { className?: string; title?: string }) {
   return (
-    <svg viewBox="0 0 32 32" aria-hidden="true" className={cn("shrink-0", className)}>
-      <g transform="translate(16 17) scale(1 .64) rotate(45)">
-        {POSITIONS.flatMap((y) =>
-          POSITIONS.map((x) => (
-            <rect
-              key={`${x},${y}`}
-              x={x}
-              y={y}
-              width={6}
-              height={6}
-              rx={1.4}
-              fill={x === -3 && y === -3 ? taupe : x === 4.5 && y === 4.5 ? red : grey}
-            />
-          ))
-        )}
-      </g>
+    <svg
+      viewBox={S_MARK_VIEWBOX}
+      role={title ? "img" : undefined}
+      aria-hidden={title ? undefined : true}
+      aria-label={title}
+      className={cn("shrink-0", className)}
+      fill="currentColor"
+    >
+      <path d={S_MARK_PATHS.top} />
+      <path d={S_MARK_PATHS.bottom} />
+      <path d={S_MARK_PATHS.middleStart} fillOpacity={0.55} />
+      <path d={S_MARK_PATHS.middleEnd} fillOpacity={0.42} />
+      <path d={S_MARK_PATHS.facetTop} fillOpacity={0.3} />
+      <path d={S_MARK_PATHS.facetBottom} fillOpacity={0.3} />
     </svg>
   );
 }

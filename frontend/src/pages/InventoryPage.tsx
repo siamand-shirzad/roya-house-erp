@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Ellipsis,
+  Download,
   ArrowUp,
   ArrowDown,
   History,
@@ -18,7 +19,9 @@ import {
 
 import { AppShell } from "@/components/app-shell";
 import { useAuth } from "@/components/auth-provider";
-import { AdjustStockDialog, MinStockDialog, ReceiptDialog } from "@/components/inventory/InventoryDialogs";
+import { AdjustStockDialog, MinStockDialog, ReceiptDialog, type ReceiptSeed } from "@/components/inventory/InventoryDialogs";
+import { Checkbox } from "@/components/ui/checkbox";
+import { downloadText, toCsv } from "@/lib/csv";
 import { StockLevelBadge } from "@/components/inventory/StockLevelBadge";
 import { ListPagination, usePagination } from "@/components/list-pagination";
 import { SegmentedControl } from "@/components/segmented-control";
@@ -77,6 +80,9 @@ export function InventoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [receiptOpen, setReceiptOpen] = useState(false);
+  const [receiptSeed, setReceiptSeed] = useState<ReceiptSeed[]>([]);
+  // Row checkboxes: bulk receipt, CSV export, movement history of one product.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [adjusting, setAdjusting] = useState<StockRow | null>(null);
   const [minEditing, setMinEditing] = useState<StockRow | null>(null);
   // Bumped after every write so both lists reload.
@@ -134,6 +140,19 @@ export function InventoryPage() {
     finally { setMoreLoading(false); }
   }
 
+  // Quick create in the header links here with ?receipt=1.
+  const wantsReceipt = params.get("receipt") === "1";
+  useEffect(() => {
+    if (!wantsReceipt) return;
+    if (canWrite) openReceipt([]);
+    setQuery({ receipt: null });
+  }, [wantsReceipt]);
+
+  function openReceipt(seed: ReceiptSeed[]) {
+    setReceiptSeed(seed);
+    setReceiptOpen(true);
+  }
+
   const lowCount = useMemo(() => stock.filter((r) => stockLevel(r) !== "ok").length, [stock]);
 
   const stockOrder = useStockOrder(user?.id, stock.map((r) => r.productId));
@@ -158,6 +177,34 @@ export function InventoryPage() {
   );
 
   const stockPager = usePagination(stockRows, `${q}|${lowOnly}`, PAGE_SIZE);
+  const selectedRows = stock.filter((r) => selected.has(r.productId));
+  const pageIds = stockPager.pageRows.map((r) => r.productId);
+  const pageChecked = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+  const pageSome = pageIds.some((id) => selected.has(id));
+  const toggle = (id: string, on: boolean) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  const togglePage = (on: boolean) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const id of pageIds) (on ? next.add(id) : next.delete(id));
+      return next;
+    });
+
+  function exportSelected() {
+    const rows = selectedRows.length ? selectedRows : stockRows;
+    downloadText(
+      "stock.csv",
+      toCsv(
+        ["کد کالا", "نام کالا", "دسته", "واحد", "موجودی", "حداقل", "آخرین فی خرید (تومان)"],
+        rows.map((r) => [r.code ?? "", r.name, CATEGORY_LABELS[r.category], r.unit, r.onHand, r.minStock ?? "", r.costPrice ?? ""])
+      )
+    );
+  }
   const movePager = usePagination(moveRows, `${q}|${productFilter}`, PAGE_SIZE);
 
   const filterName = productFilter
@@ -166,10 +213,10 @@ export function InventoryPage() {
 
   return (
     <AppShell
-      title="انبار"
+      title="موجودی و گردش"
       actions={
         canWrite && (
-          <Button size="sm" onClick={() => setReceiptOpen(true)}>
+          <Button size="sm" onClick={() => openReceipt([])}>
             <PackagePlus /> ورود کالا
           </Button>
         )
@@ -237,13 +284,48 @@ export function InventoryPage() {
 
         {tab === "stock" ? (
           <>
-            <p className="text-sm text-muted-foreground">دستگیره کنار کالا را بکشید یا از منوی ردیف، بالا و پایین ببرید. ترتیب در این مرورگر ذخیره می‌شود.</p>
+            {selected.size > 0 ? (
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-sm" role="region" aria-label="عملیات گروهی">
+                <span className="font-medium tabular-nums">{toDisplayDigits(selected.size)} کالا انتخاب شده</span>
+                {canWrite && (
+                  <Button size="sm" onClick={() => openReceipt(selectedRows)}>
+                    <PackagePlus /> ورود کالا برای انتخاب‌شده‌ها
+                  </Button>
+                )}
+                {selected.size === 1 && (
+                  <Button size="sm" variant="outline" onClick={() => setQuery({ tab: "movements", product: [...selected][0] })}>
+                    <History /> گردش این کالا
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" onClick={exportSelected}>
+                  <Download /> خروجی CSV
+                </Button>
+                <Button size="sm" variant="ghost" className="ms-auto" onClick={() => setSelected(new Set())}>
+                  <X /> لغو انتخاب
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <p>کالاها را با چک‌باکس انتخاب کنید تا عملیات گروهی ظاهر شود. دستگیره را بکشید تا ترتیب را عوض کنید (در همین مرورگر ذخیره می‌شود).</p>
+                <Button size="sm" variant="ghost" className="ms-auto" onClick={exportSelected}>
+                  <Download /> خروجی CSV
+                </Button>
+              </div>
+            )}
             <StockSortContext ids={stockPager.pageRows.map((r) => r.productId)} onMove={stockOrder.move}>
             <div className="overflow-x-auto rounded-xl border bg-card">
               <table className="mobile-data-table w-full md:min-w-[760px] text-sm">
                 <thead className="bg-muted/50 text-muted-foreground">
                   <tr className="border-b">
-                    <th className={cn(TH, "w-20")}><span className="sr-only">جابه‌جایی ردیف</span></th>
+                    <th className={cn(TH, "w-20")}>
+                      <div className="flex items-center gap-2 ps-2">
+                        <Checkbox
+                          aria-label="انتخاب همه‌ی ردیف‌های این صفحه"
+                          checked={pageChecked ? true : pageSome ? "indeterminate" : false}
+                          onCheckedChange={(v) => togglePage(v === true)}
+                        />
+                      </div>
+                    </th>
                     <th className={TH}>کالا</th>
                     <th className={cn(TH, "w-40")}>دسته</th>
                     <th className={cn(TH, "w-32")}>موجودی</th>
@@ -277,10 +359,21 @@ export function InventoryPage() {
                   {!stockLoading &&
                     stockPager.pageRows.map((r) => (
                       <SortableStockRow key={r.productId} id={r.productId}>
-                        <td className="px-2 py-1"><div className="flex items-center"><StockDragHandle name={r.name} /><CategoryIcon category={r.category} className="size-5 text-muted-foreground" /></div></td>
+                        <td className="px-2 py-1">
+                          <div className="flex items-center gap-1">
+                            <Checkbox
+                              className="ms-2"
+                              aria-label={`انتخاب ${r.name}`}
+                              checked={selected.has(r.productId)}
+                              onCheckedChange={(v) => toggle(r.productId, v === true)}
+                            />
+                            <StockDragHandle name={r.name} />
+                          </div>
+                        </td>
                         <td data-label="کالا" className="px-3 py-2 font-medium">
                           {r.name}
                           {r.spec && <div className="text-xs font-normal text-muted-foreground">{r.spec}</div>}
+                          {r.code && <bdi dir="ltr" className="text-xs font-normal text-muted-foreground">{r.code}</bdi>}
                         </td>
                         <td data-label="دسته" className="px-3 py-2 text-muted-foreground">
                           <span className="flex items-center gap-1.5">
@@ -416,6 +509,8 @@ export function InventoryPage() {
                           <span className="text-xs text-muted-foreground">{m.unit}</span>
                         </td>
                         <td data-label="مرجع" className="px-3 py-2 text-muted-foreground">
+                          {m.supplierName && <div className="text-foreground">{m.supplierName}</div>}
+                          {m.unitCost != null && <div className="text-xs tabular-nums">فی خرید {formatNumber(m.unitCost)} تومان</div>}
                           {m.document ? (
                             <Link
                               to={`/documents/${TYPE_TO_SLUG[m.document.type]}/${m.document.id}`}
@@ -450,7 +545,15 @@ export function InventoryPage() {
         )}
       </div>
 
-      <ReceiptDialog open={receiptOpen} onOpenChange={setReceiptOpen} onSaved={reload} />
+      <ReceiptDialog
+        open={receiptOpen}
+        onOpenChange={setReceiptOpen}
+        seed={receiptSeed}
+        onSaved={() => {
+          setSelected(new Set());
+          reload();
+        }}
+      />
       <AdjustStockDialog row={adjusting} onClose={() => setAdjusting(null)} onSaved={reload} />
       <MinStockDialog row={minEditing} onClose={() => setMinEditing(null)} onSaved={reload} />
     </AppShell>

@@ -7,9 +7,9 @@ import { DOCUMENT_TYPE_LABELS } from "@/types";
 export function DocumentsLayout({ children }: { children: ReactNode }) {
   const { typeSlug } = useParams<{ typeSlug: string }>();
   const type = SLUG_TO_TYPE[typeSlug ?? ""];
-  // The list is one "اسناد" section with a tab per type; a single document keeps its type's title.
-  const onList = useMatch("/documents/:typeSlug") !== null;
-
-  const title = onList || !type ? "اسناد" : DOCUMENT_TYPE_LABELS[type].title;
+  // The list shows its section name (from lib/navigation.ts via the
+  // breadcrumb); the form replaces this with the document's number.
+  const onNew = useMatch("/documents/:typeSlug/new") !== null;
+  const title = !type ? "اسناد" : onNew ? `${DOCUMENT_TYPE_LABELS[type].name} جدید` : DOCUMENT_TYPE_LABELS[type].name;
   return <AppShell title={title}>{children}</AppShell>;
 }

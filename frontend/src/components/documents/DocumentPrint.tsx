@@ -1,7 +1,7 @@
 import type { Document, DocumentItem } from "@/types";
-import { DOCUMENT_TYPE_LABELS } from "@/types";
+import { DOCUMENT_TYPE_LABELS, paymentState } from "@/types";
 import { formatJalaliDate } from "@/lib/format";
-import { toDisplayDigits, formatNumber, formatToman } from "@/lib/format";
+import { toDisplayDigits, formatNumber, formatRial, formatToman } from "@/lib/format";
 import { computeDocumentTotals, computeLineTotal } from "@/lib/totals";
 import { tomanToRialWords } from "@/lib/numberToWords";
 import { BrandLogo } from "@/components/brand-logo";
@@ -99,6 +99,8 @@ export function DocumentPrint({ doc, elementId }: { doc: Document; elementId?: s
   const isInvoiceLike = doc.type === "INVOICE" || doc.type === "PROFORMA";
   const meta = DOCUMENT_TYPE_LABELS[doc.type];
   const totals = computeDocumentTotals(doc.items);
+  // Issued invoices print what has been paid so far (payments page).
+  const settlement = paymentState({ ...doc, totals });
   const issueDate = new Date(doc.issueDate);
 
   const seller: PartyInfo = {
@@ -145,6 +147,12 @@ export function DocumentPrint({ doc, elementId }: { doc: Document; elementId?: s
             <span className="text-neutral-500">تاریخ :</span>
             <span className="font-bold">{formatJalaliDate(issueDate)}</span>
           </div>
+          {doc.type === "PROFORMA" && doc.validUntil && (
+            <div className="flex justify-between border-t border-[#c9c3c0] px-2 py-1">
+              <span className="text-neutral-500">اعتبار تا :</span>
+              <span className="font-bold">{formatJalaliDate(new Date(`${doc.validUntil}T12:00:00`))}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-1 flex-col items-center text-center">
@@ -276,8 +284,15 @@ export function DocumentPrint({ doc, elementId }: { doc: Document; elementId?: s
             <b>توضیحات:</b> {doc.notes || "1. اعتبار پیش‌فاکتور 24 ساعت از تاریخ صدور می‌باشد. 2. واریز پیش‌پرداخت به منزله تایید پیش‌فاکتور می‌باشد. 3. در صورت فروش شرایطی، تا زمان تسویه کامل، کلیه سفارش نزد خریدار محترم امانت خواهد بود."}
           </div>
           <div className="border border-[#c9c3c0] p-2 leading-6">
-            <b>مانده حساب مشتری:</b>
-            <div className="mt-1">ثبت نشده</div>
+            <b>{settlement ? "وضعیت پرداخت (ریال):" : "مانده حساب مشتری:"}</b>
+            {settlement ? (
+              <div className="mt-1">
+                <div>پرداخت‌شده: {formatRial(settlement.paid)}</div>
+                <div className="font-bold">مانده: {formatRial(Math.max(0, settlement.due))}</div>
+              </div>
+            ) : (
+              <div className="mt-1">—</div>
+            )}
           </div>
         </div>
       )}

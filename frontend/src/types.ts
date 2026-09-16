@@ -62,6 +62,8 @@ export type SalesReport = {
     grandTotal: number;
     averageInvoice: number;
   };
+  profit: { costedAmount: number; costTotal: number; grossProfit: number; uncostedAmount: number };
+  collections: { received: number; pendingCheques: number; count: number };
   proformas: { issued: number; converted: number };
   goodsIssues: { issued: number };
   daily: { day: string; count: number; grandTotal: number }[];
@@ -118,10 +120,19 @@ export type ProductImportRow = {
   active?: boolean;
 };
 
+/** Sepidar's طرف حساب: one list for customers and suppliers. */
+export type PartyKind = "CUSTOMER" | "SUPPLIER" | "BOTH";
+export const PARTY_KIND_LABELS: Record<PartyKind, string> = {
+  CUSTOMER: "مشتری",
+  SUPPLIER: "تأمین‌کننده",
+  BOTH: "مشتری و تأمین‌کننده",
+};
+
 export type Customer = {
   id: string;
   name: string;
   customerCode: string | null;
+  partyKind?: PartyKind;
   nationalId: string | null;
   economicCode: string | null;
   registration: string | null;
@@ -152,10 +163,11 @@ export type Company = {
 export type DocumentType = "PROFORMA" | "INVOICE" | "GOODS_ISSUE";
 export type DocumentStatus = "DRAFT" | "ISSUED" | "CANCELLED";
 
-export const DOCUMENT_TYPE_LABELS: Record<DocumentType, { title: string; short: string }> = {
-  PROFORMA: { title: "پیش فاکتور", short: "پ ف" },
-  INVOICE: { title: "صورتحساب فروش کالا و خدمات", short: "فاکتور" },
-  GOODS_ISSUE: { title: "حواله خروج از انبار کالا", short: "حواله" },
+/** `title` is printed on the paper form, `name` is used in the UI, `short` in tight spots. */
+export const DOCUMENT_TYPE_LABELS: Record<DocumentType, { title: string; name: string; short: string }> = {
+  PROFORMA: { title: "پیش فاکتور", name: "پیش‌فاکتور", short: "پ ف" },
+  INVOICE: { title: "صورتحساب فروش کالا و خدمات", name: "فاکتور فروش", short: "فاکتور" },
+  GOODS_ISSUE: { title: "حواله خروج از انبار کالا", name: "حواله خروج", short: "حواله" },
 };
 
 // Who may create/issue/cancel/convert each document type. UI-only mirror of
@@ -179,6 +191,8 @@ export type StockRow = {
   unit: string;
   onHand: number;
   minStock: number | null;
+  /** Unit cost of the latest receipt that stated one (Toman). */
+  costPrice?: number | null;
   lastMovementAt: string | null;
 };
 
@@ -200,6 +214,8 @@ export type StockMovement = {
   kind: StockMovementKind;
   quantity: number;
   reference: string | null;
+  supplierName?: string | null;
+  unitCost?: number | null;
   document: { id: string; type: DocumentType; number: number } | null;
   createdByName: string | null;
   createdAt: string;
@@ -270,6 +286,101 @@ export type Document = {
   deliveredToName: string | null;
   deliveredToNationalId: string | null;
   notes: string | null;
+  /** Proformas only: the last day the quoted prices hold (YYYY-MM-DD). */
+  validUntil?: string | null;
+  /** Invoices: money received against this invoice (counted payments). */
+  paidAmount?: number;
   items: DocumentItem[];
   totals: DocumentTotals;
 };
+
+export type PaymentMethod = "CASH" | "CARD" | "TRANSFER" | "CHEQUE";
+export type ChequeStatus = "PENDING" | "CLEARED" | "BOUNCED";
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  CASH: "نقد",
+  CARD: "کارتخوان",
+  TRANSFER: "حواله بانکی",
+  CHEQUE: "چک",
+};
+
+export const CHEQUE_STATUS_LABELS: Record<ChequeStatus, string> = {
+  PENDING: "در جریان وصول",
+  CLEARED: "وصول‌شده",
+  BOUNCED: "برگشتی",
+};
+
+/** A payment received (رسید دریافت). */
+export type Payment = {
+  id: string;
+  number: number;
+  customerId: string | null;
+  customerName: string | null;
+  document: { id: string; number: number; status: DocumentStatus } | null;
+  payerName: string | null;
+  method: PaymentMethod;
+  amount: number;
+  /** YYYY-MM-DD */
+  paidAt: string;
+  reference: string | null;
+  chequeNumber: string | null;
+  chequeBank: string | null;
+  chequeDueDate: string | null;
+  chequeStatus: ChequeStatus | null;
+  notes: string | null;
+  status: "ACTIVE" | "CANCELLED";
+  cancelReason: string | null;
+  createdByName: string | null;
+  createdAt: string;
+};
+
+export type PaymentInput = {
+  customerId?: string | null;
+  documentId?: string | null;
+  payerName?: string | null;
+  method: PaymentMethod;
+  amount: number;
+  paidAt: string;
+  reference?: string | null;
+  chequeNumber?: string | null;
+  chequeBank?: string | null;
+  chequeDueDate?: string | null;
+  notes?: string | null;
+};
+
+export type CustomerBalance = {
+  customerId: string;
+  name: string;
+  customerCode: string | null;
+  phone: string | null;
+  invoiced: number;
+  paid: number;
+  /** Positive: the customer owes us. */
+  balance: number;
+  pendingCheques: number;
+};
+
+export type SepidarSummary = {
+  parties: number;
+  partiesWithoutCode: number;
+  products: number;
+  productsWithoutCode: number;
+  invoices: number;
+  invoicesWithoutParty: number;
+  payments: number;
+};
+
+export type PaymentState = { paid: number; due: number; state: "UNPAID" | "PARTIAL" | "PAID" };
+
+/** An issued invoice's settlement, from its total and the money received; null for anything else. */
+export function paymentState(doc: {
+  type: DocumentType;
+  status: DocumentStatus;
+  paidAmount?: number;
+  totals: DocumentTotals;
+}): PaymentState | null {
+  if (doc.type !== "INVOICE" || doc.status !== "ISSUED") return null;
+  const paid = doc.paidAmount ?? 0;
+  const due = doc.totals.grandTotal - paid;
+  return { paid, due, state: paid <= 0 ? "UNPAID" : due <= 0 ? "PAID" : "PARTIAL" };
+}
