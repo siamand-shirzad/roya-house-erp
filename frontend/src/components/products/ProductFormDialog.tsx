@@ -1,3 +1,4 @@
+import { BRANDS, productBrand, type Brand } from "@/lib/brands";
 import { useEffect, useState, type FormEvent } from "react";
 import { LoaderCircle, TriangleAlert } from "lucide-react";
 
@@ -18,6 +19,7 @@ import { CATEGORY_LABELS, type Product, type ProductCategory } from "@/types";
 // Prices are Toman integers, the same unit the price list is stored in.
 
 type FormState = {
+  brand: Brand;
   code: string;
   name: string;
   category: ProductCategory;
@@ -30,6 +32,7 @@ type FormState = {
 };
 
 const EMPTY: FormState = {
+  brand: "OTHER",
   code: "",
   name: "",
   category: "GYPSUM_PANEL",
@@ -44,6 +47,7 @@ const EMPTY: FormState = {
 function toForm(p: Product): FormState {
   return {
     code: p.code ?? "",
+    brand: productBrand(p),
     name: p.name,
     category: p.category,
     spec: p.spec ?? "",
@@ -96,6 +100,7 @@ export function ProductFormDialog({
     try {
       const payload = {
         code: form.code.trim() || null,
+        brand: form.brand,
         name: form.name.trim(),
         category: form.category,
         spec: form.spec.trim() || null,
@@ -143,6 +148,7 @@ export function ProductFormDialog({
       }
     >
       <div className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-4">
+        <div className={cn(FIELD, "sm:col-span-2")}><Label htmlFor="product-brand">برند</Label><Select value={form.brand} onValueChange={(v) => set("brand", v as Brand)}><SelectTrigger id="product-brand" className="w-full"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(BRANDS).map(([value,label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></div>
         <div className={cn(FIELD, "sm:col-span-2")}>
           <Label htmlFor="product-name" className={LABEL}>
             نام کالا

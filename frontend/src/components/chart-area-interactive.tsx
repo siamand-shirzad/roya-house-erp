@@ -22,7 +22,16 @@ function localDayKey(d: Date) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-export function ChartAreaInteractive({ invoices, loading }: { invoices: Document[]; loading: boolean }) {
+export function ChartAreaInteractive({
+  invoices,
+  loading,
+  failed,
+}: {
+  invoices: Document[];
+  loading: boolean;
+  /** The documents request failed; empty bars would read as "no sales". */
+  failed?: boolean;
+}) {
   const data = useMemo<Day[]>(() => {
     const now = new Date();
     const days: Day[] = [];
@@ -51,10 +60,12 @@ export function ChartAreaInteractive({ invoices, loading }: { invoices: Document
     <Card className={REVEAL} style={stagger(4)}>
       <CardHeader>
         <CardTitle>فروش 30 روز اخیر</CardTitle>
-        <CardDescription>
+        <CardDescription className={failed && !loading ? "text-destructive" : undefined}>
           {loading
             ? "در حال بارگذاری..."
-            : `جمع فاکتورهای صادرشده در هر روز — ${formatToman(periodTotal)} تومان از ${toDisplayDigits(periodCount)} فاکتور`}
+            : failed
+              ? "دریافت فاکتورها ناموفق بود؛ نمودار خالی به معنی نبود فروش نیست."
+              : `جمع فاکتورهای صادرشده در هر روز — ${formatToman(periodTotal)} تومان از ${toDisplayDigits(periodCount)} فاکتور`}
         </CardDescription>
       </CardHeader>
       <CardContent className="px-2 sm:px-6">

@@ -1,10 +1,11 @@
-import type { Document, DocumentItem, DocumentType } from "@/types";
+import type { Document, DocumentItem } from "@/types";
 import { DOCUMENT_TYPE_LABELS } from "@/types";
 import { formatJalaliDate } from "@/lib/format";
 import { toDisplayDigits, formatNumber, formatToman } from "@/lib/format";
 import { computeDocumentTotals, computeLineTotal } from "@/lib/totals";
 import { tomanToRialWords } from "@/lib/numberToWords";
 import { BrandLogo } from "@/components/brand-logo";
+import { cn } from "@/lib/utils";
 
 // Visual reproduction of the three Roya House paper templates:
 // PROFORMA (پیش فاکتور), INVOICE (صورتحساب فروش کالا و خدمات) and
@@ -25,42 +26,64 @@ type PartyInfo = {
   phone?: string | null;
 };
 
-function Field({ label, value }: { label: string; value?: string | null }) {
+function Field({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value?: string | null;
+  className?: string;
+}) {
   return (
-    <div className="flex gap-1 border-b border-dashed border-neutral-300 py-1 last:border-b-0">
+    <div
+      className={cn(
+        "flex min-w-0 gap-1 border-b border-dashed border-neutral-300 py-[3px] leading-4",
+        className
+      )}
+    >
       <span className="shrink-0 text-neutral-500">{label}:</span>
-      <span className="font-medium text-neutral-900">{value || " "}</span>
+      <span className="min-w-0 font-medium text-neutral-900">{value || " "}</span>
     </div>
   );
 }
 
-function SectionHeader({ children }: { children: React.ReactNode }) {
+function SectionHeader({ children, note }: { children: React.ReactNode; note?: string }) {
   return (
     // Brand palette on paper: warm light grey fill, red accent bar at the reading start.
-    <div className="bg-[#f3f0ef] border border-[#c9c3c0] border-s-4 border-s-[#ab2c33] border-b-0 px-3 py-1.5 text-[13px] font-bold text-[#3a3a3c]">
-      {children}
+    <div className="flex items-baseline justify-between gap-2 bg-[#f3f0ef] border border-[#c9c3c0] border-s-4 border-s-[#ab2c33] border-b-0 px-3 py-1 text-[12px] font-bold text-[#3a3a3c]">
+      <span>{children}</span>
+      {note && <span className="text-[10px] font-normal text-neutral-500">{note}</span>}
     </div>
   );
 }
 
+// Four columns rather than two: the nine party fields fit in three short rows
+// instead of five, which is what buys the items table enough room for ten
+// lines on a single A4 page. The two widest values (name and address) get the
+// extra spans, so neither has to wrap to a second line.
 function PartyBox({ title, party }: { title: string; party: PartyInfo }) {
   return (
-    <div className="mb-3">
+    <div className="mb-2">
       <SectionHeader>{title}</SectionHeader>
-      <div className="border border-[#c9c3c0] p-3 grid grid-cols-2 gap-x-6 text-[12px]">
-        <Field label="نام شخص حقیقی/حقوقی" value={party.name} />
+      <div className="grid grid-cols-4 gap-x-4 border border-[#c9c3c0] px-2.5 py-1.5 text-[10.5px]">
+        <Field label="نام شخص حقیقی/حقوقی" value={party.name} className="col-span-2" />
         <Field label="شناسه ملی / کد ملی" value={party.nationalId} />
         <Field label="شماره اقتصادی" value={party.economicCode} />
         <Field label="شماره ثبت" value={party.registration} />
         <Field label="استان" value={party.province} />
         <Field label="شهرستان" value={party.city} />
-        <Field label="آدرس" value={party.address} />
         <Field label="کدپستی" value={party.postalCode} />
         <Field label="شماره تلفن / نمابر" value={party.phone} />
+        <Field label="آدرس" value={party.address} className="col-span-3" />
       </div>
     </div>
   );
 }
+
+// Money columns are narrow by design, so they carry half the horizontal
+// padding of the text columns and never wrap a figure onto a second line.
+const MONEY_CELL = "border border-[#c9c3c0] px-0.5 py-0.5 whitespace-nowrap";
 
 function SignatureBox({ label }: { label: string }) {
   return (
@@ -141,31 +164,39 @@ export function DocumentPrint({ doc, elementId }: { doc: Document; elementId?: s
       </div>
 
       {isInvoiceLike && <PartyBox title="مشخصات فروشنده" party={seller} />}
-      <PartyBox title={isInvoiceLike ? "مشخصات خریدار" : "مشخصات خریدار"} party={buyer} />
+      <PartyBox title="مشخصات خریدار" party={buyer} />
 
       {/* Items table */}
       <div className="mb-4">
-        <SectionHeader>
+        <SectionHeader note={isInvoiceLike ? "مبالغ به ریال" : undefined}>
           {isInvoiceLike ? "مشخصات کالا یا خدمات مورد معامله" : "مشخصات کالاهای خارج شده"}
         </SectionHeader>
-        <table className="w-full border-collapse border border-[#c9c3c0] text-[11px]">
+        {/* The money columns say "(ریال)" once, in the section header above,
+            rather than in all six headings: repeating it wrapped every heading
+            onto three lines and squeezed the name column until the product
+            names wrapped too, which is what pushed a ten-line invoice onto a
+            second page. */}
+        <table className="w-full table-fixed border-collapse border border-[#c9c3c0] text-[10px]">
           <thead>
             <tr className="bg-[#f3f0ef] text-center">
-              <th className="border border-[#c9c3c0] px-1 py-1.5 w-8">ردیف</th>
-              <th className="border border-[#c9c3c0] px-1 py-1.5">نام کالا</th>
-              <th className="border border-[#c9c3c0] px-1 py-1.5">واحد اندازه‌گیری</th>
-              <th className="border border-[#c9c3c0] px-1 py-1.5">تعداد / مقدار</th>
+              <th className="border border-[#c9c3c0] px-1 py-1 w-7">ردیف</th>
+              <th className="border border-[#c9c3c0] px-1 py-1">نام کالا</th>
+              <th className="border border-[#c9c3c0] px-1 py-1 w-10">واحد</th>
+              <th className="border border-[#c9c3c0] px-1 py-1 w-12">تعداد</th>
               {isInvoiceLike ? (
                 <>
-                  <th className="border border-[#c9c3c0] px-1 py-1.5">مبلغ واحد (ریال)</th>
-                  <th className="border border-[#c9c3c0] px-1 py-1.5">مبلغ کل (ریال)</th>
-                  <th className="border border-[#c9c3c0] px-1 py-1.5">مبلغ تخفیف (ریال)</th>
-                  <th className="border border-[#c9c3c0] px-1 py-1.5">مبلغ کل بعد از تخفیف (ریال)</th>
-                  <th className="border border-[#c9c3c0] px-1 py-1.5">جمع مالیات و عوارض (ریال)</th>
-                  <th className="border border-[#c9c3c0] px-1 py-1.5">جمع کل بعلاوه مالیات و عوارض (ریال)</th>
+                  {/* Money columns are sized for the totals row, not the line
+                      rows: the footer holds the sum of every line, so it is
+                      always the widest number in its column. */}
+                  <th className={cn(MONEY_CELL, "w-[57px]")}>مبلغ واحد</th>
+                  <th className={cn(MONEY_CELL, "w-[79px]")}>مبلغ کل</th>
+                  <th className={cn(MONEY_CELL, "w-[53px]")}>تخفیف</th>
+                  <th className={cn(MONEY_CELL, "w-[78px]")}>پس از تخفیف</th>
+                  <th className={cn(MONEY_CELL, "w-[70px]")}>مالیات و عوارض</th>
+                  <th className={cn(MONEY_CELL, "w-[78px]")}>جمع کل</th>
                 </>
               ) : (
-                <th className="border border-[#c9c3c0] px-1 py-1.5">توضیحات</th>
+                <th className="border border-[#c9c3c0] px-1 py-1">توضیحات</th>
               )}
             </tr>
           </thead>
@@ -174,21 +205,21 @@ export function DocumentPrint({ doc, elementId }: { doc: Document; elementId?: s
               const t = computeLineTotal(item);
               return (
                 <tr key={idx} className="text-center">
-                  <td className="border border-[#c9c3c0] px-1 py-1">{toDisplayDigits(idx + 1)}</td>
-                  <td className="border border-[#c9c3c0] px-2 py-1 text-right">{item.name}</td>
-                  <td className="border border-[#c9c3c0] px-1 py-1">{item.unit}</td>
-                  <td className="border border-[#c9c3c0] px-1 py-1">{formatNumber(Number(item.quantity))}</td>
+                  <td className="border border-[#c9c3c0] px-1 py-0.5">{toDisplayDigits(idx + 1)}</td>
+                  <td className="border border-[#c9c3c0] px-2 py-0.5 text-right leading-tight">{item.name}</td>
+                  <td className="border border-[#c9c3c0] px-1 py-0.5">{item.unit}</td>
+                  <td className="border border-[#c9c3c0] px-1 py-0.5">{formatNumber(Number(item.quantity))}</td>
                   {isInvoiceLike ? (
                     <>
-                      <td className="border border-[#c9c3c0] px-1 py-1">{formatToman(item.unitPrice * 10)}</td>
-                      <td className="border border-[#c9c3c0] px-1 py-1">{formatToman(t.lineTotal * 10)}</td>
-                      <td className="border border-[#c9c3c0] px-1 py-1">{formatToman((item.discount ?? 0) * 10)}</td>
-                      <td className="border border-[#c9c3c0] px-1 py-1">{formatToman(t.afterDiscount * 10)}</td>
-                      <td className="border border-[#c9c3c0] px-1 py-1">{formatToman(t.taxAmount * 10)}</td>
-                      <td className="border border-[#c9c3c0] px-1 py-1 font-bold">{formatToman(t.grandTotal * 10)}</td>
+                      <td className={MONEY_CELL}>{formatToman(item.unitPrice * 10)}</td>
+                      <td className={MONEY_CELL}>{formatToman(t.lineTotal * 10)}</td>
+                      <td className={MONEY_CELL}>{formatToman((item.discount ?? 0) * 10)}</td>
+                      <td className={MONEY_CELL}>{formatToman(t.afterDiscount * 10)}</td>
+                      <td className={MONEY_CELL}>{formatToman(t.taxAmount * 10)}</td>
+                      <td className={cn(MONEY_CELL, "font-bold")}>{formatToman(t.grandTotal * 10)}</td>
                     </>
                   ) : (
-                    <td className="border border-[#c9c3c0] px-1 py-1 text-right">{item.spec ?? ""}</td>
+                    <td className="border border-[#c9c3c0] px-1 py-0.5 text-right leading-tight">{item.spec ?? ""}</td>
                   )}
                 </tr>
               );
@@ -197,14 +228,14 @@ export function DocumentPrint({ doc, elementId }: { doc: Document; elementId?: s
           {isInvoiceLike && (
             <tfoot>
               <tr className="bg-[#f7ebec] font-bold text-center text-[#3a3a3c]">
-                <td className="border border-[#c9c3c0] px-1 py-1.5" colSpan={5}>
+                <td className="border border-[#c9c3c0] px-1 py-1" colSpan={5}>
                   جمع کل : {tomanToRialWords(totals.grandTotal)}
                 </td>
-                <td className="border border-[#c9c3c0] px-1 py-1.5">{formatToman(totals.subtotal * 10)}</td>
-                <td className="border border-[#c9c3c0] px-1 py-1.5">{formatToman(totals.discountTotal * 10)}</td>
-                <td className="border border-[#c9c3c0] px-1 py-1.5">{formatToman((totals.subtotal - totals.discountTotal) * 10)}</td>
-                <td className="border border-[#c9c3c0] px-1 py-1.5">{formatToman(totals.taxTotal * 10)}</td>
-                <td className="border border-[#c9c3c0] px-1 py-1.5 text-[#ab2c33]">{formatToman(totals.grandTotal * 10)}</td>
+                <td className={MONEY_CELL}>{formatToman(totals.subtotal * 10)}</td>
+                <td className={MONEY_CELL}>{formatToman(totals.discountTotal * 10)}</td>
+                <td className={MONEY_CELL}>{formatToman((totals.subtotal - totals.discountTotal) * 10)}</td>
+                <td className={MONEY_CELL}>{formatToman(totals.taxTotal * 10)}</td>
+                <td className={cn(MONEY_CELL, "text-[#ab2c33]")}>{formatToman(totals.grandTotal * 10)}</td>
               </tr>
             </tfoot>
           )}
@@ -212,7 +243,7 @@ export function DocumentPrint({ doc, elementId }: { doc: Document; elementId?: s
       </div>
 
       {!isInvoiceLike && (
-        <div className="mb-4 text-[12px] space-y-3">
+        <div data-print-ending className="mb-4 text-[12px] space-y-3">
           <div>
             <span className="text-neutral-500">شماره فاکتور: </span>
             <span className="font-bold">{doc.relatedInvoiceNo ? toDisplayDigits(doc.relatedInvoiceNo) : "—"}</span>
@@ -240,19 +271,19 @@ export function DocumentPrint({ doc, elementId }: { doc: Document; elementId?: s
       )}
 
       {isInvoiceLike && (
-        <div className="mb-4 grid grid-cols-3 gap-3 text-[11px]">
+        <div data-print-ending className="mb-4 grid grid-cols-3 gap-3 text-[11px]">
           <div className="col-span-2 border border-[#c9c3c0] p-2 leading-6">
             <b>توضیحات:</b> {doc.notes || "1. اعتبار پیش‌فاکتور 24 ساعت از تاریخ صدور می‌باشد. 2. واریز پیش‌پرداخت به منزله تایید پیش‌فاکتور می‌باشد. 3. در صورت فروش شرایطی، تا زمان تسویه کامل، کلیه سفارش نزد خریدار محترم امانت خواهد بود."}
           </div>
           <div className="border border-[#c9c3c0] p-2 leading-6">
             <b>مانده حساب مشتری:</b>
-            <div className="mt-1">{formatToman(0)} ریال</div>
+            <div className="mt-1">ثبت نشده</div>
           </div>
         </div>
       )}
 
       {/* Signatures */}
-      <div className="grid grid-cols-2 gap-4 mt-4">
+      <div data-print-ending className="grid grid-cols-2 gap-4 mt-4">
         {isInvoiceLike ? (
           <>
             <SignatureBox label="مهر و امضاء خریدار" />
@@ -266,7 +297,7 @@ export function DocumentPrint({ doc, elementId }: { doc: Document; elementId?: s
         )}
       </div>
 
-      <div className="mt-4 bg-[#464646] text-center py-2 text-[12px] font-bold text-white">
+      <div data-print-ending className="mt-4 bg-[#464646] text-center py-2 text-[12px] font-bold text-white">
         از خرید شما سپاسگزاریم.
       </div>
     </div>

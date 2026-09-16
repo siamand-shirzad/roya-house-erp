@@ -1,13 +1,16 @@
+import { requirePermission } from "../lib/permissions";
 import { Router } from "express";
 import { z } from "zod";
 import { pool, query, queryOne, newId } from "../lib/db";
 
 export const productsRouter = Router();
+productsRouter.use(requirePermission("products"));
 
 function rowToProduct(r: any) {
   return {
     id: r.id,
     code: r.code,
+    brand: r.brand ?? null,
     name: r.name,
     category: r.category,
     spec: r.spec,
@@ -75,6 +78,7 @@ function isDuplicateCode(err: unknown) {
 
 const productSchema = z.object({
   code: z.string().min(1).optional().nullable(),
+  brand: z.enum(["BANA", "GBOARD", "ROYA", "OTHER"]).optional().nullable(),
   name: z.string().min(1),
   category: z.enum([
     "GYPSUM_PANEL",
@@ -100,8 +104,8 @@ productsRouter.post("/", async (req, res, next) => {
     const data = productSchema.parse(req.body);
     const id = newId("prod");
     const row = await queryOne(
-      `INSERT INTO products (id, code, name, category, spec, unit, unit_price, partner_price, pack_size, active)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      `INSERT INTO products (id, code, name, category, spec, unit, unit_price, partner_price, pack_size, active, brand)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
       [
         id,
         data.code ?? null,
@@ -113,6 +117,7 @@ productsRouter.post("/", async (req, res, next) => {
         data.partnerPrice ?? null,
         data.packSize ?? null,
         data.active ?? true,
+        data.brand ?? null,
       ]
     );
     res.status(201).json(rowToProduct(row));
@@ -142,7 +147,7 @@ productsRouter.put("/:id", async (req, res, next) => {
 
     const row = await queryOne(
       `UPDATE products SET code=$1, name=$2, category=$3, spec=$4, unit=$5, unit_price=$6,
-       partner_price=$7, pack_size=$8, active=$9, updated_at=now() WHERE id=$10 RETURNING *`,
+       partner_price=$7, pack_size=$8, active=$9, brand=$11, updated_at=now() WHERE id=$10 RETURNING *`,
       [
         merged.code,
         merged.name,
@@ -154,6 +159,7 @@ productsRouter.put("/:id", async (req, res, next) => {
         merged.packSize,
         merged.active,
         req.params.id,
+        data.brand !== undefined ? data.brand : existing.brand,
       ]
     );
     res.json(rowToProduct(row));
@@ -170,6 +176,7 @@ const bulkSchema = z.object({
     .array(
       z.object({
         id: z.string().min(1),
+        expectedUpdatedAt: z.iso.datetime().optional(),
         unitPrice: z.number().int().nonnegative().optional(),
         partnerPrice: z.number().int().nonnegative().nullable().optional(),
       })
@@ -185,7 +192,12 @@ productsRouter.patch("/bulk", async (req, res, next) => {
     client = await pool.connect();
     await client.query("BEGIN");
     const missing: string[] = [];
-    for (const u of updates) {
+    for (const u of [...updates].sort((a, b) => a.id.localeCompare(b.id))) {
+      const locked = await client.query("SELECT updated_at FROM products WHERE id=$1 FOR UPDATE", [u.id]);
+      if (locked.rows[0] && u.expectedUpdatedAt && new Date(locked.rows[0].updated_at).getTime() !== Date.parse(u.expectedUpdatedAt)) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error: "Prices changed since you loaded them; reload before saving", id: u.id });
+      }
       const r = await client.query(
         `UPDATE products SET
            unit_price = COALESCE($2, unit_price),
@@ -245,17 +257,17 @@ productsRouter.post("/import", async (req, res, next) => {
       ];
       const r = await client.query(
         `UPDATE products SET name=$2, category=$3, spec=$4, unit=$5, unit_price=$6, partner_price=$7,
-           pack_size=$8, active=COALESCE($9, active), updated_at=now()
+           pack_size=$8, active=COALESCE($9, active), brand=CASE WHEN $10::boolean THEN $11 ELSE brand END, updated_at=now()
          WHERE code=$1`,
-        [p.code, ...values, p.active ?? null]
+        [p.code, ...values, p.active ?? null, p.brand !== undefined, p.brand ?? null]
       );
       if (r.rowCount) {
         updated++;
       } else {
         await client.query(
-          `INSERT INTO products (id, code, name, category, spec, unit, unit_price, partner_price, pack_size, active)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-          [newId("prod"), p.code, ...values, p.active ?? true]
+          `INSERT INTO products (id, code, name, category, spec, unit, unit_price, partner_price, pack_size, active, brand)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          [newId("prod"), p.code, ...values, p.active ?? true, p.brand ?? null]
         );
         created++;
       }

@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { can, type Module } from "@/lib/permissions";
+import { ShamsiDatePicker } from "@/components/shamsi-date-picker";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Download, Ellipsis, Eye, LoaderCircle, Plus, Search, Trash, X } from "lucide-react";
 import { toast } from "sonner";
@@ -7,7 +9,8 @@ import { useAuth } from "@/components/auth-provider";
 import { DocumentTypeTabs } from "@/components/documents/DocumentTypeTabs";
 import { useDocumentPdfExport } from "@/components/documents/useDocumentPdfExport";
 import { StatusBadge } from "@/components/documents/StatusBadge";
-import { ListPagination, usePagination } from "@/components/list-pagination";
+import { ListPagination } from "@/components/list-pagination";
+import { useListState } from "@/lib/list-state";
 import { SegmentedControl } from "@/components/segmented-control";
 import {
   AlertDialog,
@@ -36,9 +39,8 @@ import { api, errorMessage } from "@/lib/api";
 import { SLUG_TO_TYPE } from "@/lib/documentTypeSlug";
 import { formatJalaliDate, formatToman, toDisplayDigits } from "@/lib/format";
 import { DocumentTypeIcon } from "@/lib/icons";
-import { matchesSearch } from "@/lib/search";
 import { cn } from "@/lib/utils";
-import { DOCUMENT_WRITE_ROLES, type Document, type DocumentType } from "@/types";
+import { type Document, type DocumentType } from "@/types";
 
 const NEW_LABEL: Record<DocumentType, string> = {
   PROFORMA: "پیش‌فاکتور جدید",
@@ -59,29 +61,42 @@ export function DocumentListPage() {
   const navigate = useNavigate();
   const type = SLUG_TO_TYPE[typeSlug ?? ""];
   const { user } = useAuth();
+  const [pageInfo, setPageInfo] = useState({ total: 0, page: 1, pageSize: 10 });
+  const [retryKey, setRetryKey] = useState(0);
   const [docs, setDocs] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [q, setQ] = useState("");
-  const [status, setStatus] = useState<StatusFilter>("ALL");
+  const { params, update } = useListState();
+  const q = params.get("q") ?? "";
+  const from = params.get("from") ?? "";
+  const to = params.get("to") ?? "";
+  const requestedPage = params.get("page") ?? "1";
+  const rawStatus = params.get("status");
+  const status: StatusFilter = STATUS_FILTERS.find((s) => s.value === rawStatus)?.value ?? "ALL";
+  const setQ = (value: string) => update({ q: value });
+  const setStatus = (value: StatusFilter) => update({ status: value === "ALL" ? null : value });
   const [deleting, setDeleting] = useState<Document | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const pdf = useDocumentPdfExport();
   // ?customer=<id> (from the customers page) narrows the list to one customer.
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const customerId = searchParams.get("customer");
   const [customerName, setCustomerName] = useState<string | null>(null);
 
   useEffect(() => {
     if (!type) return;
+    let cancelled = false;
     setLoading(true);
     setError(null);
-    api.documents
-      .list({ type, customerId: customerId ?? undefined })
-      .then(setDocs)
-      .catch((err) => setError(errorMessage(err)))
-      .finally(() => setLoading(false));
-  }, [type, customerId]);
+    const timer = window.setTimeout(() => {
+      api.documents.page({ type, customerId: customerId ?? undefined, q: q || undefined,
+        status: status === "ALL" ? undefined : status, from: from || undefined, to: to || undefined, page: requestedPage })
+        .then(({ rows, ...info }) => { if (!cancelled) { setDocs(rows); setPageInfo(info); } })
+        .catch((err) => { if (!cancelled) setError(errorMessage(err)); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    }, 200);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [type, customerId, q, status, from, to, requestedPage, retryKey]);
 
   useEffect(() => {
     setCustomerName(null);
@@ -92,17 +107,11 @@ export function DocumentListPage() {
       .catch(() => setCustomerName("مشتری"));
   }, [customerId]);
 
-  const rows = useMemo(
-    () =>
-      docs.filter(
-        (d) =>
-          (status === "ALL" || d.status === status) &&
-          matchesSearch(`${d.number} ${d.buyerName ?? ""} ${d.customer?.name ?? ""}`, q)
-      ),
-    [docs, q, status]
-  );
-
-  const pager = usePagination(rows, `${type}|${q}|${status}|${customerId}`);
+  const rows = docs;
+  const pager = {
+    ...pageInfo, pageCount: Math.max(1, Math.ceil(pageInfo.total / pageInfo.pageSize)), pageRows: docs,
+    setPage: (page: number) => update({ page: String(page) }, false),
+  };
 
   if (!type) {
     return <div className="p-8 text-center text-muted-foreground">نوع سند نامعتبر است.</div>;
@@ -111,15 +120,14 @@ export function DocumentListPage() {
   const customerSearch = customerId ? `?customer=${encodeURIComponent(customerId)}` : "";
   // A new document from a customer-filtered list starts with that customer as buyer.
   const newHref = `/documents/${typeSlug}/new${customerSearch}`;
-  const canWrite = user ? DOCUMENT_WRITE_ROLES[type].includes(user.role) : false;
-  const filtered = q.trim() !== "" || status !== "ALL";
+  const canWrite = user ? can(user, type.toLowerCase() as Module, true) : false;
 
   async function confirmDelete() {
     if (!deleting) return;
     setDeleteBusy(true);
     try {
       await api.documents.remove(deleting.id);
-      setDocs((list) => list.filter((d) => d.id !== deleting.id));
+      setRetryKey((v) => v + 1);
       toast.success(`پیش‌نویس ${toDisplayDigits(deleting.number)} حذف شد.`);
       setDeleting(null);
     } catch (err) {
@@ -133,7 +141,7 @@ export function DocumentListPage() {
   return (
     <div className="space-y-4 p-4 md:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <DocumentTypeTabs active={type} search={customerSearch} />
+        <DocumentTypeTabs active={type} search={`?${new URLSearchParams([...params].filter(([key]) => key !== "page"))}`} />
         {canWrite && (
           <Button asChild>
             <Link to={newHref}>
@@ -147,19 +155,22 @@ export function DocumentListPage() {
         <div className="relative w-full sm:w-72">
           <Search className="absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
           <Input
+            aria-label="جستجوی اسناد"
             placeholder="جستجوی شماره یا نام خریدار..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
             className="pr-8"
           />
         </div>
+        <ShamsiDatePicker label="از تاریخ (شمسی)" value={from} max={to} onChange={(value) => update({ from: value })} />
+        <ShamsiDatePicker label="تا تاریخ (شمسی)" value={to} min={from} onChange={(value) => update({ to: value })} />
         <SegmentedControl size="sm" ariaLabel="وضعیت سند" items={STATUS_FILTERS} value={status} onValueChange={setStatus} />
         {customerId && (
           <Badge variant="outline" className="gap-1 py-1">
             مشتری: {customerName ?? "..."}
             <button
               type="button"
-              onClick={() => setSearchParams({}, { replace: true })}
+              onClick={() => update({ customer: null })}
               className="rounded-sm opacity-60 hover:opacity-100"
               title="نمایش اسناد همه مشتریان"
             >
@@ -169,16 +180,12 @@ export function DocumentListPage() {
           </Badge>
         )}
         <span className="text-sm text-muted-foreground tabular-nums sm:ms-auto">
-          {loading
-            ? "در حال بارگذاری..."
-            : filtered
-              ? `${toDisplayDigits(rows.length)} از ${toDisplayDigits(docs.length)} سند`
-              : `${toDisplayDigits(docs.length)} سند`}
+          {loading ? "در حال بارگذاری..." : `${toDisplayDigits(pageInfo.total)} سند`}
         </span>
       </div>
 
       <Card className="overflow-hidden py-0">
-        <Table>
+        <Table className="mobile-data-table">
           <TableHeader className="bg-muted/50">
             <TableRow>
               <TableHead className="ps-4">شماره</TableHead>
@@ -207,6 +214,7 @@ export function DocumentListPage() {
               <TableRow>
                 <TableCell colSpan={6} className="py-10 text-center text-destructive">
                   دریافت اسناد ناموفق بود: {error}
+                  <Button variant="outline" size="sm" onClick={() => setRetryKey((v) => v + 1)}>تلاش مجدد</Button>
                 </TableCell>
               </TableRow>
             )}
@@ -218,7 +226,7 @@ export function DocumentListPage() {
                     <div className="flex size-12 items-center justify-center rounded-full bg-muted">
                       <DocumentTypeIcon type={type} className="size-5" />
                     </div>
-                    {docs.length === 0 ? (
+                    {!q && status === "ALL" && !from && !to ? (
                       <>
                         <div>هنوز سندی ثبت نشده است.</div>
                         {canWrite && (
@@ -236,8 +244,7 @@ export function DocumentListPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            setQ("");
-                            setStatus("ALL");
+                            update({ q: null, status: null, from: null, to: null });
                           }}
                         >
                           پاک کردن فیلترها
@@ -255,7 +262,7 @@ export function DocumentListPage() {
                 const exporting = pdf.exportingId === doc.id;
                 return (
                   <TableRow key={doc.id} className="cursor-pointer" onClick={() => navigate(href)}>
-                    <TableCell className="ps-4 font-semibold tabular-nums">
+                    <TableCell data-label="شماره" className="ps-4 font-semibold tabular-nums">
                       <Link
                         to={href}
                         className="hover:text-primary focus-visible:underline focus-visible:outline-none"
@@ -264,14 +271,14 @@ export function DocumentListPage() {
                         {toDisplayDigits(doc.number)}
                       </Link>
                     </TableCell>
-                    <TableCell className="tabular-nums text-muted-foreground">
+                    <TableCell data-label="تاریخ" className="tabular-nums text-muted-foreground">
                       {formatJalaliDate(new Date(doc.issueDate))}
                     </TableCell>
-                    <TableCell>{doc.buyerName || doc.customer?.name || "—"}</TableCell>
-                    <TableCell>
+                    <TableCell data-label="خریدار">{doc.buyerName || doc.customer?.name || "—"}</TableCell>
+                    <TableCell data-label="وضعیت">
                       <StatusBadge status={doc.status} />
                     </TableCell>
-                    <TableCell className="font-medium tabular-nums">{formatToman(doc.totals.grandTotal)}</TableCell>
+                    <TableCell data-label="جمع کل (تومان)" className="font-medium tabular-nums">{formatToman(doc.totals.grandTotal)}</TableCell>
                     {/* Menu clicks bubble through the portal in React's tree; keep them off the row. */}
                     <TableCell className="pe-2" onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu dir="rtl" modal={false}>

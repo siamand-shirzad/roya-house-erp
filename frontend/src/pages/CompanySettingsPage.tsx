@@ -1,3 +1,5 @@
+import { can } from "@/lib/permissions";
+import { useAuth } from "@/components/auth-provider";
 import { useEffect, useState, type FormEvent } from "react";
 import { Building2, LoaderCircle, Save, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
@@ -41,6 +43,8 @@ function toForm(company: Company | null): FormState {
 }
 
 export function CompanySettingsPage() {
+  const { user } = useAuth();
+  const canEdit = can(user, "company", true);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [saved, setSaved] = useState<FormState>(EMPTY);
   const [loading, setLoading] = useState(true);
@@ -63,6 +67,7 @@ export function CompanySettingsPage() {
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (!canEdit) return;
     if (!form.name.trim()) return setError("نام شرکت الزامی است.");
     setError(null);
     setSaving(true);
@@ -89,6 +94,7 @@ export function CompanySettingsPage() {
       ) : (
         <Input
           id={`company-${id}`}
+        readOnly={!canEdit}
           dir={ltr ? "ltr" : undefined}
           className={cn(INPUT, ltr && "text-right")}
           value={form[id]}
@@ -136,7 +142,7 @@ export function CompanySettingsPage() {
             )}
 
             <div className="flex items-center gap-3">
-              <Button type="submit" disabled={loading || saving || !dirty}>
+              <Button type="submit" disabled={!canEdit || loading || saving || !dirty}>
                 {saving ? <LoaderCircle className="animate-spin" /> : <Save />}
                 ذخیره
               </Button>

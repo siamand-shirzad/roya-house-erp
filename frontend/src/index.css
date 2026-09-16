@@ -165,3 +165,45 @@
     }
   }
 }
+
+.shamsi-calendar.rdp-root {
+  --rdp-accent-color: var(--primary);
+  --rdp-accent-background-color: var(--accent);
+  --rdp-day-width: 40px;
+  --rdp-day-height: 44px;
+  --rdp-day_button-width: 38px;
+  --rdp-day_button-height: 42px;
+  --rdp-selected-border: 2px solid var(--primary);
+  font-family: var(--font-sans);
+}
+.rdp-dropdown { background: var(--popover); color: var(--popover-foreground); }
+.rdp-day_button { border-radius: var(--radius); }
+
+@media (max-width: 767px) {
+  button:not(.rdp-day_button):not([role="checkbox"]), [role="switch"] { min-height: 44px; }
+  button[data-size="icon"] { min-width: 44px; }
+  [data-slot="button"], [data-slot="sidebar-menu-button"], [data-slot="select-trigger"],
+  [data-slot="dropdown-menu-item"], [data-slot="dropdown-menu-checkbox-item"], [data-segment] {
+    min-height: 44px;
+  }
+  [data-slot="button"][data-size^="icon"], [data-slot="sidebar-trigger"] { min-width: 44px; }
+  input:not([type="checkbox"]):not([type="radio"]), textarea, [data-slot="select-trigger"] {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  [data-slot="checkbox"] { width: 22px; height: 22px; }
+  .mobile-data-table, .mobile-data-table tbody { display: block; min-width: 0; width: 100%; }
+  .mobile-data-table thead { display: none; }
+  .mobile-data-table tbody tr { display: flex; flex-direction: column; padding: 12px; gap: 6px; }
+  .mobile-data-table td { display: block; width: 100%; min-width: 0; white-space: normal; font-size: 14px; }
+  .mobile-data-table td[data-label] { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(0, 1.5fr); align-items: center; gap: 8px; }
+  .mobile-data-table td[data-label]::before { content: attr(data-label); font-size: 13px; color: var(--muted-foreground); }
+  .mobile-data-table td[data-label] > div:has(+ div) { grid-column: 2; }
+  .mobile-data-table td[data-label] > div + div { grid-column: 2; }
+}
+
+@media (max-width: 767px) {
+  .shamsi-calendar.rdp-root { --rdp-day-width: 44px; --rdp-day_button-width: 42px; --rdp-day_button-height: 44px; }
+  .mobile-data-table input[data-grid-row] { border-color: var(--input); background: var(--background); }
+  [role="checkbox"] { min-height: 22px; }
+}

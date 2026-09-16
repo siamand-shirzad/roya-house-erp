@@ -1,5 +1,6 @@
+import { MODULES, MODULE_LABELS, accessFor, type Permissions, type Access } from "@/lib/permissions";
 import { useEffect, useState, type FormEvent } from "react";
-import { Info, LoaderCircle, Pencil, TriangleAlert, UserPlus, Users } from "lucide-react";
+import { Eye, EyeOff, KeyRound, Info, LoaderCircle, Pencil, TriangleAlert, UserPlus, Users } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,8 +16,8 @@ import { cn } from "@/lib/utils";
 import { formatJalaliDate, toDisplayDigits } from "@/lib/format";
 import { ROLE_LABELS, type User, type UserRole } from "@/types";
 
-type FormState = { fullName: string; username: string; phone: string; role: UserRole; active: boolean; password: string };
-const EMPTY_FORM: FormState = { fullName: "", username: "", phone: "", role: "SALES", active: true, password: "" };
+type FormState = { permissions: Permissions; fullName: string; username: string; phone: string; role: UserRole; active: boolean; password: string };
+const EMPTY_FORM: FormState = { permissions: {}, fullName: "", username: "", phone: "", role: "SALES", active: true, password: "" };
 
 const ROLE_TONE: Record<UserRole, string> = {
   ADMIN: "border-primary/30 bg-primary/10 text-primary",
@@ -34,6 +35,8 @@ export function UsersPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [resetMode, setResetMode] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -53,11 +56,13 @@ export function UsersPage() {
     load();
   }, []);
 
-  function openForm(user: User | null) {
+  function openForm(user: User | null, reset = false) {
+    setResetMode(reset);
     setEditing(user);
+    setShowPassword(false);
     setForm(
       user
-        ? { fullName: user.fullName, username: user.username, phone: user.phone ?? "", role: user.role, active: user.active, password: "" }
+        ? { fullName: user.fullName, username: user.username, phone: user.phone ?? "", role: user.role, active: user.active, password: "", permissions: user.permissions ?? {} }
         : EMPTY_FORM
     );
     setFormError(null);
@@ -80,6 +85,8 @@ export function UsersPage() {
       if (editing) await api.users.update(editing.id, payload);
       else await api.users.create(payload);
       setSheetOpen(false);
+      setForm(EMPTY_FORM);
+      setShowPassword(false);
       await load();
     } catch (err) {
       setFormError(errorMessage(err));
@@ -111,7 +118,7 @@ export function UsersPage() {
           <Info className="mt-0.5 size-4 shrink-0" />
           <p>
             هر کاربر با نام کاربری و رمز عبور خودش وارد می‌شود. مدیر سیستم به همه‌ی بخش‌ها دسترسی دارد؛ بقیه‌ی
-            نقش‌ها قیمت‌ها را فقط می‌بینند و به این صفحه دسترسی ندارند. غیرفعال کردن کاربر یا تغییر رمزش، او را
+            کاربران بر اساس دسترسی هر بخش کار می‌کنند. غیرفعال کردن کاربر یا تغییر رمزش، او را
             از همه‌ی دستگاه‌ها خارج می‌کند.
           </p>
         </div>
@@ -124,7 +131,7 @@ export function UsersPage() {
         )}
 
         <div className="overflow-x-auto rounded-xl border bg-card">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="mobile-data-table w-full md:min-w-[720px] text-sm">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr className="border-b">
                 <th className="px-4 py-2.5 text-right font-medium">نام</th>
@@ -165,7 +172,7 @@ export function UsersPage() {
               {!loading &&
                 users.map((u) => (
                   <tr key={u.id} className={cn("hover:bg-muted/40", !u.active && "text-muted-foreground")}>
-                    <td className="px-4 py-3 font-medium">
+                    <td data-label="نام" className="px-4 py-3 font-medium">
                       <div className="flex items-center gap-2">
                         {u.fullName}
                         {!u.hasPassword && (
@@ -175,16 +182,16 @@ export function UsersPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-3 py-3 font-mono text-xs" dir="ltr">
+                    <td data-label="نام کاربری" className="px-3 py-3 font-mono text-xs" dir="ltr">
                       <span className="block text-right">{u.username}</span>
                     </td>
-                    <td className="px-3 py-3 tabular-nums">{u.phone ? toDisplayDigits(u.phone) : "—"}</td>
-                    <td className="px-3 py-3">
+                    <td data-label="تلفن" className="px-3 py-3 tabular-nums">{u.phone ? toDisplayDigits(u.phone) : "—"}</td>
+                    <td data-label="نقش" className="px-3 py-3">
                       <Badge variant="outline" className={ROLE_TONE[u.role]}>
                         {ROLE_LABELS[u.role]}
                       </Badge>
                     </td>
-                    <td className="px-3 py-3">
+                    <td data-label="وضعیت" className="px-3 py-3">
                       <button
                         type="button"
                         role="switch"
@@ -210,13 +217,14 @@ export function UsersPage() {
                         <span className="text-xs">{u.active ? "فعال" : "غیرفعال"}</span>
                       </button>
                     </td>
-                    <td className="px-3 py-3 text-xs tabular-nums text-muted-foreground">
+                    <td data-label="آخرین ورود" className="px-3 py-3 text-xs tabular-nums text-muted-foreground">
                       {u.lastLoginAt ? formatJalaliDate(new Date(u.lastLoginAt)) : "هنوز وارد نشده"}
                     </td>
                     <td className="px-2 py-3">
                       <Button variant="ghost" size="icon" aria-label={`ویرایش ${u.fullName}`} onClick={() => openForm(u)}>
                         <Pencil className="size-4" />
                       </Button>
+                      <Button variant="ghost" size="icon" aria-label={`بازنشانی رمز ${u.fullName}`} onClick={() => openForm(u, true)}><KeyRound /></Button>
                     </td>
                   </tr>
                 ))}
@@ -227,7 +235,7 @@ export function UsersPage() {
 
       <FormDialog
         open={sheetOpen}
-        onOpenChange={setSheetOpen}
+        onOpenChange={(open) => { setSheetOpen(open); if (!open) { setForm(EMPTY_FORM); setShowPassword(false); } }}
         busy={saving}
         title={editing ? "ویرایش کاربر" : "کاربر جدید"}
         description="مشخصات کاربر سامانه فروش و انبار"
@@ -254,7 +262,7 @@ export function UsersPage() {
               className={INPUT}
               value={form.fullName}
               onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-              autoFocus
+              autoFocus={!resetMode}
             />
           </div>
           <div className={FIELD}>
@@ -289,13 +297,19 @@ export function UsersPage() {
             </Label>
             <Input
               id="u-password"
-              type="password"
+              autoFocus={resetMode}
+              type={showPassword ? "text" : "password"}
               dir="ltr"
               autoComplete="new-password"
               className={cn(INPUT, "text-left")}
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
             />
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowPassword((v) => !v)}>{showPassword ? <EyeOff /> : <Eye />}{showPassword ? "پنهان کردن رمز جدید" : "نمایش رمز جدید"}</Button>
+              <Button type="button" variant="outline" onClick={() => { const bytes = crypto.getRandomValues(new Uint8Array(16)); setForm({ ...form, password: Array.from(bytes, (b) => "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%"[b % "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%".length]).join("") }); setShowPassword(true); }}><KeyRound /> ساخت رمز جدید</Button>
+            </div>
+            <p className="text-sm text-muted-foreground">رمز قبلی به‌صورت هش ذخیره شده و قابل نمایش نیست. با ذخیره رمز جدید، رمز کاربر بازنشانی می‌شود.</p>
           </div>
           <div className={FIELD}>
             <Label className={LABEL}>نقش</Label>
@@ -330,6 +344,21 @@ export function UsersPage() {
               : "رمز را حضوری یا از راه امن به کاربر بدهید."}
           </p>
         </div>
+
+        <fieldset className="flex flex-col gap-3 rounded-xl border p-4">
+          <legend className="px-2 font-medium">دسترسی اختصاصی بخش‌ها</legend>
+          {form.role === "ADMIN" ? <p className="text-sm text-muted-foreground">مدیر سیستم به همه بخش‌ها دسترسی کامل دارد. برای محدود کردن دسترسی، نقش دیگری انتخاب کنید.</p> : <>
+            <p className="text-sm text-muted-foreground">مخفی: بدون دسترسی؛ مشاهده: فقط خواندن؛ ویرایش: ثبت و تغییر اطلاعات. برای انتخاب کالا و مشتری در اسناد، دسترسی مشاهده این دو بخش را هم فعال کنید.</p>
+            {MODULES.map((module) => <div key={module} className="grid grid-cols-[1fr_10rem] items-center gap-3">
+              <Label htmlFor={`access-${module}`}>{MODULE_LABELS[module]}</Label>
+              <Select value={form.permissions[module] ?? "default"} onValueChange={(value) => setForm((prev) => { const permissions = {...prev.permissions}; if (value === "default") delete permissions[module]; else permissions[module] = value as Access; return {...prev, permissions}; })}>
+                <SelectTrigger id={`access-${module}`} className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="default">طبق نقش ({({none:"مخفی",view:"مشاهده",edit:"ویرایش"})[accessFor({role:form.role},module)]})</SelectItem><SelectItem value="none">مخفی / بدون دسترسی</SelectItem><SelectItem value="view">مشاهده</SelectItem>{module !== "dashboard" && module !== "reports" && <SelectItem value="edit">مشاهده و ویرایش</SelectItem>}</SelectContent>
+              </Select>
+            </div>)}
+            <Button variant="outline" type="button" onClick={() => setForm({...form,permissions:{}})}>بازگردانی به دسترسی‌های نقش</Button>
+          </>}
+        </fieldset>
         {formError && (
           <Alert variant="destructive" className="py-2">
             <TriangleAlert />

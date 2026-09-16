@@ -1,19 +1,19 @@
+import { can, type Module, requirePermission } from "../lib/permissions";
 import { Router, type Response } from "express";
 import type { PoolClient } from "pg";
 import { z } from "zod";
 import { newId, pgErrorCode, query, queryOne, withTransaction } from "../lib/db";
-import { requireRole, type AuthUser } from "../lib/auth";
+import { type AuthUser } from "../lib/auth";
 
 // Inventory: stock on hand per product is the sum of its stock_movements.
 // Receipts and adjustments are entered here; goods issues add ISSUE movements
 // when issued and ISSUE_REVERSAL movements when cancelled (routes/documents.ts).
 // Reading is open to everyone signed in; writing needs ADMIN or WAREHOUSE.
 export const inventoryRouter = Router();
+inventoryRouter.use(requirePermission("inventory"));
 
 export const INVENTORY_WRITE_ROLES = ["ADMIN", "WAREHOUSE"] as const;
-inventoryRouter.use((req, res, next) =>
-  req.method === "GET" ? next() : requireRole(...INVENTORY_WRITE_ROLES)(req, res, next)
-);
+
 
 const currentUser = (res: Response) => res.locals.user as AuthUser;
 const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
@@ -113,11 +113,13 @@ inventoryRouter.get("/stock", async (_req, res, next) => {
 // GET /api/inventory/movements?productId=&from=&to=  (newest first, capped)
 inventoryRouter.get("/movements", async (req, res, next) => {
   try {
-    const { productId, from, to } = z
+    const { productId, from, to, offset, limit } = z
       .object({
         productId: z.string().min(1).optional(),
         from: z.string().date().optional(),
         to: z.string().date().optional(),
+        offset: z.coerce.number().int().min(0).max(10000000).default(0),
+        limit: z.coerce.number().int().min(1).max(2000).default(200),
       })
       .parse(req.query);
     const conditions: string[] = [];
@@ -144,8 +146,8 @@ inventoryRouter.get("/movements", async (req, res, next) => {
        LEFT JOIN documents d ON d.id = m.document_id
        ${where}
        ORDER BY m.created_at DESC, m.id DESC
-       LIMIT 2000`,
-      params
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset]
     );
     res.json(
       rows.map((r: any) => ({
@@ -157,7 +159,7 @@ inventoryRouter.get("/movements", async (req, res, next) => {
         kind: r.kind,
         quantity: Number(r.quantity),
         reference: r.reference,
-        document: r.document_id ? { id: r.document_id, type: r.document_type, number: r.document_number } : null,
+        document: r.document_id && can(currentUser(res), r.document_type.toLowerCase() as Module) ? { id: r.document_id, type: r.document_type, number: r.document_number } : null,
         createdByName: r.created_by_name,
         createdAt: r.created_at,
       }))

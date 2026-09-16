@@ -1,3 +1,5 @@
+import { canAccessPath } from "@/lib/permissions";
+import { useAuth } from "@/components/auth-provider";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Warehouse } from "lucide-react";
@@ -26,6 +28,7 @@ function StatCard({
   icon,
   to,
   loading,
+  failed,
   index,
 }: {
   label: string;
@@ -34,8 +37,12 @@ function StatCard({
   icon: ReactNode;
   to: string;
   loading: boolean;
+  /** The request behind this card failed: show that, never a zero. */
+  failed?: boolean;
   index: number;
 }) {
+  const { user } = useAuth();
+  if (!canAccessPath(user, to)) return null;
   return (
     <Link
       to={to}
@@ -46,7 +53,7 @@ function StatCard({
         <CardHeader>
           <CardDescription>{label}</CardDescription>
           <CardTitle className="text-2xl font-bold tabular-nums @[250px]/card:text-3xl">
-            {loading ? <Skeleton className="h-8 w-24" /> : value}
+            {loading ? <Skeleton className="h-8 w-24" /> : failed ? <span className="text-muted-foreground">—</span> : value}
           </CardTitle>
           <CardAction>
             <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary transition-transform duration-200 [&>svg]:size-4.5 motion-safe:group-hover:scale-110">
@@ -54,7 +61,9 @@ function StatCard({
             </div>
           </CardAction>
         </CardHeader>
-        <CardFooter className="text-sm text-muted-foreground">{footer}</CardFooter>
+        <CardFooter className={cn("text-sm", failed ? "text-destructive" : "text-muted-foreground")}>
+          {failed ? "دریافت اطلاعات ناموفق بود" : footer}
+        </CardFooter>
       </Card>
     </Link>
   );
@@ -66,11 +75,16 @@ export function SectionCards({
   documents,
   stock,
   loading,
+  documentsFailed,
+  stockFailed,
 }: {
   documents: Document[];
   /** One row per active product (GET /api/inventory/stock). */
   stock: StockRow[];
   loading: boolean;
+  /** Per source, so a stock outage doesn't discredit the document counts. */
+  documentsFailed?: boolean;
+  stockFailed?: boolean;
 }) {
   const lowStock = stock.filter((r) => stockLevel(r) !== "ok").length;
   const issuedInvoices = documents.filter((d) => d.type === "INVOICE" && d.status === "ISSUED");
@@ -87,24 +101,27 @@ export function SectionCards({
         icon={<DocumentTypeIcon type="INVOICE" />}
         to="/documents/invoice"
         loading={loading}
+        failed={documentsFailed}
       />
       <StatCard
         index={1}
         label="پیش فاکتورها"
         value={<AnimatedNumber value={count("PROFORMA")} format={formatNumber} />}
-        footer="پیش فاکتور (Proforma Invoice)"
+        footer="تمام دوره‌ها · همه وضعیت‌ها"
         icon={<DocumentTypeIcon type="PROFORMA" />}
         to="/documents/proforma"
         loading={loading}
+        failed={documentsFailed}
       />
       <StatCard
         index={2}
         label="حواله‌های خروج از انبار"
         value={<AnimatedNumber value={count("GOODS_ISSUE")} format={formatNumber} />}
-        footer="حواله خروج از انبار کالا"
+        footer="تمام دوره‌ها · همه وضعیت‌ها"
         icon={<DocumentTypeIcon type="GOODS_ISSUE" />}
         to="/documents/goods-issue"
         loading={loading}
+        failed={documentsFailed}
       />
       <StatCard
         index={3}
@@ -114,6 +131,7 @@ export function SectionCards({
         icon={<Warehouse />}
         to={lowStock ? "/inventory?low=1" : "/inventory"}
         loading={loading}
+        failed={stockFailed}
       />
     </div>
   );

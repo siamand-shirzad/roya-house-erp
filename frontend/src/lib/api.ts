@@ -30,10 +30,21 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The 409 a document save gets when someone else changed that document after
+ * this browser loaded it. Callers match on it to offer a reload instead of
+ * just showing the error, so the exact string lives here next to its
+ * translation rather than being repeated at the call site.
+ */
+export const STALE_WRITE = "This document was changed by someone else; reload it before saving again";
+
 // The API answers in English; these are the messages it can return, so the UI
 // never shows a raw server string to a Persian-speaking user. Anything missing
 // here falls back to a message chosen by status code.
 const SERVER_MESSAGES: Record<string, string> = {
+  "Only issued proformas can be revised": "فقط پیش‌فاکتور صادرشده امکان ساخت نسخه اصلاحی دارد.",
+  "Access to this section is not allowed": "به این بخش دسترسی ندارید.",
+  "Prices changed since you loaded them; reload before saving": "قیمت‌ها همزمان تغییر کرده‌اند. تغییرات شما حفظ شده؛ پیش از ذخیره، قیمت‌های تازه را بررسی کنید.",
   "A document needs at least one item": "سند باید حداقل یک ردیف کالا داشته باشد.",
   "Already converted": "این سند قبلاً تبدیل شده است.",
   "At least one active admin is required": "حداقل یک مدیر فعال باید باقی بماند.",
@@ -56,6 +67,7 @@ const SERVER_MESSAGES: Record<string, string> = {
   "Product not found": "کالا پیدا نشد.",
   "Setup already completed": "راه‌اندازی اولیه قبلاً انجام شده است. صفحه را دوباره باز کنید.",
   "Some products were not found": "بعضی از کالاها پیدا نشدند.",
+  [STALE_WRITE]: "این سند را همزمان شخص دیگری تغییر داده است. برای ادامه، صفحه را دوباره بارگذاری کنید.",
   "Too many failed attempts. Try again in a few minutes.":
     "تعداد تلاش‌های ناموفق زیاد بود. چند دقیقه بعد دوباره امتحان کنید.",
   "User not found": "کاربر پیدا نشد.",
@@ -130,7 +142,7 @@ export const api = {
     update: (id: string, data: Partial<Product>) =>
       request<Product>(`/products/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     remove: (id: string) => request<Product>(`/products/${id}`, { method: "DELETE" }),
-    bulkUpdate: (updates: { id: string; unitPrice?: number; partnerPrice?: number | null }[]) =>
+    bulkUpdate: (updates: { id: string; unitPrice?: number; partnerPrice?: number | null; expectedUpdatedAt?: string }[]) =>
       request<{ updated: number }>("/products/bulk", {
         method: "PATCH",
         body: JSON.stringify({ updates }),
@@ -162,7 +174,7 @@ export const api = {
   },
   inventory: {
     stock: () => request<StockRow[]>("/inventory/stock"),
-    movements: (params?: { productId?: string; from?: string; to?: string }) =>
+    movements: (params?: { productId?: string; from?: string; to?: string; offset?: string; limit?: string }) =>
       request<StockMovement[]>(`/inventory/movements${queryString(params ?? {})}`),
     receipt: (data: { reference?: string | null; items: { productId: string; quantity: number }[] }) =>
       request<{ created: number }>("/inventory/receipts", { method: "POST", body: JSON.stringify(data) }),
@@ -178,6 +190,9 @@ export const api = {
       }),
   },
   documents: {
+    company: () => request<Company | null>("/documents/company"),
+    page: (params: { type?: DocumentType; customerId?: string; status?: string; q?: string; from?: string; to?: string; page?: string }) =>
+      request<{ rows: Document[]; total: number; page: number; pageSize: number }>(`/documents/page${queryString(params)}`),
     list: (params?: { type?: DocumentType; customerId?: string }) =>
       request<Document[]>(`/documents${queryString(params ?? {})}`),
     get: (id: string) => request<Document>(`/documents/${id}`),
@@ -190,6 +205,7 @@ export const api = {
       request<Document & { stockWarnings?: StockWarning[] }>(`/documents/${id}/issue`, { method: "POST" }),
     cancel: (id: string, reason?: string) =>
       request<Document>(`/documents/${id}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }),
+    revise: (id: string) => request<Document>(`/documents/${id}/revise`, { method: "POST" }),
     convert: (id: string, to: DocumentType) =>
       request<Document>(`/documents/${id}/convert`, {
         method: "POST",

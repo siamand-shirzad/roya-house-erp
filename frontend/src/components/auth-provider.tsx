@@ -1,3 +1,4 @@
+import { canAccessPath, FIRST_PATHS } from "@/lib/permissions";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { LoaderCircle } from "lucide-react";
@@ -58,6 +59,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
   }, [status, resolveAnonymous]);
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    const refresh = () => { void api.auth.me().then(setUser).catch(() => {}); };
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, [status]);
 
   const value: AuthContextValue = {
     status,
@@ -120,11 +128,16 @@ export function RequireAuth({ children, roles }: { children: ReactNode; roles?: 
   if (status !== "authenticated" || !user) {
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   }
-  if (roles && !roles.includes(user.role)) {
+  if (location.pathname === "/" && !canAccessPath(user, "/")) {
+    const first = FIRST_PATHS.find((path) => canAccessPath(user, path));
+    if (first) return <Navigate to={first} replace />;
+  }
+  if ((roles && !roles.includes(user.role)) || !canAccessPath(user, location.pathname)) {
     return (
       <FullScreenStatus>
         <p className="text-base font-medium text-foreground">به این بخش دسترسی ندارید.</p>
         <p>این صفحه فقط برای نقش‌های مجاز باز است. اگر لازم دارید، از مدیر سیستم بخواهید.</p>
+        <button type="button" onClick={() => { void api.auth.logout().then(() => window.location.assign("/login")); }}>خروج از حساب</button>
         <a href="/" className="font-medium text-primary underline-offset-4 hover:underline">
           بازگشت به داشبورد
         </a>

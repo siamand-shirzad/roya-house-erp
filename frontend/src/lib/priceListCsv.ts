@@ -1,3 +1,4 @@
+import { BRANDS, type Brand } from "@/lib/brands";
 import { normalizeKey, parseAmount, parseCsv, toCsv } from "@/lib/csv";
 import { formatToman } from "@/lib/format";
 import { CATEGORY_LABELS, type Product, type ProductCategory, type ProductImportRow } from "@/types";
@@ -5,6 +6,7 @@ import { CATEGORY_LABELS, type Product, type ProductCategory, type ProductImport
 // Column definitions for the price-list CSV. Exports use the Persian header;
 // imports also accept the aliases (English keys, looser Persian spellings).
 const COLUMNS = [
+  { key: "brand", header: "برند", aliases: ["brand"] },
   { key: "code", header: "کد کالا", aliases: ["کد", "code"] },
   { key: "name", header: "نام کالا", aliases: ["نام", "name"] },
   { key: "category", header: "دسته‌بندی", aliases: ["دسته بندی", "دسته", "category"] },
@@ -29,6 +31,7 @@ export function productsToCsv(products: Product[]): string {
   return toCsv(
     COLUMNS.map((c) => c.header),
     products.map((p) => [
+      p.brand ? BRANDS[p.brand] : "",
       p.code ?? "",
       p.name,
       CATEGORY_LABELS[p.category] ?? p.category,
@@ -117,7 +120,11 @@ export function previewProductCsv(text: string, current: Product[]): CsvPreview 
     const active = parseActive(cell("active"));
     if (active === "invalid") return fail(`مقدار «فعال» برای «${code}» باید بله یا خیر باشد.`);
 
+    const brandText = cell("brand");
+    const brand = (Object.keys(BRANDS) as Brand[]).find((key) => normalizeKey(key) === normalizeKey(brandText) || normalizeKey(BRANDS[key]) === normalizeKey(brandText));
+    if (brandText && !brand) return fail(`برند «${brandText}» شناخته نشد.`);
     const row: ProductImportRow = {
+      ...(index.brand >= 0 ? {brand: brand ?? null} : {}),
       code,
       name,
       category,
@@ -140,6 +147,7 @@ export function previewProductCsv(text: string, current: Product[]): CsvPreview 
     const compare = (field: ColumnKey, from: unknown, to: unknown, fmt: (v: unknown) => string = show) => {
       if ((from ?? null) !== (to ?? null)) changes.push({ field: FIELD_LABELS[field], from: fmt(from), to: fmt(to) });
     };
+    if (index.brand >= 0) compare("brand", existing.brand, row.brand);
     compare("name", existing.name, row.name);
     compare("category", existing.category, row.category, (v) => CATEGORY_LABELS[v as ProductCategory] ?? show(v));
     compare("spec", existing.spec || null, row.spec);

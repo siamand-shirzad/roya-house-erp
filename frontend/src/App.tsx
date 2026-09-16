@@ -1,21 +1,21 @@
-import type { ReactNode } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
-import { DashboardPage } from "@/pages/DashboardPage";
-import { DocumentListPage } from "@/pages/documents/DocumentListPage";
-import { DocumentFormPage } from "@/pages/documents/DocumentFormPage";
+import { lazy, Suspense, type ReactNode } from "react";
+import { Navigate, Outlet, RouterProvider, createBrowserRouter, createRoutesFromElements, Route, useParams } from "react-router-dom";
+const DashboardPage = lazy(() => import("@/pages/DashboardPage").then((m) => ({ default: m.DashboardPage })));
+const DocumentListPage = lazy(() => import("@/pages/documents/DocumentListPage").then((m) => ({ default: m.DocumentListPage })));
+const DocumentFormPage = lazy(() => import("@/pages/documents/DocumentFormPage").then((m) => ({ default: m.DocumentFormPage })));
 import { DocumentsLayout } from "@/components/documents-layout";
 import { AuthProvider, RequireAuth } from "@/components/auth-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { CommandMenuProvider } from "@/components/command-menu";
-import { LandingPage } from "@/pages/site/LandingPage";
+const LandingPage = lazy(() => import("@/pages/site/LandingPage").then((m) => ({ default: m.LandingPage })));
 import { LoginPage } from "@/pages/LoginPage";
-import { ProductsPage } from "@/pages/ProductsPage";
+const ProductsPage = lazy(() => import("@/pages/ProductsPage").then((m) => ({ default: m.ProductsPage })));
 import { CustomersPage } from "@/pages/CustomersPage";
-import { UsersPage } from "@/pages/UsersPage";
-import { ReportsPage } from "@/pages/ReportsPage";
-import { InventoryPage } from "@/pages/InventoryPage";
-import { CompanySettingsPage } from "@/pages/CompanySettingsPage";
-import { REPORT_ROLES } from "@/types";
+const UsersPage = lazy(() => import("@/pages/UsersPage").then((m) => ({ default: m.UsersPage })));
+const ReportsPage = lazy(() => import("@/pages/ReportsPage").then((m) => ({ default: m.ReportsPage })));
+const InventoryPage = lazy(() => import("@/pages/InventoryPage").then((m) => ({ default: m.InventoryPage })));
+const CompanySettingsPage = lazy(() => import("@/pages/CompanySettingsPage").then((m) => ({ default: m.CompanySettingsPage })));
+import { CustomerDetailPage } from "@/pages/CustomerDetailPage";
 
 // Remount the form whenever the type or document changes, so state from one
 // document (e.g. its id) can never leak into "new" or a different document.
@@ -30,37 +30,53 @@ const documents = (page: ReactNode) => (
   </RequireAuth>
 );
 
-export default function App() {
+// AuthProvider and CommandMenuProvider both call useNavigate/useLocation, so
+// they have to render *inside* the router, not wrap it. This root route is
+// the one place that's true for every page, including /site and /login.
+function RootLayout() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <CommandMenuProvider>
-        <Routes>
-          {/* Public: landing page and sign-in. */}
-          <Route path="/site" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
-
-          {/* ERP: signed-in users only. */}
-          <Route path="/" element={<RequireAuth><DashboardPage /></RequireAuth>} />
-          <Route path="/products" element={<RequireAuth><ProductsPage /></RequireAuth>} />
-          <Route path="/customers" element={<RequireAuth><CustomersPage /></RequireAuth>} />
-          <Route path="/users" element={<RequireAuth roles={["ADMIN"]}><UsersPage /></RequireAuth>} />
-          <Route path="/reports" element={<RequireAuth roles={REPORT_ROLES}><ReportsPage /></RequireAuth>} />
-          <Route path="/inventory" element={<RequireAuth><InventoryPage /></RequireAuth>} />
-          <Route
-            path="/settings/company"
-            element={<RequireAuth roles={["ADMIN"]}><CompanySettingsPage /></RequireAuth>}
-          />
-          <Route path="/documents" element={<Navigate to="/documents/proforma" replace />} />
-          <Route path="/documents/:typeSlug" element={documents(<DocumentListPage />)} />
-          <Route path="/documents/:typeSlug/new" element={documents(<KeyedDocumentFormPage />)} />
-          <Route path="/documents/:typeSlug/:id" element={documents(<KeyedDocumentFormPage />)} />
-
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        </CommandMenuProvider>
-        <Toaster />
-      </AuthProvider>
-    </BrowserRouter>
+    <AuthProvider>
+      <CommandMenuProvider>
+        <Suspense fallback={<div className="p-8 text-center" role="status">در حال بارگذاری...</div>}><Outlet /></Suspense>
+      </CommandMenuProvider>
+      <Toaster />
+    </AuthProvider>
   );
+}
+
+// A data router (rather than plain <BrowserRouter>) is what makes
+// useBlocker available — it's how DocumentFormPage and ProductsPage stop
+// in-app navigation (links, the header back button, browser back/forward)
+// while there are unsaved edits, not just the browser-close beforeunload case.
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <Route element={<RootLayout />}>
+      {/* Public: landing page and sign-in. */}
+      <Route path="/site" element={<LandingPage />} />
+      <Route path="/login" element={<LoginPage />} />
+
+      {/* ERP: signed-in users only. */}
+      <Route path="/" element={<RequireAuth><DashboardPage /></RequireAuth>} />
+      <Route path="/products" element={<RequireAuth><ProductsPage /></RequireAuth>} />
+      <Route path="/customers/:id" element={<RequireAuth><CustomerDetailPage /></RequireAuth>} />
+      <Route path="/customers" element={<RequireAuth><CustomersPage /></RequireAuth>} />
+      <Route path="/users" element={<RequireAuth roles={["ADMIN"]}><UsersPage /></RequireAuth>} />
+      <Route path="/reports" element={<RequireAuth><ReportsPage /></RequireAuth>} />
+      <Route path="/inventory" element={<RequireAuth><InventoryPage /></RequireAuth>} />
+      <Route
+        path="/settings/company"
+        element={<RequireAuth><CompanySettingsPage /></RequireAuth>}
+      />
+      <Route path="/documents" element={<Navigate to="/documents/proforma" replace />} />
+      <Route path="/documents/:typeSlug" element={documents(<DocumentListPage />)} />
+      <Route path="/documents/:typeSlug/new" element={documents(<KeyedDocumentFormPage />)} />
+      <Route path="/documents/:typeSlug/:id" element={documents(<KeyedDocumentFormPage />)} />
+
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Route>
+  )
+);
+
+export default function App() {
+  return <RouterProvider router={router} />;
 }

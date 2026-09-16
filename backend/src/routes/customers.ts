@@ -1,9 +1,10 @@
+import { requirePermission } from "../lib/permissions";
 import { Router } from "express";
 import { z } from "zod";
 import { query, queryOne, newId } from "../lib/db";
-import { requireRole } from "../lib/auth";
 
 export const customersRouter = Router();
+customersRouter.use(requirePermission("customers"));
 
 function rowToCustomer(r: any) {
   return {
@@ -91,7 +92,7 @@ customersRouter.post("/", async (req, res, next) => {
 
 // Only a customer no document points at can be deleted: documents keep their
 // own copy of the buyer, but customer_id still links them for reports.
-customersRouter.delete("/:id", requireRole("ADMIN", "SALES"), async (req, res, next) => {
+customersRouter.delete("/:id", async (req, res, next) => {
   try {
     const existing = await queryOne("SELECT id FROM customers WHERE id = $1", [req.params.id]);
     if (!existing) return res.status(404).json({ error: "Customer not found" });

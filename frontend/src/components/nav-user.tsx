@@ -35,7 +35,7 @@ function UserSummary({ user, detailed = false }: { user: AuthUser; detailed?: bo
           {initials(user.fullName)}
         </AvatarFallback>
       </Avatar>
-      <div className="grid flex-1 text-right leading-tight">
+      <div className={"grid flex-1 text-right leading-tight " + (!detailed ? "group-data-[collapsible=icon]:hidden" : "")}>
         <span className="truncate text-sm font-medium">{user.fullName}</span>
         <span className="truncate text-xs opacity-60">{ROLE_LABELS[user.role]}</span>
         {/* Usernames can be long; show them in full only inside the menu. */}
@@ -66,10 +66,11 @@ export function NavUser() {
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
+              aria-label={`حساب ${user.fullName}`}
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <UserSummary user={user} />
-              <ChevronsUpDown className="ms-auto size-4 opacity-60" />
+              <ChevronsUpDown className="ms-auto size-4 opacity-60 group-data-[collapsible=icon]:hidden" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent

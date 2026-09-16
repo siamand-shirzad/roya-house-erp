@@ -1,3 +1,5 @@
+import { can, type Module } from "@/lib/permissions";
+import { useAuth } from "@/components/auth-provider";
 import { SegmentedControl } from "@/components/segmented-control";
 import { DocumentTypeIcon } from "@/lib/icons";
 import { TYPE_TO_SLUG } from "@/lib/documentTypeSlug";
@@ -15,12 +17,13 @@ const TABS: { type: DocumentType; label: string }[] = [
 // list page mounted, so the selection pill slides across.
 // `search` (e.g. "?customer=<id>") is carried across tabs so a filter survives switching type.
 export function DocumentTypeTabs({ active, search = "" }: { active: DocumentType; search?: string }) {
+  const { user } = useAuth();
   return (
     <nav aria-label="نوع سند">
       <SegmentedControl
         ariaLabel="نوع سند"
         value={active}
-        items={TABS.map((tab) => ({
+        items={TABS.filter((tab) => can(user, tab.type.toLowerCase() as Module)).map((tab) => ({
           value: tab.type,
           label: tab.label,
           icon: <DocumentTypeIcon type={tab.type} />,

@@ -1,12 +1,15 @@
+import { can, type Module } from "@/lib/permissions";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { matchesSearch } from "@/lib/search";
 import { Contact, Ellipsis, FileStack, LoaderCircle, Pencil, Plus, Search, Trash, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/app-shell";
 import { useAuth } from "@/components/auth-provider";
 import { CustomerFormDialog } from "@/components/customers/CustomerFormDialog";
-import { ListPagination, usePagination } from "@/components/list-pagination";
+import { ListPagination } from "@/components/list-pagination";
+import { useUrlPagination } from "@/lib/list-state";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -31,7 +34,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { api, errorMessage } from "@/lib/api";
 import { toDisplayDigits } from "@/lib/format";
 import { DocumentTypeIcon } from "@/lib/icons";
-import { DOCUMENT_WRITE_ROLES, type Customer } from "@/types";
+import { type Customer } from "@/types";
 
 // Customers are shared address-book entries. A document copies them into its
 // own buyer_* columns when it is created, so editing one here never rewrites
@@ -41,14 +44,16 @@ export function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [q, setQ] = useState("");
+  const [params, setParams] = useSearchParams();
+  const q = params.get("q") ?? "";
+  const setQ = (value: string) => setParams(value ? { q: value } : {}, { replace: true });
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canSell = user ? DOCUMENT_WRITE_ROLES.PROFORMA.includes(user.role) : false;
+  const canSell = user ? can(user, "proforma", true) : false;
   // Same roles as the API's DELETE /customers/:id.
-  const canDelete = user ? user.role === "ADMIN" || user.role === "SALES" : false;
+  const canDelete = can(user, "customers", true);
   const [deleting, setDeleting] = useState<Customer | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
@@ -76,16 +81,12 @@ export function CustomersPage() {
   }, []);
 
   const rows = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    if (!needle) return customers;
     return customers.filter((c) =>
-      [c.name, c.customerCode, c.phone, c.city, c.nationalId]
-        .filter(Boolean)
-        .some((field) => field!.toLowerCase().includes(needle))
+      matchesSearch([c.name, c.customerCode, c.phone, c.city, c.nationalId].filter(Boolean).join(" "), q)
     );
   }, [customers, q]);
 
-  const pager = usePagination(rows, q);
+  const pager = useUrlPagination(rows);
 
   function openCreate() {
     setEditing(null);
@@ -110,7 +111,7 @@ export function CustomersPage() {
     <AppShell
       title="مشتریان"
       actions={
-        <Button size="sm" onClick={openCreate} disabled={loading}>
+        <Button size="sm" onClick={openCreate} disabled={loading || !canDelete}>
           <Plus /> مشتری جدید
         </Button>
       }
@@ -139,7 +140,7 @@ export function CustomersPage() {
         )}
 
         <div className="overflow-x-auto rounded-xl border bg-card">
-          <table className="w-full min-w-[760px] text-sm">
+          <table className="mobile-data-table w-full md:min-w-[760px] text-sm">
             <thead className="bg-muted/50 text-muted-foreground">
               <tr className="border-b">
                 <th className="px-3 py-2.5 text-right font-medium">نام مشتری</th>
@@ -174,7 +175,7 @@ export function CustomersPage() {
                       {customers.length === 0 ? (
                         <>
                           <p>هنوز مشتری‌ای ثبت نشده است.</p>
-                          <Button size="sm" onClick={openCreate}>
+                          <Button size="sm" onClick={openCreate} disabled={!canDelete}>
                             <Plus /> افزودن اولین مشتری
                           </Button>
                         </>
@@ -189,18 +190,18 @@ export function CustomersPage() {
               {!loading &&
                 pager.pageRows.map((c) => (
                   <tr key={c.id} className="transition-colors hover:bg-muted/40">
-                    <td className="px-3 py-2 font-medium">
-                      {c.name}
+                    <td data-label="نام" className="px-3 py-2 font-medium">
+                      <Link className="underline-offset-4 hover:underline focus-visible:underline" to={`/customers/${c.id}`}>{c.name}</Link>
                       {c.address && (
                         <div className="text-xs font-normal text-muted-foreground">{c.address}</div>
                       )}
                     </td>
-                    <td className="px-3 py-2 tabular-nums">{c.customerCode ?? "—"}</td>
-                    <td className="px-3 py-2 tabular-nums" dir="ltr">
+                    <td data-label="کد مشتری" className="px-3 py-2 tabular-nums">{c.customerCode ?? "—"}</td>
+                    <td data-label="تلفن" className="px-3 py-2 tabular-nums" dir="ltr">
                       <span className="block text-right">{c.phone ?? "—"}</span>
                     </td>
-                    <td className="px-3 py-2">{c.city ?? "—"}</td>
-                    <td className="px-3 py-2 tabular-nums">{c.nationalId ?? "—"}</td>
+                    <td data-label="شهر" className="px-3 py-2">{c.city ?? "—"}</td>
+                    <td data-label="شناسه ملی" className="px-3 py-2 tabular-nums">{c.nationalId ?? "—"}</td>
                     <td className="px-1.5 py-1">
                       <DropdownMenu dir="rtl" modal={false}>
                         <DropdownMenuTrigger asChild>
@@ -209,7 +210,7 @@ export function CustomersPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="min-w-52">
-                          <DropdownMenuItem onSelect={() => openEdit(c)}>
+                          <DropdownMenuItem disabled={!canDelete} onSelect={() => openEdit(c)}>
                             <Pencil /> ویرایش مشتری
                           </DropdownMenuItem>
                           <DropdownMenuItem onSelect={() => navigate(`/documents/invoice?customer=${c.id}`)}>
@@ -221,7 +222,7 @@ export function CustomersPage() {
                               <DropdownMenuItem onSelect={() => navigate(`/documents/proforma/new?customer=${c.id}`)}>
                                 <DocumentTypeIcon type="PROFORMA" /> پیش‌فاکتور برای این مشتری
                               </DropdownMenuItem>
-                              <DropdownMenuItem onSelect={() => navigate(`/documents/invoice/new?customer=${c.id}`)}>
+                              <DropdownMenuItem disabled={!can(user, "invoice", true)} onSelect={() => navigate(`/documents/invoice/new?customer=${c.id}`)}>
                                 <DocumentTypeIcon type="INVOICE" /> فاکتور برای این مشتری
                               </DropdownMenuItem>
                             </>

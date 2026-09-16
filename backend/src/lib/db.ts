@@ -194,4 +194,9 @@ CREATE TABLE IF NOT EXISTS stock_movements (
 );
 CREATE INDEX IF NOT EXISTS stock_movements_product_idx ON stock_movements(product_id, created_at);
 CREATE INDEX IF NOT EXISTS stock_movements_document_idx ON stock_movements(document_id);
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions jsonb NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS brand text;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS revision_of_id text REFERENCES documents(id);
+CREATE INDEX IF NOT EXISTS documents_revision_of_idx ON documents(revision_of_id);
 `;

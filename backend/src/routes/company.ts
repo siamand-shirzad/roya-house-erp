@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { query, queryOne } from "../lib/db";
-import { requireRole } from "../lib/auth";
+import { requirePermission } from "../lib/permissions";
 
 // The seller printed on every document. There is one row; documents link to it
 // when they are created. Everyone signed in can read it, only admins edit it.
@@ -45,7 +45,7 @@ export async function ensureCompany() {
   );
 }
 
-companyRouter.get("/", async (_req, res, next) => {
+companyRouter.get("/", requirePermission("company"), async (_req, res, next) => {
   try {
     res.json(rowToCompany(await currentCompany()));
   } catch (err) {
@@ -68,7 +68,7 @@ const companySchema = z.object({
   fax: text,
 });
 
-companyRouter.put("/", requireRole("ADMIN"), async (req, res, next) => {
+companyRouter.put("/", requirePermission("company"), async (req, res, next) => {
   try {
     const d = companySchema.parse(req.body);
     await ensureCompany();

@@ -1,3 +1,4 @@
+import { requirePermission } from "./lib/permissions";
 import "./lib/env";
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -43,7 +44,6 @@ app.use("/api/public", publicRouter);
 // Everything else needs a signed-in user.
 app.use("/api", requireAuth);
 // Anyone signed in can read the catalog; only admins change products/prices.
-app.use("/api/products", (req, res, next) => (req.method === "GET" ? next() : requireRole("ADMIN")(req, res, next)));
 app.use("/api/products", productsRouter);
 app.use("/api/customers", customersRouter);
 app.use("/api/documents", documentsRouter);
@@ -52,7 +52,7 @@ app.use("/api/company", companyRouter);
 app.use("/api/inventory", inventoryRouter);
 app.use("/api/users", requireRole("ADMIN"), usersRouter);
 // Revenue figures: management and accounting only.
-app.use("/api/reports", requireRole("ADMIN", "ACCOUNTANT"), reportsRouter);
+app.use("/api/reports", requirePermission("reports"), reportsRouter);
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof ZodError) {

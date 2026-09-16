@@ -1,11 +1,11 @@
+import { createPrintPages } from "./print-pages";
+
 // Turns a mounted DocumentPrint node into an A4 PDF. The capture works on the
 // rendered DOM (rather than drawing text with jsPDF) because that is what keeps
 // Persian shaping and RTL layout correct in the file.
 //
-// Size: the sheet used to go in as a PNG, re-embedded on every page, which
-// made even a one-page document several megabytes. It now goes in as a JPEG,
-// jsPDF compresses the stream, and every page reuses the same embedded image
-// through an alias instead of storing another copy.
+// Each page captures whole rows with repeated headers. Totals and signatures
+// appear only on the last page. Compressed JPEG keeps the file size modest.
 
 const JPEG_QUALITY = 0.82;
 const CAPTURE_SCALE = 2; // 794px sheet -> 1588px image; keeps small print legible
@@ -31,31 +31,22 @@ export async function renderElementToPdf(node: HTMLElement) {
 
   await waitForAssets(node);
 
-  const canvas = await html2canvas(node, {
-    scale: CAPTURE_SCALE,
-    useCORS: true,
-    backgroundColor: "#ffffff",
-    // The on-screen preview may be shrunk to fit (PrintPreview); capture at full size.
-    onclone: (doc) => {
-      doc.querySelectorAll<HTMLElement>("[data-print-zoom]").forEach((el) => {
-        el.style.zoom = "1";
-      });
-    },
-  });
-
-  const imgData = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+  const { host, pages } = createPrintPages(node);
   const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4", compress: true });
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  const imgHeight = (canvas.height * pageWidth) / canvas.width;
-
-  // One image, shifted up a page height at a time; the alias makes jsPDF embed it once.
-  // A sheet exactly one A4 tall comes out a fraction of a point taller after
-  // px -> pt rounding, so ignore overflow under 2pt instead of adding a blank page.
-  const OVERFLOW_TOLERANCE = 2;
-  for (let offset = 0; offset < imgHeight - OVERFLOW_TOLERANCE; offset += pageHeight) {
-    if (offset > 0) pdf.addPage();
-    pdf.addImage(imgData, "JPEG", 0, -offset, pageWidth, imgHeight, "sheet", "FAST");
+  try {
+    for (const [index, page] of pages.entries()) {
+      await waitForAssets(page);
+      const canvas = await html2canvas(page, {
+        scale: CAPTURE_SCALE,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+      });
+      if (index) pdf.addPage();
+      pdf.addImage(canvas.toDataURL("image/jpeg", JPEG_QUALITY), "JPEG", 0, 0,
+        pdf.internal.pageSize.getWidth(), pdf.internal.pageSize.getHeight(), `page-${index}`, "FAST");
+    }
+  } finally {
+    host.remove();
   }
 
   return pdf;

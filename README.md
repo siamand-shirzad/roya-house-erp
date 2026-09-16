@@ -1,124 +1,82 @@
-# رویا هاوس — سامانه فروش و انبار (Roya House ERP)
+# Roya House ERP
 
-A full-stack app for Roya House (drywall / suspended-ceiling systems):
-- A shadcn/ui **dashboard** (built from the official `dashboard-01` block) whose data table
-  is wired to the real Roya House price list instead of mock data.
-- Three Persian, RTL document templates that reproduce the paper forms you use today:
-  **پیش فاکتور** (Proforma Invoice), **فاکتور / صورتحساب فروش** (Invoice), and
-  **حواله خروج از انبار کالا** (Goods Issue) — each with one-click **PDF export**.
+Persian RTL sales and warehouse workspace for Roya House, built with React, Vite, shadcn/ui, Express, TypeScript, and PostgreSQL (`pg`). Prisma is not used at runtime.
 
-## Stack
+## Local development
 
-- **Backend**: Node.js + Express + TypeScript + Prisma + PostgreSQL
-- **Frontend**: React + Vite + TypeScript + Tailwind + shadcn/ui + react-router
-- **PDF export**: html2canvas + jsPDF (captures the live, styled document so Persian/RTL text renders correctly)
+Requires Node.js 20+ and PostgreSQL. Install the dependencies already declared in each package; UI components are checked in and do not need regenerating.
 
-## Why setup isn't just "npm install" here
-
-This project was built in a sandboxed environment without access to the public npm registry,
-so the shadcn/ui primitives (button, table, sidebar, etc.) and the `dashboard-01` block itself
-could not be fetched and test-run here. Everything specific to Roya House — the Prisma schema,
-the Express API, the product catalog seeded from your price list, the three document templates,
-and the PDF export — is hand-written and complete. The **only** thing left for your machine to do
-is run the official `shadcn` CLI once, so you get its exact, current-version files rather than a
-hand-transcribed copy. This takes about two minutes. See "Known follow-ups" below.
-
-## 1. Backend setup
-
-```bash
-cd backend
-cp .env.example .env      # edit DATABASE_URL if needed
-npm install
-
-# Option A: you already have PostgreSQL running locally
-#   just make sure .env's DATABASE_URL points at it.
-# Option B: use the provided docker-compose (from the repo root)
-cd .. && docker compose up -d && cd backend
-
-npm run prisma:migrate    # creates the schema (prompts for a migration name, e.g. "init")
-npm run prisma:seed       # loads the full Roya House price list + sample documents
-npm run dev                # http://localhost:4000
+```powershell
+npm --prefix backend ci
+npm --prefix frontend ci
+Copy-Item backend/.env.example backend/.env
+Copy-Item frontend/.env.example frontend/.env
 ```
 
-Health check: `curl http://localhost:4000/api/health`
+Edit `backend/.env` with the database connection and `frontend/.env` with the API URL if necessary. Use `docker compose up -d` for the optional local database. Start each server in a separate terminal:
 
-### API summary
-
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET | `/api/products` | List products (`?q=`, `?category=`) |
-| POST/PUT/DELETE | `/api/products/:id` | Manage catalog (DELETE soft-deletes) |
-| GET/POST | `/api/customers` | Manage buyers |
-| GET | `/api/documents?type=PROFORMA\|INVOICE\|GOODS_ISSUE` | List documents |
-| GET/POST/PUT/DELETE | `/api/documents/:id` | Create/edit a document; totals are always recomputed server-side |
-
-## 2. Frontend setup
-
-```bash
-cd frontend
-bash setup.sh
+```powershell
+npm --prefix backend run dev
+npm --prefix frontend run dev
 ```
 
-`setup.sh` runs, in order:
-1. `npm install` — React, react-router, `@tanstack/react-table`, html2canvas, jsPDF (already declared in `package.json`).
-2. `npx shadcn@latest init` — sets up Tailwind + `components.json`. **When prompted, choose:** Style = New York, Base color = Neutral, CSS variables = Yes.
-3. `npx shadcn@latest add dashboard-01` — generates the official sidebar/header/chart/table shell into `src/components/`.
-4. `npx shadcn@latest add button card table badge input select textarea dialog dropdown-menu label separator command popover sonner` — every primitive the document pages use.
+The backend defaults to port 4000 and the frontend to 5173. The backend applies its idempotent schema SQL on startup. Visit `/login` to create the first admin on an empty database. `npm --prefix backend run db:setup` optionally loads the company catalog and sample documents; do not run it against an unintended database.
 
-Then:
+## Workflows
 
-```bash
-cp .env.example .env   # VITE_API_URL, defaults to http://localhost:4000/api
-npm run dev             # http://localhost:5173
+- Dashboard: sales overview, low-stock counts, and role-specific work awaiting action.
+- Documents: proforma, invoice, and goods issue; draft/issued/cancelled lifecycle and linked conversion. Filters and pagination survive detail navigation.
+- Document editor: protected unsaved changes, sticky totals/actions, accessible mobile item cards, row undo, and entry/preview views. Issue confirmation explains the lock and inventory effect.
+- PDF: full-width Persian DOM capture, complete rows across A4 pages, repeated headers, and final-page totals/signatures.
+- Customers: searchable address book and customer history with linked documents. Sales totals are not presented as outstanding balances.
+- Products: keyboard price grid, draft changes, bulk adjustment and CSV import/export. Stale price saves are rejected.
+- Inventory: receipts, adjustments, thresholds, and movement history; older movements can be fetched without the former fixed 2,000-row ceiling.
+- Admins manage per-user module permissions (hidden, view, edit) and reset passwords. Existing passwords are hashed and cannot be viewed. Overrides are checked by the API as well as navigation.
+
+Amounts are stored/edited in Toman and printed in Rial. Input accepts Persian digits; displayed digits follow the shared formatter. Short stock warns but does not block issuance. Buyer details are copied to documents.
+
+## Verification
+
+```powershell
+npm --prefix backend run build
+npm --prefix frontend run build
+npm --prefix frontend run test:e2e
 ```
 
-## What you get
+Browser tests use Playwright with installed Microsoft Edge, a temporary Vite server on 5174, and intercepted test API fixtures. No production API is contacted. On Windows, the test process needs permission to launch and terminate its browser/server children. Use `npx playwright install chromium` and remove `channel: "msedge"` in the configuration if Edge is unavailable.
 
-- **`/`** — the dashboard: KPI cards + chart from the stock `dashboard-01` block, and below them
-  `ProductsDataTable` (`src/components/products-data-table.tsx`) — a sortable, searchable,
-  category-filterable table reading live from `/api/products`, seeded with the **entire**
-  لیست قیمت رویاهاوس (پنل‌های گچی، سازه، تایل، سپری، پیچ و بولت، نوار و بتونه، اتصالات، سایر
-  محصولات، و جدول مقایسه‌ای پنل‌های برند — ۶۶ قلم کالا).
-- **`/documents/proforma`**, **`/documents/invoice`**, **`/documents/goods-issue`** — list +
-  "سند جدید" to open the editor. Each editor has a live preview styled to match your paper
-  templates (seller/buyer boxes, RTL items table with مبلغ/تخفیف/مالیات columns for invoices,
-  the delivery statement + vehicle fields for goods-issue) and a **دانلود PDF** button.
-- Document numbering continues from your real samples (Proforma starts at ۱۱۸۴۳, Invoice at
-  ۲۰۴۰, Goods Issue at ۲۰۴۱) since the seed data includes the three original documents you sent
-  (شماره ۱۱۸۴۲ / ۲۰۳۹ / ۲۰۳۹) for خانم رویا جلالی as worked examples.
+The backend integration suite uses a separate local PostgreSQL database and a unique temporary schema. It refuses remote hosts or a database name other than `roya_uiux_test`:
 
-## Known follow-ups (do these once, on your machine)
-
-1. **Run `frontend/setup.sh`** as above — this is the one CLI step this environment couldn't
-   run for you.
-2. `DashboardPage.tsx` imports `AppSidebar`, `SiteHeader`, `SectionCards`, and
-   `ChartAreaInteractive` from the paths the current `dashboard-01` block generates
-   (`@/components/app-sidebar`, `@/components/site-header`, etc.). If the CLI names anything
-   slightly differently by the time you run it, just fix those four import lines — everything
-   else (the product table, the three document templates, the whole backend) doesn't depend on
-   dashboard-01's internals at all.
-3. The sidebar's own nav links (from `app-sidebar.tsx`) are the block's generic placeholders.
-   Feel free to point them at `/documents/proforma`, `/documents/invoice`, `/documents/goods-issue` —
-   or just use the small nav bar already at the top of every document page.
-4. Company legal fields (`nationalId`, `economicCode`, `registration`) were left blank in the
-   seed since they weren't on the source documents — fill them in via Prisma Studio
-   (`npm run prisma:studio` in `backend/`) or a quick `PUT` once you have them.
-
-## Project layout
-
+```powershell
+docker run --rm -d --name roya-uiux-test -p 127.0.0.1:55432:5432 -e POSTGRES_PASSWORD=roya-test-only -e POSTGRES_DB=roya_uiux_test postgres:16-alpine
+npm --prefix backend run test:integration
+docker stop roya-uiux-test
 ```
-roya-house-erp/
-  backend/
-    prisma/schema.prisma   # Company, Customer, Product, Document, DocumentItem
-    prisma/seed.ts         # full price list + sample seller/buyer/documents
-    src/routes/            # products, customers, documents
-    src/lib/totals.ts      # server-side totals (always authoritative)
-  frontend/
-    setup.sh               # shadcn scaffolding, run once
-    src/pages/DashboardPage.tsx
-    src/components/products-data-table.tsx
-    src/components/documents/           # DocumentPrint, ItemsEditor, ProductPicker, ExportPdfButton
-    src/pages/documents/                # list + editor pages, one route per document type
-    src/lib/                            # api client, Jalali dates, Persian digits/number-to-words
-  docker-compose.yml        # optional local PostgreSQL
-```
+
+The password above is only for this disposable local test container. Tests cover concurrent lifecycle changes, stock booking/reversal, stale writes, permissions, and list filtering. Test data is isolated and its schema is removed afterward.
+
+## API and schema notes
+
+The schema source is `backend/src/lib/db.ts`, including incremental `ALTER ... IF NOT EXISTS` statements. There is not yet a versioned migration runner. Review every schema change before deploying to an existing database.
+
+`GET /api/documents/page` accepts `type`, `customerId`, `status`, `q`, `from`, `to`, `page`, and `pageSize` (maximum 100). It returns `{ rows, total, page, pageSize }`. Date filtering uses Tehran calendar days; date input values are ISO Gregorian dates, selected through the Persian calendar in document and report filters. The original document-list endpoint remains compatible for dashboard, search, and history consumers.
+
+`GET /api/inventory/movements` accepts `productId`, `from`, `to`, `limit` (maximum 2000), and `offset`. The UI fetches batches of 200 and explicitly identifies search as covering loaded movements.
+
+Document saves and bulk price saves send `expectedUpdatedAt`. A stale request receives 409. Conversion and cancellation serialize on the source document, preventing duplicate active conversions through these API routes.
+
+## Deployment and next work
+
+See [DEPLOY.md](DEPLOY.md) for the existing Liara deployment flow. The root build compiles both packages and Express serves the SPA with its API on one origin.
+
+See [UI-UX-IMPROVEMENT-PLAN.md](UI-UX-IMPROVEMENT-PLAN.md) for the roadmap and [IMPLEMENTATION-NOTES.md](IMPLEMENTATION-NOTES.md) for delivered changes, verification, and remaining scope. Payments, partial deliveries/returns, supplier purchasing, and durable audit history require their business rules before implementation.
+
+
+## Latest interface updates
+
+- Product column visibility is configurable and remembered per user/browser; product codes start hidden. The brand selector covers Bana, Gboard, Roya and other products. Brand can be edited in the product dialog and round-trips through CSV. Legacy names/codes identify known brands; unrecognized products stay under Other until assigned.
+- Inventory rows use category icons and drag handles instead of product codes. Mouse, touch, keyboard and row-menu up/down actions reorder the list. This is a personal browser preference, not a shared stock operation.
+- An issued proforma can start a linked editable draft via `POST /api/documents/:id/revise`. Original items, buyer information and notes remain unchanged. Repeated requests reopen an existing revision draft. The revision gets a new number, must be issued separately, and links back to the prior version; invoices and goods issues retain their existing lifecycle.
+- The English command palette separates Create and Navigation actions; sidebar labels are Persian, with a corrected icon rail. Mobile lists use cards and larger touch controls.
+- User overrides cover dashboard, proforma, invoice, goods_issue, products, customers, inventory, reports and company. Admin accounts always retain full access; change to another role to restrict an account. Catalog/customer view access is needed for their document pickers. Seller metadata remains available inside permitted document workflows, while company settings require their own permission. Permission changes apply to API requests immediately and refresh in the UI when the user refocuses the tab.
+- Additive startup schema updates add `users.permissions`, `products.brand` and `documents.revision_of_id`. No reseeding is needed.

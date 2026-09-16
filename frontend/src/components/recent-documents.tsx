@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { ChevronLeft, FileStack } from "lucide-react";
+import { ChevronLeft, FileStack, RotateCcw, TriangleAlert } from "lucide-react";
 
 import { StatusBadge } from "@/components/documents/StatusBadge";
+import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TYPE_TO_SLUG } from "@/lib/documentTypeSlug";
@@ -15,7 +16,18 @@ const SHOWN = 7;
 
 // The dashboard's "what just happened" list, across all three document types.
 // It replaces a read-only copy of the price list, which already has its own page.
-export function RecentDocuments({ documents, loading }: { documents: Document[]; loading: boolean }) {
+export function RecentDocuments({
+  documents,
+  loading,
+  failed,
+  onRetry,
+}: {
+  documents: Document[];
+  loading: boolean;
+  /** The documents request failed; "nothing yet" would be a lie. */
+  failed?: boolean;
+  onRetry?: () => void;
+}) {
   const recent = useMemo(
     () =>
       [...documents]
@@ -44,6 +56,16 @@ export function RecentDocuments({ documents, loading }: { documents: Document[];
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-10 w-full" />
             ))}
+          </div>
+        ) : failed ? (
+          <div className="flex h-[200px] flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+            <TriangleAlert className="size-6 text-destructive/70" />
+            دریافت اسناد ناموفق بود.
+            {onRetry && (
+              <Button variant="outline" size="sm" onClick={onRetry}>
+                <RotateCcw /> تلاش دوباره
+              </Button>
+            )}
           </div>
         ) : recent.length === 0 ? (
           <div className="flex h-[200px] flex-col items-center justify-center gap-2 text-sm text-muted-foreground">

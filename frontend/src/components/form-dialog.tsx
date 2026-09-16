@@ -45,7 +45,7 @@ export function FormDialog({
         onInteractOutside={(e) => busy && e.preventDefault()}
         onEscapeKeyDown={(e) => busy && e.preventDefault()}
         className={cn(
-          "flex flex-col gap-0 overflow-visible p-0 max-sm:max-h-[calc(100svh-2rem)] max-sm:overflow-hidden",
+          "flex max-h-[calc(100svh-2rem)] flex-col gap-0 overflow-hidden p-0",
           size === "md" && "sm:max-w-xl",
           size === "lg" && "sm:max-w-3xl",
           size === "xl" && "sm:max-w-4xl"
@@ -56,7 +56,7 @@ export function FormDialog({
           {description && <DialogDescription className="text-xs">{description}</DialogDescription>}
         </DialogHeader>
         <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 space-y-3 px-5 py-4 max-sm:overflow-y-auto">{children}</div>
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-4">{children}</div>
           <div className="flex shrink-0 flex-row flex-wrap items-center gap-2 border-t bg-muted/30 px-5 py-2.5">
             {footer}
           </div>

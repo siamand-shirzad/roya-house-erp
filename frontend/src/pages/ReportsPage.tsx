@@ -1,3 +1,4 @@
+import { ShamsiDatePicker } from "@/components/shamsi-date-picker";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -125,11 +126,12 @@ function buildBuckets(report: SalesReport, range: Range): Bucket[] {
 
 export function ReportsPage() {
   const [preset, setPreset] = useState<Preset>("month");
+  const [customRange, setCustomRange] = useState<Range | null>(null);
   const [report, setReport] = useState<SalesReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const range = useMemo(() => rangeFor(preset), [preset]);
+  const range = useMemo(() => customRange ?? rangeFor(preset), [preset, customRange]);
 
   useEffect(() => {
     let cancelled = false;
@@ -157,7 +159,9 @@ export function ReportsPage() {
     <AppShell title="گزارشات">
       <div className="space-y-4 p-4 md:p-6">
         <div className="flex flex-wrap items-center gap-2">
-          <SegmentedControl ariaLabel="بازه‌ی گزارش" items={PRESETS} value={preset} onValueChange={setPreset} />
+          <SegmentedControl ariaLabel="بازه‌ی گزارش" items={PRESETS} value={customRange ? "custom" as Preset : preset} onValueChange={(value) => { setPreset(value); setCustomRange(null); }} />
+          <ShamsiDatePicker label="از تاریخ (شمسی)" value={range.from ? toIsoDate(range.from) : ""} max={range.to ? toIsoDate(range.to) : undefined} onChange={(value) => setCustomRange({...range,from:value ? parseDay(value) : undefined})} />
+          <ShamsiDatePicker label="تا تاریخ (شمسی)" value={range.to ? toIsoDate(range.to) : ""} min={range.from ? toIsoDate(range.from) : undefined} onChange={(value) => setCustomRange({...range,to:value ? parseDay(value) : undefined})} />
           <span className="text-sm text-muted-foreground tabular-nums sm:ms-auto">
             {range.from && range.to
               ? `${formatJalaliDate(range.from)} تا ${formatJalaliDate(range.to)}`

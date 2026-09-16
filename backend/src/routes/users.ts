@@ -1,7 +1,8 @@
+import { MODULES } from "../lib/permissions";
 import { Router } from "express";
 import { z } from "zod";
 import { query, queryOne, newId } from "../lib/db";
-import { deleteUserSessions, hashPassword, type AuthUser } from "../lib/auth";
+import { deleteOtherSessions, readSessionToken, deleteUserSessions, hashPassword, type AuthUser } from "../lib/auth";
 import { passwordSchema } from "./auth";
 
 // Staff users (admin only; mounted behind requireRole("ADMIN")).
@@ -16,6 +17,7 @@ function rowToUser(r: any) {
     username: r.username,
     phone: r.phone,
     role: r.role,
+    permissions: r.permissions ?? {},
     active: r.active,
     hasPassword: !!r.password_hash,
     lastLoginAt: r.last_login_at,
@@ -33,6 +35,7 @@ const userSchema = z.object({
     .regex(/^[a-z0-9._-]{3,32}$/, "Username must be 3-32 chars: a-z, 0-9, . _ -"),
   phone: z.string().trim().optional().nullable(),
   role: z.enum(ROLES),
+  permissions: z.partialRecord(z.enum(MODULES), z.enum(["none", "view", "edit"])).optional(),
   active: z.boolean().optional(),
   // Optional on create (a user without a password can't sign in); on update,
   // a value resets the password and signs the user out everywhere.
@@ -57,8 +60,8 @@ usersRouter.post("/", async (req, res, next) => {
   try {
     const data = userSchema.parse(req.body);
     const row = await queryOne(
-      `INSERT INTO users (id, full_name, username, phone, role, active, password_hash)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      `INSERT INTO users (id, full_name, username, phone, role, active, password_hash, permissions)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
       [
         newId("user"),
         data.fullName,
@@ -67,6 +70,7 @@ usersRouter.post("/", async (req, res, next) => {
         data.role,
         data.active ?? true,
         data.password ? await hashPassword(data.password) : null,
+        JSON.stringify(data.permissions ?? {}),
       ]
     );
     res.status(201).json(rowToUser(row));
@@ -98,7 +102,7 @@ usersRouter.put("/:id", async (req, res, next) => {
 
     const row = await queryOne(
       `UPDATE users SET full_name=$1, username=$2, phone=$3, role=$4, active=$5,
-         password_hash=COALESCE($6, password_hash), updated_at=now()
+         password_hash=COALESCE($6, password_hash), permissions=$8, updated_at=now()
        WHERE id=$7 RETURNING *`,
       [
         data.fullName ?? existing.full_name,
@@ -108,6 +112,7 @@ usersRouter.put("/:id", async (req, res, next) => {
         active,
         data.password ? await hashPassword(data.password) : null,
         req.params.id,
+        JSON.stringify(data.permissions ?? existing.permissions ?? {}),
       ]
     );
 
@@ -115,6 +120,7 @@ usersRouter.put("/:id", async (req, res, next) => {
     // except the admin's own current session when they change their own password.
     const self = (res.locals.user as AuthUser).id === existing.id;
     if (!active || (data.password && !self)) await deleteUserSessions(existing.id);
+    else if (data.password && self) await deleteOtherSessions(existing.id, readSessionToken(req));
 
     res.json(rowToUser(row));
   } catch (err) {

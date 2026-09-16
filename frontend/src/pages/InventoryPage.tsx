@@ -1,7 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { can, type Module } from "@/lib/permissions";
+import { SortableStockRow, StockDragHandle, StockSortContext, useStockOrder } from "@/components/inventory/sortable-stock";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Ellipsis,
+  ArrowUp,
+  ArrowDown,
   History,
   PackagePlus,
   Ruler,
@@ -40,7 +44,6 @@ import { cn } from "@/lib/utils";
 import {
   CATEGORY_LABELS,
   DOCUMENT_TYPE_LABELS,
-  INVENTORY_WRITE_ROLES,
   MOVEMENT_KIND_LABELS,
   type StockMovement,
   type StockRow,
@@ -59,7 +62,7 @@ const timeOf = (iso: string) =>
 
 export function InventoryPage() {
   const { user } = useAuth();
-  const canWrite = user ? INVENTORY_WRITE_ROLES.includes(user.role) : false;
+  const canWrite = user ? can(user, "inventory", true) : false;
   const [params, setParams] = useSearchParams();
   const tab: Tab = params.get("tab") === "movements" ? "movements" : "stock";
   const lowOnly = params.get("low") === "1";
@@ -69,6 +72,8 @@ export function InventoryPage() {
   const [stockLoading, setStockLoading] = useState(true);
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [movesLoading, setMovesLoading] = useState(false);
+  const [hasMoreMoves, setHasMoreMoves] = useState(false);
+  const [moreLoading, setMoreLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [receiptOpen, setReceiptOpen] = useState(false);
@@ -76,6 +81,8 @@ export function InventoryPage() {
   const [minEditing, setMinEditing] = useState<StockRow | null>(null);
   // Bumped after every write so both lists reload.
   const [version, setVersion] = useState(0);
+  const movesContext = useRef("");
+  movesContext.current = `${tab}|${productFilter}|${version}`;
   const reload = () => setVersion((v) => v + 1);
 
   function setQuery(patch: Record<string, string | null>) {
@@ -103,24 +110,41 @@ export function InventoryPage() {
 
   useEffect(() => {
     if (tab !== "movements") return;
+    let cancelled = false;
     setMovesLoading(true);
+    setError(null);
     api.inventory
-      .movements(productFilter ? { productId: productFilter } : undefined)
-      .then(setMovements)
-      .catch((err) => setError(`دریافت گردش کالا ناموفق بود: ${errorMessage(err)}`))
-      .finally(() => setMovesLoading(false));
+      .movements({ productId: productFilter ?? undefined, limit: "200" })
+      .then((rows) => { if (!cancelled) { setMovements(rows); setHasMoreMoves(rows.length === 200); } })
+      .catch((err) => { if (!cancelled) setError(`دریافت گردش کالا ناموفق بود: ${errorMessage(err)}`); })
+      .finally(() => { if (!cancelled) setMovesLoading(false); });
+    return () => { cancelled = true; };
   }, [tab, productFilter, version]);
+
+  async function loadMoreMoves() {
+    const context = movesContext.current;
+    setMoreLoading(true);
+    setError(null);
+    try {
+      const rows = await api.inventory.movements({ productId: productFilter ?? undefined, offset: String(movements.length), limit: "200" });
+      if (context !== movesContext.current) return;
+      setMovements((current) => [...current, ...rows.filter((row) => !current.some((m) => m.id === row.id))]);
+      setHasMoreMoves(rows.length === 200);
+    } catch (err) { setError(errorMessage(err)); }
+    finally { setMoreLoading(false); }
+  }
 
   const lowCount = useMemo(() => stock.filter((r) => stockLevel(r) !== "ok").length, [stock]);
 
+  const stockOrder = useStockOrder(user?.id, stock.map((r) => r.productId));
   const stockRows = useMemo(
     () =>
       stock.filter(
         (r) =>
           (!lowOnly || stockLevel(r) !== "ok") &&
           matchesSearch(`${r.name} ${r.code ?? ""} ${r.spec ?? ""} ${CATEGORY_LABELS[r.category]}`, q)
-      ),
-    [stock, lowOnly, q]
+      ).sort((a, b) => stockOrder.order.indexOf(a.productId) - stockOrder.order.indexOf(b.productId)),
+    [stock, lowOnly, q, stockOrder.order]
   );
   const moveRows = useMemo(
     () =>
@@ -213,11 +237,13 @@ export function InventoryPage() {
 
         {tab === "stock" ? (
           <>
+            <p className="text-sm text-muted-foreground">دستگیره کنار کالا را بکشید یا از منوی ردیف، بالا و پایین ببرید. ترتیب در این مرورگر ذخیره می‌شود.</p>
+            <StockSortContext ids={stockPager.pageRows.map((r) => r.productId)} onMove={stockOrder.move}>
             <div className="overflow-x-auto rounded-xl border bg-card">
-              <table className="w-full min-w-[760px] text-sm">
+              <table className="mobile-data-table w-full md:min-w-[760px] text-sm">
                 <thead className="bg-muted/50 text-muted-foreground">
                   <tr className="border-b">
-                    <th className={cn(TH, "w-32")}>کد</th>
+                    <th className={cn(TH, "w-20")}><span className="sr-only">جابه‌جایی ردیف</span></th>
                     <th className={TH}>کالا</th>
                     <th className={cn(TH, "w-40")}>دسته</th>
                     <th className={cn(TH, "w-32")}>موجودی</th>
@@ -250,34 +276,32 @@ export function InventoryPage() {
 
                   {!stockLoading &&
                     stockPager.pageRows.map((r) => (
-                      <tr key={r.productId} className="transition-colors hover:bg-muted/40">
-                        <td className="px-3 py-2 whitespace-nowrap tabular-nums text-muted-foreground" dir="ltr">
-                          <span className="block text-right">{r.code ?? "—"}</span>
-                        </td>
-                        <td className="px-3 py-2 font-medium">
+                      <SortableStockRow key={r.productId} id={r.productId}>
+                        <td className="px-2 py-1"><div className="flex items-center"><StockDragHandle name={r.name} /><CategoryIcon category={r.category} className="size-5 text-muted-foreground" /></div></td>
+                        <td data-label="کالا" className="px-3 py-2 font-medium">
                           {r.name}
                           {r.spec && <div className="text-xs font-normal text-muted-foreground">{r.spec}</div>}
                         </td>
-                        <td className="px-3 py-2 text-muted-foreground">
+                        <td data-label="دسته" className="px-3 py-2 text-muted-foreground">
                           <span className="flex items-center gap-1.5">
                             <CategoryIcon category={r.category} className="size-4" />
                             {CATEGORY_LABELS[r.category]}
                           </span>
                         </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
-                          <span
+                        <td data-label="موجودی" className="px-3 py-2 whitespace-nowrap">
+                          <div className="flex items-center gap-1"><span
                             className={cn("font-semibold tabular-nums", r.onHand < 0 && "text-destructive")}
                             dir="ltr"
                           >
                             {formatNumber(r.onHand)}
                           </span>{" "}
                           <span className="text-xs text-muted-foreground">{r.unit}</span>
-                        </td>
-                        <td className="px-3 py-2 tabular-nums text-muted-foreground">
+                        </div></td>
+                        <td data-label="حداقل" className="px-3 py-2 tabular-nums text-muted-foreground">
                           {r.minStock === null ? "—" : formatNumber(r.minStock)}
                         </td>
-                        <td className="px-3 py-2">
-                          <StockLevelBadge row={r} />
+                        <td data-label="وضعیت" className="px-3 py-2">
+                          {stockLevel(r) === "ok" ? <span className="text-muted-foreground">عادی</span> : <StockLevelBadge row={r} />}
                         </td>
                         <td className="px-1.5 py-1">
                           <DropdownMenu dir="rtl" modal={false}>
@@ -292,6 +316,8 @@ export function InventoryPage() {
                               >
                                 <History /> گردش این کالا
                               </DropdownMenuItem>
+                              <DropdownMenuItem disabled={stockRows[0]?.productId === r.productId} onSelect={() => stockOrder.move(r.productId, stockRows[stockRows.indexOf(r)-1]?.productId)}><ArrowUp /> یک ردیف بالاتر</DropdownMenuItem>
+                              <DropdownMenuItem disabled={stockRows[stockRows.length - 1]?.productId === r.productId} onSelect={() => stockOrder.move(r.productId, stockRows[stockRows.indexOf(r)+1]?.productId)}><ArrowDown /> یک ردیف پایین‌تر</DropdownMenuItem>
                               {canWrite && (
                                 <>
                                   <DropdownMenuSeparator />
@@ -306,11 +332,12 @@ export function InventoryPage() {
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </td>
-                      </tr>
+                      </SortableStockRow>
                     ))}
                 </tbody>
               </table>
             </div>
+            </StockSortContext>
             {!stockLoading && (
               <ListPagination
                 page={stockPager.page}
@@ -324,7 +351,7 @@ export function InventoryPage() {
         ) : (
           <>
             <div className="overflow-x-auto rounded-xl border bg-card">
-              <table className="w-full min-w-[820px] text-sm">
+              <table className="mobile-data-table w-full md:min-w-[820px] text-sm">
                 <thead className="bg-muted/50 text-muted-foreground">
                   <tr className="border-b">
                     <th className={cn(TH, "w-36")}>تاریخ</th>
@@ -360,11 +387,11 @@ export function InventoryPage() {
                   {!movesLoading &&
                     movePager.pageRows.map((m) => (
                       <tr key={m.id} className="transition-colors hover:bg-muted/40">
-                        <td className="px-3 py-2 whitespace-nowrap tabular-nums text-muted-foreground">
+                        <td data-label="تاریخ" className="px-3 py-2 whitespace-nowrap tabular-nums text-muted-foreground">
                           {formatJalaliDate(new Date(m.createdAt))}{" "}
                           <span className="text-xs">{toDisplayDigits(timeOf(m.createdAt))}</span>
                         </td>
-                        <td className="px-3 py-2 font-medium">
+                        <td data-label="کالا" className="px-3 py-2 font-medium">
                           <button
                             type="button"
                             className="text-start hover:text-primary"
@@ -374,8 +401,8 @@ export function InventoryPage() {
                             {m.productName}
                           </button>
                         </td>
-                        <td className="px-3 py-2">{MOVEMENT_KIND_LABELS[m.kind]}</td>
-                        <td className="px-3 py-2 whitespace-nowrap">
+                        <td data-label="نوع" className="px-3 py-2">{MOVEMENT_KIND_LABELS[m.kind]}</td>
+                        <td data-label="مقدار" className="px-3 py-2 whitespace-nowrap">
                           <span
                             dir="ltr"
                             className={cn(
@@ -388,7 +415,7 @@ export function InventoryPage() {
                           </span>{" "}
                           <span className="text-xs text-muted-foreground">{m.unit}</span>
                         </td>
-                        <td className="px-3 py-2 text-muted-foreground">
+                        <td data-label="مرجع" className="px-3 py-2 text-muted-foreground">
                           {m.document ? (
                             <Link
                               to={`/documents/${TYPE_TO_SLUG[m.document.type]}/${m.document.id}`}
@@ -400,7 +427,7 @@ export function InventoryPage() {
                             (m.reference ?? "—")
                           )}
                         </td>
-                        <td className="px-3 py-2 text-muted-foreground">{m.createdByName ?? "—"}</td>
+                        <td data-label="کاربر" className="px-3 py-2 text-muted-foreground">{m.createdByName ?? "—"}</td>
                       </tr>
                     ))}
                 </tbody>
@@ -415,6 +442,10 @@ export function InventoryPage() {
                 onPageChange={movePager.setPage}
               />
             )}
+            {!movesLoading && hasMoreMoves && <div className="flex flex-wrap items-center gap-3 text-sm">
+              <Button variant="outline" disabled={moreLoading} onClick={loadMoreMoves}>{moreLoading ? "در حال بارگذاری..." : "دریافت گردش‌های قدیمی‌تر"}</Button>
+              <span className="text-muted-foreground">جستجو در {formatNumber(movements.length)} گردش دریافت‌شده انجام می‌شود.</span>
+            </div>}
           </>
         )}
       </div>

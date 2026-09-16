@@ -1,3 +1,7 @@
+import { can, type Module } from "@/lib/permissions";
+import { TableColumns, useTableColumns } from "@/components/table-columns";
+import { SegmentedControl } from "@/components/segmented-control";
+import { BRANDS, productBrand, type Brand } from "@/lib/brands";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
@@ -55,6 +59,7 @@ import { cn } from "@/lib/utils";
 import { normalizeKey, readCsvFile, downloadText } from "@/lib/csv";
 import { productsToCsv, previewProductCsv, type CsvPreview } from "@/lib/priceListCsv";
 import { toJalali, toDisplayDigits } from "@/lib/format";
+import { useUnsavedChangesBlocker } from "@/lib/unsaved-changes";
 import { CATEGORY_LABELS, type Product, type ProductCategory } from "@/types";
 
 type Draft = { unitPrice?: number; partnerPrice?: number | null };
@@ -75,7 +80,7 @@ function Kbd({ children }: { children: string }) {
 export function ProductsPage() {
   const { user } = useAuth();
   // The API only lets admins change products; others get a read-only list.
-  const canEdit = user?.role === "ADMIN";
+  const canEdit = can(user, "products", true);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
@@ -108,7 +113,10 @@ export function ProductsPage() {
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
 
-  const colCount = canEdit ? 7 : 6;
+  const columns = useTableColumns(`product-columns:${user?.id}`, ["code"]);
+  const [brand, setBrand] = useState<Brand | "ALL">("ALL");
+  const columnOptions = [{id:"code",label:"کد کالا"},{id:"category",label:"دسته‌بندی"},{id:"unit",label:"واحد"},{id:"unitPrice",label:"قیمت واحد"},{id:"partnerPrice",label:"قیمت همکاری"}];
+  const colCount = 1 + columnOptions.filter((c) => columns.visible(c.id)).length + Number(canEdit);
   const units = useMemo(
     () => [...new Set(products.map((p) => p.unit).filter(Boolean))].sort(),
     [products]
@@ -131,13 +139,20 @@ export function ProductsPage() {
 
   const dirtyCount = Object.keys(drafts).length;
 
-  // Warn before closing the tab with unsaved price edits.
-  useEffect(() => {
-    if (!dirtyCount) return;
-    const handler = (e: BeforeUnloadEvent) => e.preventDefault();
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [dirtyCount]);
+  // Unsaved price drafts hold navigation away from this page (links, the back
+  // button, browser back) and warn on tab close.
+  const { blocker } = useUnsavedChangesBlocker(dirtyCount > 0);
+
+  /** "Save and leave" from the unsaved-changes dialog. */
+  async function saveAndLeave() {
+    if (await save()) {
+      blocker.proceed?.();
+      return;
+    }
+    // Cancel the navigation and close the dialog so the reason, which renders
+    // on the page behind it, is readable.
+    blocker.reset?.();
+  }
 
   const current = useCallback(
     (p: Product) => ({
@@ -152,6 +167,7 @@ export function ProductsPage() {
     const list = products.filter(
       (p) =>
         (showInactive || p.active) &&
+        (brand === "ALL" || productBrand(p) === brand) &&
         (category === "ALL" || p.category === category) &&
         (!needle || normalizeKey(`${p.code ?? ""} ${p.name} ${p.spec ?? ""}`).includes(needle))
     );
@@ -172,7 +188,7 @@ export function ProductsPage() {
       });
     }
     return list;
-  }, [products, q, category, showInactive, sort]);
+  }, [products, q, category, showInactive, sort, brand]);
 
   function setPrice(p: Product, field: keyof Draft, value: number | null) {
     setError(null);
@@ -200,17 +216,20 @@ export function ProductsPage() {
     );
   }
 
+  /** Saves the price drafts. Returns whether they actually reached the server. */
   async function save() {
     setSaving(true);
     setError(null);
     try {
-      const updates = Object.entries(drafts).map(([id, d]) => ({ id, ...d }));
+      const updates = Object.entries(drafts).map(([id, d]) => ({ id, ...d, expectedUpdatedAt: products.find((p) => p.id === id)?.updatedAt }));
       await api.products.bulkUpdate(updates);
       setDrafts({});
       await load();
       toast.success(`قیمت ${toDisplayDigits(updates.length)} کالا ذخیره شد.`);
+      return true;
     } catch (err) {
       setError(`ذخیره ناموفق بود: ${errorMessage(err)}`);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -379,6 +398,7 @@ export function ProductsPage() {
       }
     >
       <div className="space-y-4 p-4 md:p-6">
+        <SegmentedControl ariaLabel="برند کالا" className="w-full [&_button]:min-w-20 [&_button]:flex-1 [&_button]:justify-center [&_button]:py-3" value={brand} onValueChange={setBrand} items={[{value:"ALL",label:"همه برندها"}, ...Object.entries(BRANDS).map(([value,label]) => ({value:value as Brand,label}))]} />
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-72">
             <Search className="absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
@@ -412,6 +432,7 @@ export function ProductsPage() {
               نمایش غیرفعال‌ها
             </Label>
           </div>
+          <TableColumns columns={columnOptions} {...columns} />
           {canEdit && <BulkAdjustPopover count={rows.length} onApply={applyBulk} />}
           <span className="text-sm text-muted-foreground tabular-nums sm:ms-auto">
             {toDisplayDigits(rows.length)} کالا
@@ -420,11 +441,11 @@ export function ProductsPage() {
 
         {!canEdit && (
           <p className="rounded-lg border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-            فقط مدیر سیستم می‌تواند قیمت‌ها را تغییر دهد. شما فهرست را می‌بینید و می‌توانید خروجی CSV بگیرید.
+            دسترسی شما به این بخش فقط مشاهده است. می‌توانید فهرست را ببینید و خروجی CSV بگیرید.
           </p>
         )}
 
-        <p className={cn("flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground", !canEdit && "hidden")}>
+        <p className={cn("hidden sm:flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground", !canEdit && "hidden")}>
           <span>
             <Kbd>Tab</Kbd> خانه بعد
           </span>
@@ -447,16 +468,16 @@ export function ProductsPage() {
         )}
 
         <div className="overflow-hidden rounded-xl border bg-card">
-          <div className="max-h-[calc(100svh-var(--header-height)-10rem)] overflow-auto">
-            <table className="w-full min-w-[900px] text-sm">
+          <div className="md:max-h-[calc(100svh-var(--header-height)-10rem)] overflow-auto">
+            <table className="mobile-data-table w-full md:min-w-[760px] text-sm">
               <thead className="sticky top-0 z-10 bg-muted/95 text-muted-foreground backdrop-blur">
                 <tr className="border-b">
-                  <SortHeader k="code" className="w-24">کد کالا</SortHeader>
+                  {columns.visible("code") && <SortHeader k="code" className="w-24">کد کالا</SortHeader>}
                   <SortHeader k="name">نام کالا</SortHeader>
-                  <SortHeader k="category" className="w-36">دسته‌بندی</SortHeader>
-                  <th className="w-28 px-3 py-2.5 text-right font-medium">واحد</th>
-                  <SortHeader k="unitPrice" className="w-40">قیمت واحد (تومان)</SortHeader>
-                  <SortHeader k="partnerPrice" className="w-40">قیمت همکاری (تومان)</SortHeader>
+                  {columns.visible("category") && <SortHeader k="category" className="w-36">دسته‌بندی</SortHeader>}
+                  {columns.visible("unit") && <th className="w-28 px-3 py-2.5 text-right font-medium">واحد</th>}
+                  {columns.visible("unitPrice") && <SortHeader k="unitPrice" className="w-40">قیمت واحد (تومان)</SortHeader>}
+                  {columns.visible("partnerPrice") && <SortHeader k="partnerPrice" className="w-40">قیمت همکاری (تومان)</SortHeader>}
                   {canEdit && (
                     <th className="w-12 px-3 py-2.5">
                       <span className="sr-only">عملیات</span>
@@ -495,18 +516,18 @@ export function ProductsPage() {
                           !p.active && "text-muted-foreground"
                         )}
                       >
-                        <td className="px-3 py-1.5 font-mono text-[11px] text-muted-foreground" dir="ltr">
+                        {columns.visible("code") && <td data-label="کد کالا" className="px-3 py-1.5 font-mono text-[11px] text-muted-foreground" dir="ltr">
                           <span className="block text-right">{p.code ?? "—"}</span>
-                        </td>
-                        <td className="px-3 py-1.5">
+                        </td>}
+                        <td data-label="نام کالا" className="px-3 py-1.5">
                           <div className="flex items-center gap-2 font-medium">
                             {p.name}
                             {!p.active && <Badge variant="outline">غیرفعال</Badge>}
                           </div>
                           {p.spec && <div className="text-xs text-muted-foreground">{p.spec}</div>}
                         </td>
-                        <td className="px-3 py-1.5 text-xs">{CATEGORY_LABELS[p.category]}</td>
-                        <td
+                        {columns.visible("category") && <td data-label="دسته‌بندی" className="px-3 py-1.5 text-xs">{CATEGORY_LABELS[p.category]}</td>}
+                        {columns.visible("unit") && <td data-label="واحد"
                           className="px-3 py-1.5 text-xs"
                           title={p.packSize ? `${toDisplayDigits(p.packSize)} عدد در هر بسته` : undefined}
                         >
@@ -514,8 +535,8 @@ export function ProductsPage() {
                           {p.packSize ? (
                             <span className="text-muted-foreground tabular-nums"> ({toDisplayDigits(p.packSize)})</span>
                           ) : null}
-                        </td>
-                        <td className="px-1.5 py-1">
+                        </td>}
+                        {columns.visible("unitPrice") && <td data-label="قیمت واحد (تومان)" className="px-1.5 py-1">
                           <PriceCell
                             readOnly={!canEdit}
                             row={i}
@@ -525,8 +546,8 @@ export function ProductsPage() {
                             label={`قیمت واحد ${p.name}`}
                             onChange={(v) => setPrice(p, "unitPrice", v)}
                           />
-                        </td>
-                        <td className="px-1.5 py-1">
+                        </td>}
+                        {columns.visible("partnerPrice") && <td data-label="قیمت همکاری (تومان)" className="px-1.5 py-1">
                           <PriceCell
                             readOnly={!canEdit}
                             row={i}
@@ -537,7 +558,7 @@ export function ProductsPage() {
                             label={`قیمت همکاری ${p.name}`}
                             onChange={(v) => setPrice(p, "partnerPrice", v)}
                           />
-                        </td>
+                        </td>}
                         {canEdit && (
                           <td className="px-1.5 py-1">
                             <DropdownMenu dir="rtl" modal={false}>
@@ -612,6 +633,39 @@ export function ProductsPage() {
             >
               {busyId !== null ? <LoaderCircle className="animate-spin" /> : <Archive />}
               غیرفعال کن
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Leaving the page with price drafts pending pauses here first. */}
+      <AlertDialog
+        open={blocker.state === "blocked"}
+        onOpenChange={(open) => {
+          if (!open && !saving) blocker.reset?.();
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>قیمت‌های ذخیره‌نشده</AlertDialogTitle>
+            <AlertDialogDescription>
+              قیمت {toDisplayDigits(dirtyCount)} کالا تغییر کرده و هنوز ذخیره نشده است. با خروج بدون ذخیره، این
+              تغییرها از بین می‌روند.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>ماندن در این صفحه</AlertDialogCancel>
+            <Button variant="outline" disabled={saving} onClick={() => blocker.proceed?.()}>
+              <Undo2 /> خروج بدون ذخیره
+            </Button>
+            <AlertDialogAction
+              disabled={saving}
+              onClick={(e) => {
+                e.preventDefault();
+                saveAndLeave();
+              }}
+            >
+              {saving ? <LoaderCircle className="animate-spin" /> : <Save />} ذخیره و خروج
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

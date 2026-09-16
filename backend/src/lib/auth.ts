@@ -1,3 +1,4 @@
+import type { Permissions } from "./permissions";
 import type { NextFunction, Request, Response } from "express";
 import { createHash, randomBytes, scrypt as scryptCb, timingSafeEqual } from "crypto";
 import { promisify } from "util";
@@ -22,6 +23,7 @@ export type AuthUser = {
   username: string;
   phone: string | null;
   role: Role;
+  permissions?: Permissions;
 };
 
 export async function hashPassword(password: string): Promise<string> {
@@ -71,7 +73,7 @@ export async function deleteUserSessions(userId: string) {
 }
 
 export function rowToAuthUser(r: any): AuthUser {
-  return { id: r.id, fullName: r.full_name, username: r.username, phone: r.phone, role: r.role };
+  return { id: r.id, fullName: r.full_name, username: r.username, phone: r.phone, role: r.role, permissions: r.permissions ?? {} };
 }
 
 async function userForToken(token: string): Promise<AuthUser | null> {

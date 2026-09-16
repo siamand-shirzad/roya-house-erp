@@ -1,9 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { can, type Module } from "@/lib/permissions";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useUnsavedChangesBlocker } from "@/lib/unsaved-changes";
+import { StatusBadge } from "@/components/documents/StatusBadge";
+import { SegmentedControl } from "@/components/segmented-control";
+import { computeDocumentTotals } from "@/lib/totals";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,7 +43,6 @@ import {
 import { SLUG_TO_TYPE, TYPE_TO_SLUG } from "@/lib/documentTypeSlug";
 import {
   DOCUMENT_TYPE_LABELS,
-  DOCUMENT_WRITE_ROLES,
   NEXT_DOCUMENT_TYPE,
   type Company,
   type Customer,
@@ -48,8 +53,8 @@ import {
   type StockWarning,
 } from "@/types";
 import { toast } from "sonner";
-import { api, ApiError, errorMessage } from "@/lib/api";
-import { toDisplayDigits, formatJalaliDate, formatNumber } from "@/lib/format";
+import { api, ApiError, errorMessage, STALE_WRITE } from "@/lib/api";
+import { toDisplayDigits, formatJalaliDate, formatNumber, formatToman } from "@/lib/format";
 
 const EMPTY_BUYER: BuyerFormState = {
   buyerName: "",
@@ -68,20 +73,6 @@ const EMPTY_GOODS_ISSUE: GoodsIssueFormState = {
   deliveredToNationalId: "",
   vehicleColor: "",
   vehiclePlate: "",
-};
-
-const STATUS_BADGE: Record<Document["status"], { label: string; className: string }> = {
-  DRAFT: { label: "پیش‌نویس", className: "border-border bg-muted text-muted-foreground" },
-  ISSUED: {
-    label: "صادر شده",
-    className:
-      "border-emerald-600/20 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300",
-  },
-  CANCELLED: {
-    label: "باطل شده",
-    className:
-      "border-red-600/20 bg-red-50 text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300",
-  },
 };
 
 const buyerFromDoc = (doc: Document): BuyerFormState => ({
@@ -162,7 +153,7 @@ export function DocumentFormPage() {
 
   const [loading, setLoading] = useState(!!id);
   const [saving, setSaving] = useState(false);
-  const [busyAction, setBusyAction] = useState<"issue" | "cancel" | "convert" | null>(null);
+  const [busyAction, setBusyAction] = useState<"issue" | "cancel" | "convert" | "revise" | null>(null);
   const [items, setItems] = useState<DocumentItem[]>([]);
   const [buyer, setBuyer] = useState<BuyerFormState>(EMPTY_BUYER);
   // The buyer fields are the document's own copy; customerId only records who
@@ -170,16 +161,24 @@ export function DocumentFormPage() {
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState<string | null>(null);
   const [saveCustomerOpen, setSaveCustomerOpen] = useState(false);
-  // The buyer card folds to a one-line summary once a buyer is filled in, so
-  // the items table isn't pushed below the fold.
-  const [buyerOpen, setBuyerOpen] = useState(true);
+  // The buyer card is a one-line summary by default and expands on demand, so
+  // the items table — the part that actually gets edited — starts at the top.
+  const [buyerOpen, setBuyerOpen] = useState(!id);
   const [goodsIssue, setGoodsIssue] = useState<GoodsIssueFormState>(EMPTY_GOODS_ISSUE);
   const [notes, setNotes] = useState("");
+  const [editorView, setEditorView] = useState<"entry" | "preview">("entry");
   const [savedDoc, setSavedDoc] = useState<Document | null>(null);
-  // JSON of the payload the server last confirmed; compared to detect unsaved edits.
-  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
+  // JSON of the payload the server last confirmed; compared to detect unsaved
+  // edits. A new document has nothing from the server yet, so this starts as
+  // the truly-blank payload instead of null — otherwise a new document with
+  // only a buyer typed in (no items yet) would read as "not dirty" and the
+  // unsaved-changes guard below would let it be navigated away from silently.
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(() =>
+    id ? null : JSON.stringify(buildPayload(type, [], null, EMPTY_BUYER, EMPTY_GOODS_ISSUE, ""))
+  );
   const [error, setError] = useState<string | null>(null);
   const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [confirmingIssue, setConfirmingIssue] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   // Seller block for the preview of a document that hasn't been saved yet.
   const [company, setCompany] = useState<Company | null>(null);
@@ -195,15 +194,21 @@ export function DocumentFormPage() {
     api.customers
       .get(presetCustomerId)
       .then(applyCustomer)
-      .catch(() => undefined);
+      // Say so rather than opening a blank buyer: this page was opened
+      // specifically to bill that customer.
+      .catch((err) =>
+        toast.error("مشخصات مشتری خوانده نشد.", {
+          description: `${errorMessage(err)} می‌توانید خریدار را دستی وارد کنید.`,
+        })
+      );
   }, [presetCustomerId]);
 
   useEffect(() => {
     if (id) return;
-    api.company
-      .get()
+    api.documents
+      .company()
       .then(setCompany)
-      .catch(() => undefined);
+      .catch((err) => setError(`مشخصات فروشنده خوانده نشد: ${errorMessage(err)}`));
   }, [id]);
 
   useEffect(() => {
@@ -227,7 +232,6 @@ export function DocumentFormPage() {
         setItems(doc.items);
         setCustomerId(doc.customer?.id ?? null);
         setCustomerName(doc.customer?.name ?? null);
-        setBuyerOpen(!doc.buyerName);
         setBuyer(loadedBuyer);
         setGoodsIssue(loadedGoodsIssue);
         setNotes(doc.notes ?? "");
@@ -241,31 +245,25 @@ export function DocumentFormPage() {
       .finally(() => setLoading(false));
   }, [id, type]);
 
-  // Warn before closing the tab or reloading with edits that aren't saved.
-  const unsavedRef = useRef(false);
-  useEffect(() => {
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (!unsavedRef.current) return;
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, []);
+  const canWrite = user && type ? can(user, type.toLowerCase() as Module, true) : false;
+  const isDraft = !savedDoc || savedDoc.status === "DRAFT";
+  const isIssued = savedDoc?.status === "ISSUED";
+  const locked = !isDraft; // issued/cancelled documents are read-only from here on
+  const editable = canWrite && isDraft && (!id || !!savedDoc);
+
+  const payload = buildPayload(type, items, customerId, buyer, goodsIssue, notes);
+  // Any difference from what the server last confirmed counts, including a
+  // buyer or note with no items yet (see savedSnapshot's initial value).
+  const dirty = editable && savedSnapshot !== null && JSON.stringify(payload) !== savedSnapshot;
+
+  // Holds navigation (links, header back, browser back/forward, the command
+  // palette) while there are unsaved edits, and warns on tab close. Must run
+  // before the invalid-type return below: hooks can't sit after one.
+  const { blocker, skipNext } = useUnsavedChangesBlocker(dirty && !loading);
 
   if (!type) {
     return <div className="p-8 text-center text-muted-foreground">نوع سند نامعتبر است.</div>;
   }
-
-  const canWrite = user ? DOCUMENT_WRITE_ROLES[type].includes(user.role) : false;
-  const isDraft = !savedDoc || savedDoc.status === "DRAFT";
-  const isIssued = savedDoc?.status === "ISSUED";
-  const locked = !isDraft; // issued/cancelled documents are read-only from here on
-  const editable = canWrite && isDraft;
-
-  const payload = buildPayload(type, items, customerId, buyer, goodsIssue, notes);
-  const dirty = editable && (savedDoc ? JSON.stringify(payload) !== savedSnapshot : items.length > 0);
-  unsavedRef.current = dirty && !loading;
 
   const previewDoc: Document = savedDoc
     ? {
@@ -281,6 +279,8 @@ export function DocumentFormPage() {
         number: 0,
         status: "DRAFT",
         issueDate: new Date().toISOString(),
+        // Preview-only stand-in; this document doesn't exist on the server yet.
+        updatedAt: new Date().toISOString(),
         company,
         customer: null,
         ...buyer,
@@ -307,33 +307,55 @@ export function DocumentFormPage() {
   }
 
   /** Saves the form; returns the saved document, or null (with the error shown). */
-  async function saveDocument(): Promise<Document | null> {
+  async function saveDocument(navigateAfterSave = true): Promise<Document | null> {
     if (items.length === 0) return null;
     const invalidRow = items.findIndex((it) => !it.name.trim() || !it.unit.trim() || !(it.quantity > 0));
     if (invalidRow !== -1) {
       setError(`ردیف ${toDisplayDigits(invalidRow + 1)}: نام کالا، واحد و تعداد (بیشتر از صفر) الزامی است.`);
+      document.querySelector<HTMLInputElement>(`[data-item-row="${invalidRow}"] [aria-invalid="true"]`)?.focus();
       return null;
     }
     setError(null);
     setSaving(true);
     try {
       const doc = savedDoc
-        ? await api.documents.update(savedDoc.id, payload)
+        ? // The server rejects the save if someone else changed this document
+          // since it was loaded, rather than letting it overwrite their edit.
+          await api.documents.update(savedDoc.id, { ...payload, expectedUpdatedAt: savedDoc.updatedAt })
         : await api.documents.create(payload);
       setSavedDoc(doc);
       setSavedSnapshot(JSON.stringify(payload));
-      if (!id) {
-        // The new URL remounts this page; don't let the unsaved-changes guard fire.
-        unsavedRef.current = false;
+      if (!id && navigateAfterSave) {
+        // The new URL remounts this page. The save above just made the form
+        // clean, but that hasn't rendered yet, so tell the guard to let this
+        // one navigation through.
+        skipNext();
         navigate(`/documents/${typeSlug}/${doc.id}`, { replace: true });
       }
       return doc;
     } catch (err) {
       setError(`ذخیره سند ناموفق بود: ${errorMessage(err)}`);
+      if (err instanceof ApiError && err.status === 409 && err.message === STALE_WRITE) {
+        toast.error("این سند را شخص دیگری تغییر داده است.", {
+          description: "برای دیدن نسخه‌ی تازه و اعمال دوباره‌ی تغییرات، صفحه را بارگذاری کنید.",
+          action: { label: "بارگذاری مجدد", onClick: () => window.location.reload() },
+        });
+      }
       return null;
     } finally {
       setSaving(false);
     }
+  }
+
+  /** "Save and leave" from the unsaved-changes dialog. */
+  async function saveAndLeave() {
+    if (await saveDocument(false)) {
+      blocker.proceed?.();
+      return;
+    }
+    // The save failed. Cancel the navigation and close the dialog so the
+    // reason, which renders above the form behind this dialog, is readable.
+    blocker.reset?.();
   }
 
   // Issue button: for a goods issue, check stock first and ask before booking
@@ -355,7 +377,8 @@ export function DocumentFormPage() {
         // Stock couldn't be read; issue anyway, the server still reports shortfalls.
       }
     }
-    await handleIssue();
+    setBusyAction(null);
+    setConfirmingIssue(true);
   }
 
   async function handleIssue() {
@@ -364,8 +387,9 @@ export function DocumentFormPage() {
     setBusyAction("issue");
     try {
       // Issue exactly what is on screen: save pending edits first.
-      if (dirty && !(await saveDocument())) return;
+      if (dirty && !(await saveDocument())) { setConfirmingIssue(false); return; }
       const { stockWarnings, ...issued } = await api.documents.issue(savedDoc.id);
+      setConfirmingIssue(false);
       setSavedDoc(issued);
       setShortages(null);
       if (stockWarnings?.length) {
@@ -377,6 +401,7 @@ export function DocumentFormPage() {
       }
     } catch (err) {
       setShortages(null);
+      setConfirmingIssue(false);
       setError(`صدور سند ناموفق بود: ${errorMessage(err)}`);
     } finally {
       setBusyAction(null);
@@ -399,6 +424,14 @@ export function DocumentFormPage() {
     } finally {
       setBusyAction(null);
     }
+  }
+
+  async function handleRevise() {
+    if (!savedDoc) return;
+    setBusyAction("revise"); setError(null);
+    try { const revision = await api.documents.revise(savedDoc.id); navigate(`/documents/proforma/${revision.id}`); toast.success("نسخه جدید برای ویرایش آماده است؛ نسخه قبلی حفظ شد."); }
+    catch (err) { setError(errorMessage(err)); }
+    finally { setBusyAction(null); }
   }
 
   async function handleConvert(to: DocumentType) {
@@ -432,19 +465,19 @@ export function DocumentFormPage() {
   const printElementId = "document-print-area";
   const nextType = NEXT_DOCUMENT_TYPE[type];
   const activeDerived = savedDoc?.derived?.find((d) => d.status !== "CANCELLED" && d.type === nextType);
-  const canConvert = nextType && user && DOCUMENT_WRITE_ROLES[nextType].includes(user.role);
+  const canConvert = nextType && user && can(user, nextType.toLowerCase() as Module, true);
   const SHORTAGE_PREVIEW = 5;
 
   return (
     // On very wide screens the preview sits beside the editor and stays in view;
     // below that it follows the editor, as before.
-    <div className="grid gap-8 p-4 md:p-6 2xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)] 2xl:items-start">
-      <div className="space-y-4">
+    <div className="flex min-w-0 flex-col gap-4 p-4 md:p-6">
+      <div className="2xl:hidden"><SegmentedControl ariaLabel="نمای سند" value={editorView} onValueChange={setEditorView} items={[{ value: "entry", label: "ورود اطلاعات" }, { value: "preview", label: "پیش‌نمایش و PDF" }]} /></div>
+      <div className="grid min-w-0 grid-cols-1 gap-8 2xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)] 2xl:items-start">
+      <div className={cn("min-w-0 flex-col gap-4", editorView === "entry" ? "flex" : "hidden 2xl:flex")}>
         {savedDoc && (
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <Badge variant="outline" className={STATUS_BADGE[savedDoc.status].className}>
-              {STATUS_BADGE[savedDoc.status].label}
-            </Badge>
+            <StatusBadge status={savedDoc.status} />
             <span className="text-muted-foreground">
               شماره سند: <span className="font-medium text-foreground">{toDisplayDigits(savedDoc.number)}</span>
             </span>
@@ -462,6 +495,8 @@ export function DocumentFormPage() {
                 {savedDoc.cancelReason ? ` — دلیل: ${savedDoc.cancelReason}` : ""}
               </span>
             )}
+            {savedDoc.revisionOfId && <Link className="text-primary underline" to={`/documents/proforma/${savedDoc.revisionOfId}`}>مشاهده نسخه قبلی پیش‌فاکتور</Link>}
+            {savedDoc.revisions?.map((revision) => <Link key={revision.id} className="text-primary underline" to={`/documents/proforma/${revision.id}`}>نسخه اصلاح‌شده شماره {toDisplayDigits(revision.number)}</Link>)}
             {savedDoc.source && (
               <Link
                 to={`/documents/${TYPE_TO_SLUG[savedDoc.source.type]}/${savedDoc.source.id}`}
@@ -489,7 +524,7 @@ export function DocumentFormPage() {
           <div className="flex items-start gap-2 rounded-lg border bg-muted/50 px-3 py-2.5 text-sm text-muted-foreground">
             <Lock className="mt-0.5 size-4 shrink-0" />
             <p>
-              این سند {savedDoc?.status === "CANCELLED" ? "باطل شده" : "صادر شده"} و دیگر قابل ویرایش نیست.
+              {type === "PROFORMA" && isIssued ? "این نسخه صادر شده است. برای اصلاح، «ویرایش پیش‌فاکتور (نسخه جدید)» را بزنید؛ نسخه قبلی حفظ می‌شود." : `این سند ${savedDoc?.status === "CANCELLED" ? "باطل شده" : "صادر شده"} و قابل ویرایش نیست.`}
               {savedDoc?.status === "ISSUED" && " برای اصلاح، آن را باطل و سند جدید ثبت کنید."}
             </p>
           </div>
@@ -501,63 +536,59 @@ export function DocumentFormPage() {
           </div>
         )}
 
-        <Card className="gap-3 py-4">
-          <CardHeader className="px-4">
-            <CardTitle className="text-base">مشخصات خریدار</CardTitle>
-            {!buyerOpen && (
-              <CardDescription className="truncate">
-                {[buyer.buyerName || "بدون نام", buyer.buyerPhone, buyer.buyerCity].filter(Boolean).join(" · ")}
-              </CardDescription>
-            )}
-            <CardAction>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setBuyerOpen((o) => !o)}
-                aria-expanded={buyerOpen}
-              >
-                {buyerOpen ? "بستن" : editable ? "ویرایش" : "جزئیات"}
-                <ChevronDown className={cn("transition-transform duration-200", buyerOpen && "rotate-180")} />
-              </Button>
-            </CardAction>
-          </CardHeader>
-          <CardContent className="space-y-3 px-4">
-            {editable && (
-              <div className="flex flex-wrap items-center gap-2">
-                <CustomerPicker onSelect={applyCustomer} />
-                {customerId ? (
-                  <Badge variant="outline" className="gap-1 py-1">
-                    از مشتری: {customerName ?? buyer.buyerName}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCustomerId(null);
-                        setCustomerName(null);
-                      }}
-                      className="rounded-sm opacity-60 hover:opacity-100"
-                      title="جدا کردن از مشتری"
-                    >
-                      <X className="size-3.5" />
-                      <span className="sr-only">جدا کردن از مشتری</span>
-                    </button>
-                  </Badge>
-                ) : (
-                  buyer.buyerName.trim() !== "" && (
-                    <Button variant="ghost" size="sm" onClick={() => setSaveCustomerOpen(true)}>
-                      <UserPlus /> ثبت در فهرست مشتریان
-                    </Button>
-                  )
-                )}
-              </div>
-            )}
-            {buyerOpen && (
-              <div className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:duration-200">
-                <BuyerForm value={buyer} onChange={setBuyer} disabled={!editable} />
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <Collapsible asChild open={buyerOpen} onOpenChange={setBuyerOpen}>
+          <Card className="gap-3 py-4">
+            <CardHeader className="px-4">
+              <CardTitle className="text-base">مشخصات خریدار</CardTitle>
+              {!buyerOpen && (
+                <CardDescription className="truncate">
+                  {[buyer.buyerName || "بدون نام", buyer.buyerPhone, buyer.buyerCity].filter(Boolean).join(" · ")}
+                </CardDescription>
+              )}
+              <CardAction>
+                <CollapsibleTrigger asChild>
+                  <Button type="button" variant="ghost" size="sm">
+                    {buyerOpen ? "بستن" : editable ? "ویرایش" : "جزئیات"}
+                    <ChevronDown className={cn("transition-transform duration-200", buyerOpen && "rotate-180")} />
+                  </Button>
+                </CollapsibleTrigger>
+              </CardAction>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3 px-4">
+              {editable && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <CustomerPicker onSelect={applyCustomer} />
+                  {customerId ? (
+                    <Badge variant="outline" className="gap-1 py-1">
+                      از مشتری: {customerName ?? buyer.buyerName}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomerId(null);
+                          setCustomerName(null);
+                        }}
+                        className="rounded-sm opacity-60 hover:opacity-100"
+                        title="جدا کردن از مشتری"
+                      >
+                        <X className="size-3.5" />
+                        <span className="sr-only">جدا کردن از مشتری</span>
+                      </button>
+                    </Badge>
+                  ) : (
+                    buyer.buyerName.trim() !== "" && (
+                      <Button variant="ghost" size="sm" onClick={() => setSaveCustomerOpen(true)}>
+                        <UserPlus /> ثبت در فهرست مشتریان
+                      </Button>
+                    )
+                  )}
+                </div>
+              )}
+              <CollapsibleContent className="overflow-hidden motion-safe:data-[state=closed]:animate-collapsible-up motion-safe:data-[state=open]:animate-collapsible-down">
+                <BuyerForm value={buyer} onChange={setBuyer} disabled={!editable || saving || busyAction !== null} />
+              </CollapsibleContent>
+            </CardContent>
+          </Card>
+        </Collapsible>
 
         {typeNeedsGoodsIssueFields(type) && (
           <Card>
@@ -565,7 +596,7 @@ export function DocumentFormPage() {
               <CardTitle>مشخصات تحویل</CardTitle>
             </CardHeader>
             <CardContent>
-              <GoodsIssueForm value={goodsIssue} onChange={setGoodsIssue} disabled={!editable} />
+              <GoodsIssueForm value={goodsIssue} onChange={setGoodsIssue} disabled={!editable || saving || busyAction !== null} />
             </CardContent>
           </Card>
         )}
@@ -580,15 +611,24 @@ export function DocumentFormPage() {
               type={type}
               items={items}
               onChange={setItems}
-              disabled={!editable}
+              disabled={!editable || saving || busyAction !== null}
               stock={isDraft ? (stock ?? undefined) : undefined}
             />
           </CardContent>
         </Card>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="document-notes">یادداشت سند (اختیاری)</Label>
+          <Textarea id="document-notes" value={notes} onChange={(e) => setNotes(e.target.value)} disabled={!editable || saving || busyAction !== null} rows={2} />
+        </div>
+
+        <div className="sticky bottom-3 z-20 flex flex-wrap items-center gap-2 rounded-xl border bg-background p-3 shadow-lg" aria-label="عملیات و جمع سند">
+          <div className="me-auto flex flex-col gap-1" aria-live="polite">
+            <span className="text-xs text-muted-foreground">{type === "GOODS_ISSUE" ? "تعداد ردیف‌ها" : "جمع کل (تومان)"}</span>
+            <span className="font-semibold tabular-nums">{type === "GOODS_ISSUE" ? formatNumber(items.length) : formatToman(computeDocumentTotals(items).grandTotal)}</span>
+          </div>
           {editable && (
-            <Button onClick={saveDocument} disabled={saving || items.length === 0 || (!!savedDoc && !dirty)}>
+            <Button onClick={() => saveDocument()} disabled={saving || busyAction !== null || items.length === 0 || (!!savedDoc && !dirty)}>
               {saving ? <LoaderCircle className="animate-spin" /> : <Save />}
               {savedDoc ? "ذخیره تغییرات" : "ثبت سند"}
             </Button>
@@ -605,13 +645,14 @@ export function DocumentFormPage() {
             </Button>
           )}
 
+          {canWrite && isIssued && type === "PROFORMA" && <Button onClick={handleRevise} disabled={busyAction !== null}>{busyAction === "revise" ? <LoaderCircle className="animate-spin" /> : <Save />} ویرایش پیش‌فاکتور (نسخه جدید)</Button>}
           {canWrite && isIssued && (
             <Button variant="outline" onClick={() => setConfirmingCancel(true)} disabled={busyAction !== null}>
               <Ban /> ابطال سند
             </Button>
           )}
 
-          {canWrite && isIssued && canConvert && nextType && !activeDerived && (
+          {isIssued && canConvert && nextType && !activeDerived && (
             <Button variant="outline" onClick={() => handleConvert(nextType)} disabled={busyAction !== null}>
               {busyAction === "convert" ? (
                 <LoaderCircle className="animate-spin" />
@@ -622,8 +663,8 @@ export function DocumentFormPage() {
             </Button>
           )}
 
-          {dirty && savedDoc && !saving && (
-            <span className="text-sm text-muted-foreground">تغییرات ذخیره نشده</span>
+          {!saving && editable && (
+            <span className="text-xs text-muted-foreground" role="status">{dirty ? "تغییرات ذخیره نشده" : savedDoc ? "ذخیره شده" : "سند جدید"}</span>
           )}
         </div>
 
@@ -694,6 +735,28 @@ export function DocumentFormPage() {
         </AlertDialog>
 
         <AlertDialog
+          open={confirmingIssue}
+          onOpenChange={(open) => { if (busyAction !== "issue") setConfirmingIssue(open); }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>صدور نهایی سند</AlertDialogTitle>
+              <AlertDialogDescription>{type === "PROFORMA" ? "پس از صدور، اصلاح پیش‌فاکتور در نسخه جدید انجام می‌شود و سابقه قبلی حفظ می‌شود." : "پس از صدور، سند قابل ویرایش نیست. برای اصلاح باید آن را باطل کنید."}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="flex flex-col gap-2 text-sm">
+              <p>خریدار: {buyer.buyerName || "نام خریدار وارد نشده است"}</p>
+              <p>{formatNumber(items.length)} ردیف کالا</p>
+              {type !== "GOODS_ISSUE" && <p>جمع کل: {formatToman(computeDocumentTotals(items).grandTotal)} تومان</p>}
+              {type === "GOODS_ISSUE" && <p>با صدور، کالاها از موجودی انبار کسر می‌شوند.</p>}
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busyAction === "issue"}>بازبینی</AlertDialogCancel>
+              <AlertDialogAction disabled={busyAction !== null || saving} onClick={(e) => { e.preventDefault(); handleIssue(); }}>تأیید و صدور</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog
           open={confirmingCancel}
           onOpenChange={(open) => {
             if (busyAction === "cancel") return;
@@ -736,6 +799,46 @@ export function DocumentFormPage() {
           </AlertDialogContent>
         </AlertDialog>
 
+        {/* Navigation away from unsaved edits (a link, the back button,
+            browser back) pauses here until the user picks what happens to
+            them. Closing this any other way cancels the navigation. */}
+        <AlertDialog
+          open={blocker.state === "blocked"}
+          onOpenChange={(open) => {
+            if (!open && !saving) blocker.reset?.();
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>تغییرهای ذخیره‌نشده</AlertDialogTitle>
+              <AlertDialogDescription>
+                در این سند تغییرهایی دارید که هنوز ذخیره نشده‌اند. اگر بدون ذخیره خارج شوید، از بین می‌روند.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {items.length === 0 && (
+              <p className="text-start text-sm text-muted-foreground">
+                سند بدون حداقل یک ردیف کالا ذخیره نمی‌شود. می‌توانید بمانید و کالا اضافه کنید، یا بدون ذخیره خارج شوید.
+              </p>
+            )}
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={saving}>ماندن در این صفحه</AlertDialogCancel>
+              <Button variant="outline" disabled={saving} onClick={() => blocker.proceed?.()}>
+                <X /> خروج بدون ذخیره
+              </Button>
+              <AlertDialogAction
+                disabled={saving || items.length === 0}
+                onClick={(e) => {
+                  e.preventDefault();
+                  saveAndLeave();
+                }}
+              >
+                {saving ? <LoaderCircle className="animate-spin" /> : <Save />}
+                ذخیره و خروج
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         {error && (
           <Alert variant="destructive">
             <TriangleAlert />
@@ -744,7 +847,7 @@ export function DocumentFormPage() {
         )}
       </div>
 
-      <section className="space-y-3 2xl:sticky 2xl:top-[calc(var(--header-height)+1.5rem)] 2xl:max-h-[calc(100svh-var(--header-height)-3rem)] 2xl:overflow-y-auto">
+      <section className={cn("min-w-0 space-y-3 2xl:sticky 2xl:top-[calc(var(--header-height)+1.5rem)] 2xl:max-h-[calc(100svh-var(--header-height)-3rem)] 2xl:overflow-y-auto", editorView === "entry" && "hidden 2xl:block")}>
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">پیش‌نمایش سند</h3>
           <ExportPdfButton
@@ -760,6 +863,7 @@ export function DocumentFormPage() {
           </PrintPreview>
         </div>
       </section>
+      </div>
     </div>
   );
 }

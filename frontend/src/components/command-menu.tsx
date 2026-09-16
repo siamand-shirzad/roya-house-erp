@@ -1,3 +1,4 @@
+import { can, canAccessPath, type Module } from "@/lib/permissions";
 import {
   createContext,
   useContext,
@@ -46,8 +47,6 @@ import { matchesSearch } from "@/lib/search";
 import {
   CATEGORY_LABELS,
   DOCUMENT_TYPE_LABELS,
-  DOCUMENT_WRITE_ROLES,
-  REPORT_ROLES,
   type Document,
   type DocumentType,
   type Product,
@@ -58,6 +57,7 @@ import {
 // same with a Persian keyboard layout active, where "g" types "گ".
 
 type Shortcut = {
+  to?: string;
   id: string;
   keys: [string, string]; // e.g. ["G", "D"]
   label: string;
@@ -93,27 +93,31 @@ export function CommandMenuProvider({ children }: { children: ReactNode }) {
       label,
       icon: <Icon />,
       run: () => navigate(to),
+      to,
     });
     const list: Shortcut[] = [
-      nav("go-dashboard", ["G", "D"], "داشبورد", LayoutDashboard, "/"),
-      nav("go-documents", ["G", "S"], "اسناد", FileStack, "/documents/proforma"),
-      nav("go-products", ["G", "P"], "کالاها و قیمت‌ها", Tags, "/products"),
-      nav("go-customers", ["G", "C"], "مشتریان", Contact, "/customers"),
-      nav("go-inventory", ["G", "I"], "انبار", Warehouse, "/inventory"),
+      nav("go-dashboard", ["G", "D"], "Dashboard", LayoutDashboard, "/"),
+      nav("go-documents", ["G", "S"], "Proformas", FileStack, "/documents/proforma"),
+      nav("go-invoices", ["G", "F"], "Invoices", FileStack, "/documents/invoice"),
+      nav("go-goods-issues", ["G", "W"], "Goods Issues", Warehouse, "/documents/goods-issue"),
+      nav("go-products", ["G", "P"], "Products & Prices", Tags, "/products"),
+      nav("go-customers", ["G", "C"], "Customers", Contact, "/customers"),
+      nav("go-inventory", ["G", "I"], "Inventory", Warehouse, "/inventory"),
     ];
-    if (REPORT_ROLES.includes(user.role)) list.push(nav("go-reports", ["G", "R"], "گزارشات", ChartColumn, "/reports"));
+    if (can(user, "reports")) list.push(nav("go-reports", ["G", "R"], "Reports", ChartColumn, "/reports"));
     if (user.role === "ADMIN") {
-      list.push(nav("go-users", ["G", "U"], "کاربران", Users, "/users"));
-      list.push(nav("go-company", ["G", "O"], "اطلاعات شرکت", Building2, "/settings/company"));
+      list.push(nav("go-users", ["G", "U"], "Users", Users, "/users"));
+
     }
 
+    if (can(user, "company")) list.push(nav("go-company", ["G", "O"], "Company Settings", Building2, "/settings/company"));
     const create: [DocumentType, string, string][] = [
-      ["PROFORMA", "P", "پیش‌فاکتور جدید"],
-      ["INVOICE", "I", "فاکتور جدید"],
-      ["GOODS_ISSUE", "G", "حواله خروج جدید"],
+      ["PROFORMA", "P", "New Proforma"],
+      ["INVOICE", "I", "New Invoice"],
+      ["GOODS_ISSUE", "G", "New Goods Issue"],
     ];
     for (const [type, key, label] of create) {
-      if (!DOCUMENT_WRITE_ROLES[type].includes(user.role)) continue;
+      if (!can(user, type.toLowerCase() as Module, true)) continue;
       list.push({
         id: `new-${type}`,
         keys: ["N", key],
@@ -122,7 +126,7 @@ export function CommandMenuProvider({ children }: { children: ReactNode }) {
         run: () => navigate(`/documents/${TYPE_TO_SLUG[type]}/new`),
       });
     }
-    return list;
+    return list.filter((item) => !item.to || canAccessPath(user, item.to));
   }, [user, navigate]);
 
   // Keep the key listener stable while always seeing the latest shortcuts.
@@ -243,9 +247,9 @@ function CommandMenu({
     : [];
 
   const themes: { value: typeof theme; label: string; icon: ReactNode }[] = [
-    { value: "light", label: "پوسته‌ی روشن", icon: <Sun /> },
-    { value: "dark", label: "پوسته‌ی تیره", icon: <Moon /> },
-    { value: "system", label: "پوسته‌ی مطابق سیستم", icon: <Monitor /> },
+    { value: "light", label: "Light Mode", icon: <Sun /> },
+    { value: "dark", label: "Dark Mode", icon: <Moon /> },
+    { value: "system", label: "System Appearance", icon: <Monitor /> },
   ];
   const themeMatches = themes.filter((t) => matchesSearch(`${t.label} theme`, query));
 
@@ -254,23 +258,23 @@ function CommandMenu({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content
-          dir="rtl"
+          dir="ltr"
           aria-describedby={undefined}
-          className="fixed top-[12%] left-1/2 z-50 w-[min(640px,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-xl border bg-popover shadow-2xl data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+          className="fixed top-[12%] left-1/2 z-50 w-[min(640px,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-2xl border bg-popover/95 shadow-2xl backdrop-blur-xl data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
         >
-          <DialogPrimitive.Title className="sr-only">جستجو و دستورات</DialogPrimitive.Title>
+          <DialogPrimitive.Title className="sr-only">Search & Commands</DialogPrimitive.Title>
           {/* Filtering is done here, not by cmdk, so Persian digits and yeh/kaf variants match. */}
-          <Command shouldFilter={false} className="[&_[data-slot=command-input-wrapper]]:h-12">
+          <Command shouldFilter={false} className="text-left [&_[data-slot=command-input-wrapper]]:h-16 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-item]]:min-h-11 [&_[cmdk-item]]:rounded-lg">
             <CommandInput
               value={search}
               onValueChange={setSearch}
-              placeholder="جستجوی سند، کالا یا دستور..."
+              placeholder="Search pages, documents, products or actions…"
             />
             <CommandList className="max-h-[min(420px,60vh)]">
-              <CommandEmpty>{loading && query ? "در حال جستجو..." : "نتیجه‌ای پیدا نشد."}</CommandEmpty>
+              <CommandEmpty>{loading && query ? "Searching…" : "No results found."}</CommandEmpty>
 
               {docMatches.length > 0 && (
-                <CommandGroup heading="اسناد">
+                <CommandGroup heading="Documents">
                   {docMatches.map((d) => (
                     <CommandItem
                       key={d.id}
@@ -278,11 +282,11 @@ function CommandMenu({
                       onSelect={() => run(() => navigate(`/documents/${TYPE_TO_SLUG[d.type]}/${d.id}`))}
                     >
                       <DocumentTypeIcon type={d.type} />
-                      <span className="font-medium tabular-nums">{toDisplayDigits(d.number)}</span>
-                      <span className="text-muted-foreground">{DOCUMENT_TYPE_LABELS[d.type].short}</span>
+                      <span className="font-medium tabular-nums">{d.number}</span>
+                      <span className="text-muted-foreground">{{PROFORMA:"Proforma",INVOICE:"Invoice",GOODS_ISSUE:"Goods Issue"}[d.type]}</span>
                       <span className="truncate">{d.buyerName || d.customer?.name || "—"}</span>
                       <CommandShortcut className="tracking-normal tabular-nums">
-                        {formatJalaliDate(new Date(d.issueDate))}
+                        {new Date(d.issueDate).toLocaleDateString("en-GB")}
                       </CommandShortcut>
                     </CommandItem>
                   ))}
@@ -290,7 +294,7 @@ function CommandMenu({
               )}
 
               {productMatches.length > 0 && (
-                <CommandGroup heading="کالاها">
+                <CommandGroup heading="Products">
                   {productMatches.map((p) => (
                     <CommandItem
                       key={p.id}
@@ -301,15 +305,15 @@ function CommandMenu({
                     >
                       <CategoryIcon category={p.category} />
                       <span className="truncate">{p.name}</span>
-                      <CommandShortcut className="tracking-normal">{p.code ?? CATEGORY_LABELS[p.category]}</CommandShortcut>
+                      <CommandShortcut className="tracking-normal">{p.code ?? "Product"}</CommandShortcut>
                     </CommandItem>
                   ))}
                 </CommandGroup>
               )}
 
-              {commands.length > 0 && (
-                <CommandGroup heading="رفتن و ساختن">
-                  {commands.map((s) => (
+              {["Create", "Navigation"].map((section) => (
+                <CommandGroup key={section} heading={section}>
+                  {commands.filter((s) => section === "Navigation" ? s.id.startsWith("go-") : s.id.startsWith("new-")).map((s) => (
                     <CommandItem key={s.id} value={s.id} onSelect={() => run(s.run)}>
                       {s.icon}
                       <span>{s.label}</span>
@@ -321,15 +325,15 @@ function CommandMenu({
                     </CommandItem>
                   ))}
                 </CommandGroup>
-              )}
+              ))}
 
               {themeMatches.length > 0 && (
-                <CommandGroup heading="پوسته">
+                <CommandGroup heading="Appearance">
                   {themeMatches.map((t) => (
                     <CommandItem key={t.value} value={`theme-${t.value}`} onSelect={() => run(() => setTheme(t.value))}>
                       {t.icon}
                       <span>{t.label}</span>
-                      {theme === t.value && <CommandShortcut className="tracking-normal">فعلی</CommandShortcut>}
+                      {theme === t.value && <CommandShortcut className="tracking-normal">Current</CommandShortcut>}
                     </CommandItem>
                   ))}
                 </CommandGroup>
@@ -338,16 +342,16 @@ function CommandMenu({
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t px-3 py-2 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Kbd>↑</Kbd>
-                <Kbd>↓</Kbd> جابه‌جایی
+                <Kbd>↓</Kbd> Navigate
               </span>
               <span className="flex items-center gap-1">
-                <Kbd>Enter</Kbd> انتخاب
+                <Kbd>Enter</Kbd> Select
               </span>
               <span className="flex items-center gap-1">
-                <Kbd>Esc</Kbd> بستن
+                <Kbd>Esc</Kbd> Close
               </span>
               <span className="ms-auto flex items-center gap-1">
-                <Kbd>Ctrl K</Kbd> یا <Kbd>/</Kbd> باز کردن
+                <Kbd>⌘ K / Ctrl K</Kbd> or <Kbd>/</Kbd> Open
               </span>
             </div>
           </Command>
@@ -366,7 +370,7 @@ export function CommandMenuTrigger() {
       size="sm"
       onClick={open}
       className="gap-2 text-muted-foreground sm:w-56 sm:justify-start"
-      aria-label="جستجو و دستورات"
+      aria-label="Search & Commands"
     >
       <Search />
       <span className="hidden sm:inline">جستجو...</span>

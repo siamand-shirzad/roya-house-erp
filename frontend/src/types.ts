@@ -1,3 +1,4 @@
+import type { Permissions } from "@/lib/permissions";
 export type ProductCategory =
   | "GYPSUM_PANEL"
   | "METAL_STRUCTURE"
@@ -22,6 +23,7 @@ export const CATEGORY_LABELS: Record<ProductCategory, string> = {
 };
 
 export type Product = {
+  brand?: "BANA" | "GBOARD" | "ROYA" | "OTHER" | null;
   id: string;
   code: string | null;
   name: string;
@@ -86,6 +88,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 export type User = {
+  permissions?: Permissions;
   id: string;
   fullName: string;
   username: string;
@@ -99,10 +102,11 @@ export type User = {
 };
 
 /** The signed-in user (GET /api/auth/me). */
-export type AuthUser = Pick<User, "id" | "fullName" | "username" | "phone" | "role">;
+export type AuthUser = Pick<User, "id" | "fullName" | "username" | "phone" | "role" | "permissions">;
 
 /** Row shape accepted by POST /api/products/import (upsert by code). */
 export type ProductImportRow = {
+  brand?: Product["brand"];
   code: string;
   name: string;
   category: ProductCategory;
@@ -231,6 +235,8 @@ export type DocumentTotals = {
 export type DocumentLink = { id: string; type: DocumentType; number: number; status: DocumentStatus };
 
 export type Document = {
+  revisionOfId?: string | null;
+  revisions?: { id: string; type: DocumentType; number: number; status: DocumentStatus }[];
   id: string;
   type: DocumentType;
   number: number;
@@ -238,6 +244,10 @@ export type Document = {
   issueDate: string;
   company: Company | null;
   createdByName?: string | null;
+  /** Last write time; sent back as `expectedUpdatedAt` on save so a stale
+   *  edit (made against data someone else has since changed) is rejected
+   *  instead of silently overwriting their edit. */
+  updatedAt: string;
   issuedAt?: string | null;
   issuedByName?: string | null;
   cancelledAt?: string | null;
