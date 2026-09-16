@@ -100,7 +100,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                       asChild
                       isActive={isActive(item)}
                       tooltip={item.tooltip ?? item.label}
-                      className="h-9 text-[14px] data-[active=true]:bg-sidebar-accent data-[active=true]:[&>svg]:text-sidebar-primary"
+                      className="h-9 text-[14px] data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:shadow-raised data-[active=true]:[&>svg]:text-sidebar-primary"
                     >
                       <Link to={item.to} aria-label={item.label} onClick={() => setOpenMobile(false)}>
                         <item.icon />

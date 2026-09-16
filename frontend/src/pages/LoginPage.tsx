@@ -109,7 +109,7 @@ export function LoginPage() {
           <p className="font-display text-sm tracking-wide text-muted-foreground">Sales &amp; Warehouse</p>
         </div>
 
-        <form onSubmit={submit} className="space-y-4 rounded-xl border bg-card p-6 shadow-sm">
+        <form onSubmit={submit} className="space-y-4 rounded-xl border bg-card p-6 shadow-card">
           <div className="space-y-1">
             <h1 className="flex items-center gap-2 text-lg font-bold">
               {isSetup ? <ShieldCheck className="size-5 text-primary" /> : <LogIn className="size-5 text-primary" />}

@@ -680,7 +680,7 @@ export function DocumentFormPage() {
           <Textarea id="document-notes" value={notes} onChange={(e) => setNotes(e.target.value)} disabled={!editable || saving || busyAction !== null} rows={2} />
         </div>
 
-        <div className="sticky bottom-3 z-20 flex flex-wrap items-center gap-2 rounded-xl border bg-background p-3 shadow-lg" aria-label="عملیات و جمع سند">
+        <div className="sticky bottom-3 z-20 flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3 shadow-card-hover" aria-label="عملیات و جمع سند">
           <div className="me-auto flex flex-col gap-1" aria-live="polite">
             <span className="text-xs text-muted-foreground">{type === "GOODS_ISSUE" ? "تعداد ردیف‌ها" : "جمع کل (تومان)"}</span>
             <span className="font-semibold tabular-nums">{type === "GOODS_ISSUE" ? formatNumber(items.length) : formatToman(computeDocumentTotals(items).grandTotal)}</span>

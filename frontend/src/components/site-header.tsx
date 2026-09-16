@@ -120,7 +120,7 @@ function SearchButton() {
 
 export function SiteHeader({ title, actions }: { title: string; actions?: ReactNode }) {
   return (
-    <header className="sticky top-0 z-20 flex min-h-(--header-height) shrink-0 items-center gap-2 border-b bg-background/85 backdrop-blur transition-[width,height] ease-linear supports-[backdrop-filter]:bg-background/70 md:h-(--header-height) md:rounded-t-xl">
+    <header className="sticky top-0 z-20 flex min-h-(--header-height) shrink-0 items-center gap-2 border-b border-border/70 bg-background/85 shadow-header backdrop-blur transition-[width,height] ease-linear supports-[backdrop-filter]:bg-background/70 md:h-(--header-height) md:rounded-t-xl">
       <div className="flex w-full flex-wrap items-center gap-1 px-3 py-2 md:flex-nowrap md:py-0 lg:gap-2 lg:px-6">
         <SidebarTrigger className="-mr-1" />
         <BackButton />

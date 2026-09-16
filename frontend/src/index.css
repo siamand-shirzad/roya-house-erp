@@ -3,83 +3,98 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Grey neutrals with one mellow red. Surfaces, text and borders are neutral
-   greys (chroma 0) from near-white to near-black; the accent is the logo's red
-   (#ab2c33) with its chroma turned down, so it warms the UI without shouting.
-   It marks the primary action, focus, active navigation and charts. The
-   destructive red stays hotter and more saturated so the two never read as the
-   same thing. Printed documents (DocumentPrint) keep the exact brand red. */
+/* Brand palette: charcoal #323333, warm grey #DBDBDA and cool border grey
+   #D1D5DB, with the logo's red (#ab2c33) as the one accent, chroma turned down.
+   - Light: a warm grey page (#EEEEED) with white cards that lift off it on a
+     soft two-layer shadow; the sidebar is the deeper #DBDBDA band with white
+     "raised" active items; text is charcoal.
+   - Dark: #1C1D1D page, charcoal #323333 cards with a thin highlight edge.
+   - The mellow red marks the primary action, focus, active navigation and
+     charts. A brighter signal red (#E84B3D) was tried and rejected.
+   - Destructive stays hotter and more saturated so the two never read as the
+     same thing, and destructive actions still carry an icon and wording.
+   Printed documents (DocumentPrint) keep their own fixed brand colours. */
 :root {
   --radius: 0.625rem;
-  --background: oklch(0.985 0 0);
-  --foreground: oklch(0.16 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.16 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.16 0 0);
+  --background: #eeeeed;
+  --foreground: #323333;
+  --card: #ffffff;
+  --card-foreground: #323333;
+  --popover: #ffffff;
+  --popover-foreground: #323333;
   --primary: oklch(0.5 0.105 22);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.955 0 0);
-  --secondary-foreground: oklch(0.2 0 0);
-  --muted: oklch(0.955 0 0);
-  --muted-foreground: oklch(0.5 0 0);
+  --secondary: #e4e4e3;
+  --secondary-foreground: #323333;
+  --muted: #e6e6e5;
+  --muted-foreground: #626363;
   --accent: oklch(0.955 0.01 22);
   --accent-foreground: oklch(0.3 0.06 22);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.9 0 0);
-  --input: oklch(0.9 0 0);
+  --border: #d1d5db;
+  --input: #d1d5db;
   --ring: oklch(0.6 0.09 22);
-  /* Mellow red first (single-series charts use chart-1), then the grey ramp. */
+  /* Mellow red first (single-series charts use chart-1), then charcoal, a
+     cool grey, amber and a light grey, so multi-series charts stay readable. */
   --chart-1: oklch(0.55 0.11 22);
-  --chart-2: oklch(0.4 0 0);
-  --chart-3: oklch(0.62 0 0);
-  --chart-4: oklch(0.75 0 0);
-  --chart-5: oklch(0.86 0 0);
-  /* In light mode the sidebar is part of the same paper-like surface system. */
-  --sidebar: oklch(0.975 0 0);
-  --sidebar-foreground: oklch(0.2 0 0);
+  --chart-2: #323333;
+  --chart-3: #9ca3af;
+  --chart-4: #f59e0b;
+  --chart-5: #d1d5db;
+  --sidebar: #dbdbda;
+  --sidebar-foreground: #323333;
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: oklch(0.925 0.008 22);
-  --sidebar-accent-foreground: oklch(0.25 0 0);
-  --sidebar-border: oklch(0.875 0 0);
+  --sidebar-accent: #f7f7f6;
+  --sidebar-accent-foreground: #323333;
+  --sidebar-border: #c9ccd1;
   --sidebar-ring: var(--ring);
+  /* Elevation: a tight contact shadow plus a wide soft one, tinted charcoal. */
+  --elev-card: 0 1px 2px rgb(50 51 51 / 0.06), 0 4px 14px -4px rgb(50 51 51 / 0.1);
+  --elev-card-hover: 0 2px 4px rgb(50 51 51 / 0.08), 0 14px 28px -8px rgb(50 51 51 / 0.18);
+  --elev-raised: 0 1px 2px rgb(50 51 51 / 0.08), 0 2px 6px -1px rgb(50 51 51 / 0.1);
+  --elev-header: 0 1px 0 rgb(50 51 51 / 0.04), 0 6px 16px -10px rgb(50 51 51 / 0.2);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.975 0 0);
-  --card: oklch(0.195 0 0);
-  --card-foreground: oklch(0.975 0 0);
-  --popover: oklch(0.21 0 0);
-  --popover-foreground: oklch(0.975 0 0);
+  --background: #1c1d1d;
+  --foreground: #f4f4f3;
+  --card: #323333;
+  --card-foreground: #f4f4f3;
+  --popover: #3a3b3b;
+  --popover-foreground: #f4f4f3;
   --primary: oklch(0.7 0.1 22);
   --primary-foreground: oklch(0.17 0.02 22);
-  --secondary: oklch(0.27 0 0);
-  --secondary-foreground: oklch(0.975 0 0);
-  --muted: oklch(0.26 0 0);
-  --muted-foreground: oklch(0.71 0 0);
+  --secondary: #3a3b3b;
+  --secondary-foreground: #f4f4f3;
+  --muted: #2a2b2b;
+  --muted-foreground: #a8a8a7;
   --accent: oklch(0.29 0.02 22);
   --accent-foreground: oklch(0.95 0.02 22);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
+  --border: rgb(219 219 218 / 0.12);
+  --input: rgb(219 219 218 / 0.16);
   --ring: oklch(0.66 0.09 22);
   --chart-1: oklch(0.7 0.1 22);
-  --chart-2: oklch(0.8 0 0);
-  --chart-3: oklch(0.6 0 0);
-  --chart-4: oklch(0.46 0 0);
-  --chart-5: oklch(0.35 0 0);
-  --sidebar: oklch(0.17 0 0);
-  --sidebar-foreground: oklch(0.92 0 0);
+  --chart-2: #dbdbda;
+  --chart-3: #9ca3af;
+  --chart-4: #fbbf24;
+  --chart-5: #5b5c5c;
+  --sidebar: #151616;
+  --sidebar-foreground: #dbdbda;
   --sidebar-primary: oklch(0.72 0.1 22);
   --sidebar-primary-foreground: oklch(0.17 0 0);
-  --sidebar-accent: oklch(0.26 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-accent: #323333;
+  --sidebar-accent-foreground: #f4f4f3;
+  --sidebar-border: rgb(219 219 218 / 0.09);
   --sidebar-ring: oklch(0.72 0.1 22);
+  /* Shadows barely show on dark surfaces, so a faint top highlight does the lifting. */
+  --elev-card: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 18px -6px rgb(0 0 0 / 0.55);
+  --elev-card-hover: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 2px 4px rgb(0 0 0 / 0.45), 0 16px 32px -10px rgb(0 0 0 / 0.7);
+  --elev-raised: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 1px 3px rgb(0 0 0 / 0.5);
+  --elev-header: 0 1px 0 rgb(0 0 0 / 0.3), 0 8px 18px -12px rgb(0 0 0 / 0.8);
 }
 
 /* Font stacks: the Latin font comes first so Latin letters and all digits use
@@ -123,6 +138,10 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --shadow-card: var(--elev-card);
+  --shadow-card-hover: var(--elev-card-hover);
+  --shadow-raised: var(--elev-raised);
+  --shadow-header: var(--elev-header);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);

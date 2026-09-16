@@ -36,7 +36,7 @@ function KpiCard({ kpi, loading, index }: { kpi: Kpi; loading: boolean; index: n
       className={cn("group rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", REVEAL)}
       style={stagger(index)}
     >
-      <Card className="h-full gap-3 transition-[border-color,box-shadow,translate] duration-200 ease-out group-hover:border-primary/30 group-hover:shadow-md motion-safe:group-hover:-translate-y-0.5">
+      <Card className="h-full gap-3 transition-[border-color,box-shadow,translate] duration-200 ease-out group-hover:border-primary/30 group-hover:shadow-card-hover motion-safe:group-hover:-translate-y-0.5">
         <CardHeader>
           <CardDescription>{kpi.label}</CardDescription>
           <CardAction>
