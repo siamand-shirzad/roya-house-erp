@@ -8,10 +8,11 @@ import { SharePdfButton } from "@/components/documents/SharePdfButton";
 import { ShamsiDatePicker } from "@/components/shamsi-date-picker";
 import { StatusBadge } from "@/components/documents/StatusBadge";
 import { SegmentedControl } from "@/components/segmented-control";
+import { DocumentTypeTabs } from "@/components/documents/DocumentTypeTabs";
 import { computeDocumentTotals } from "@/lib/totals";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -169,7 +170,7 @@ export function DocumentFormPage() {
   const [saveCustomerOpen, setSaveCustomerOpen] = useState(false);
   // The buyer card is a one-line summary by default and expands on demand, so
   // the items table — the part that actually gets edited — starts at the top.
-  const [buyerOpen, setBuyerOpen] = useState(!id);
+  const [buyerOpen, setBuyerOpen] = useState(false);
   const [goodsIssue, setGoodsIssue] = useState<GoodsIssueFormState>(EMPTY_GOODS_ISSUE);
   const [notes, setNotes] = useState("");
   // Proformas: last day the prices hold (YYYY-MM-DD, "" = not stated).
@@ -493,12 +494,15 @@ export function DocumentFormPage() {
   return (
     // On very wide screens the preview sits beside the editor and stays in view;
     // below that it follows the editor, as before.
-    <div className="flex min-w-0 flex-col gap-4 p-4 md:p-6">
-      <div className="2xl:hidden"><SegmentedControl ariaLabel="نمای سند" value={editorView} onValueChange={setEditorView} items={[{ value: "entry", label: "ورود اطلاعات" }, { value: "preview", label: "پیش‌نمایش و PDF" }]} /></div>
-      <div className="grid min-w-0 grid-cols-1 gap-8 2xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)] 2xl:items-start">
-      <div className={cn("min-w-0 flex-col gap-4", editorView === "entry" ? "flex" : "hidden 2xl:flex")}>
+    <div className="flex min-w-0 flex-col gap-3 p-2 sm:p-4 md:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <DocumentTypeTabs active={type} creating={!id} />
+        <div className="2xl:hidden"><SegmentedControl ariaLabel="نمای سند" value={editorView} onValueChange={setEditorView} items={[{ value: "entry", label: "ورود اطلاعات" }, { value: "preview", label: "پیش‌نمایش و PDF" }]} /></div>
+      </div>
+      <div className="grid min-w-0 grid-cols-1 gap-0 overflow-hidden rounded-xl border bg-card 2xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)] 2xl:items-start">
+      <div className={cn("min-w-0 overflow-hidden bg-card [&>[data-slot=card]]:rounded-none [&>[data-slot=card]]:border-x-0 [&>[data-slot=card]]:border-t-0 [&>[data-slot=card]]:shadow-none", editorView === "entry" ? "flex flex-col" : "hidden 2xl:flex 2xl:flex-col")}>
         {savedDoc && (
-          <div className="flex flex-wrap items-center gap-2 text-sm">
+          <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3 text-sm">
             <StatusBadge status={savedDoc.status} />
             <PaymentStateBadge doc={savedDoc} />
             <span className="text-muted-foreground">
@@ -544,7 +548,7 @@ export function DocumentFormPage() {
         )}
 
         {locked && (
-          <div className="flex items-start gap-2 rounded-lg border bg-muted/50 px-3 py-2.5 text-sm text-muted-foreground">
+          <div className="flex items-start gap-2 border-b bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
             <Lock className="mt-0.5 size-4 shrink-0" />
             <p>
               {type === "PROFORMA" && isIssued ? "این نسخه صادر شده است. برای اصلاح، «ویرایش پیش‌فاکتور (نسخه جدید)» را بزنید؛ نسخه قبلی حفظ می‌شود." : `این سند ${savedDoc?.status === "CANCELLED" ? "باطل شده" : "صادر شده"} و قابل ویرایش نیست.`}
@@ -553,34 +557,28 @@ export function DocumentFormPage() {
           </div>
         )}
         {!locked && !canWrite && (
-          <div className="flex items-start gap-2 rounded-lg border bg-muted/50 px-3 py-2.5 text-sm text-muted-foreground">
+          <div className="flex items-start gap-2 border-b bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
             <Lock className="mt-0.5 size-4 shrink-0" />
             <p>شما اجازه‌ی ثبت یا ویرایش {DOCUMENT_TYPE_LABELS[type].title} را ندارید.</p>
           </div>
         )}
 
-        <Collapsible asChild open={buyerOpen} onOpenChange={setBuyerOpen}>
-          <Card className="gap-3 py-4">
-            <CardHeader className="px-4">
-              <CardTitle className="text-base">مشخصات خریدار</CardTitle>
-              {!buyerOpen && (
-                <CardDescription className="truncate">
-                  {[buyer.buyerName || "بدون نام", buyer.buyerPhone, buyer.buyerCity].filter(Boolean).join(" · ")}
-                </CardDescription>
-              )}
-              <CardAction>
+        <Collapsible open={buyerOpen} onOpenChange={setBuyerOpen} className="flex flex-col gap-3 border-b p-3 sm:p-4">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="font-medium">خریدار</h2>
                 <CollapsibleTrigger asChild>
                   <Button type="button" variant="ghost" size="sm">
-                    {buyerOpen ? "بستن" : editable ? "ویرایش" : "جزئیات"}
-                    <ChevronDown className={cn("transition-transform duration-200", buyerOpen && "rotate-180")} />
+                    {buyerOpen ? "بستن مشخصات" : "مشخصات خریدار"}
+                    <ChevronDown className={cn("transition-transform", buyerOpen && "rotate-180")} />
                   </Button>
                 </CollapsibleTrigger>
-              </CardAction>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3 px-4">
+              </div>
               {editable && (
                 <div className="flex flex-wrap items-center gap-2">
-                  <CustomerPicker onSelect={applyCustomer} />
+                  <CustomerPicker onSelect={applyCustomer} label={customerName || "انتخاب از مشتریان..."} className="min-w-0 flex-1" disabled={saving || busyAction !== null} />
+                  <Button type="button" variant="outline" size="sm" disabled={saving || busyAction !== null} onClick={() => setSaveCustomerOpen(true)}>
+                    <UserPlus /> ثبت مشتری
+                  </Button>
                   {customerId ? (
                     <Badge variant="outline" className="gap-1 py-1">
                       از مشتری: {customerName ?? buyer.buyerName}
@@ -597,20 +595,13 @@ export function DocumentFormPage() {
                         <span className="sr-only">جدا کردن از مشتری</span>
                       </button>
                     </Badge>
-                  ) : (
-                    buyer.buyerName.trim() !== "" && (
-                      <Button variant="ghost" size="sm" onClick={() => setSaveCustomerOpen(true)}>
-                        <UserPlus /> ثبت در فهرست مشتریان
-                      </Button>
-                    )
-                  )}
+                  ) : null}
                 </div>
               )}
+              {!buyerOpen && <p className="text-sm text-muted-foreground">{[buyer.buyerName, buyer.buyerPhone].filter(Boolean).join(" · ") || "مشتری انتخاب نشده"}</p>}
               <CollapsibleContent className="overflow-hidden motion-safe:data-[state=closed]:animate-collapsible-up motion-safe:data-[state=open]:animate-collapsible-down">
                 <BuyerForm value={buyer} onChange={setBuyer} disabled={!editable || saving || busyAction !== null} />
               </CollapsibleContent>
-            </CardContent>
-          </Card>
         </Collapsible>
 
         {typeNeedsGoodsIssueFields(type) && (
@@ -625,7 +616,7 @@ export function DocumentFormPage() {
         )}
 
         {type === "PROFORMA" && (
-          <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card px-4 py-3 text-sm">
+          <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3 text-sm">
             <span className="font-medium">اعتبار پیش‌فاکتور تا</span>
             {editable ? (
               <>
@@ -659,11 +650,7 @@ export function DocumentFormPage() {
 
         {savedDoc && type === "INVOICE" && isIssued && <InvoicePaymentsCard doc={savedDoc} onChanged={refreshSaved} />}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>اقلام</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <section aria-label="اقلام سند" className="border-b">
             {/* Stock is only meaningful before issuing; afterwards this document is already deducted. */}
             <ItemsEditor
               type={type}
@@ -672,15 +659,14 @@ export function DocumentFormPage() {
               disabled={!editable || saving || busyAction !== null}
               stock={isDraft ? (stock ?? undefined) : undefined}
             />
-          </CardContent>
-        </Card>
+        </section>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 border-b px-4 py-4">
           <Label htmlFor="document-notes">یادداشت سند (اختیاری)</Label>
           <Textarea id="document-notes" value={notes} onChange={(e) => setNotes(e.target.value)} disabled={!editable || saving || busyAction !== null} rows={2} />
         </div>
 
-        <div className="sticky bottom-3 z-20 flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3 shadow-card-hover" aria-label="عملیات و جمع سند">
+        <div className="sticky bottom-0 z-20 flex flex-wrap items-center gap-2 bg-card/95 p-3 shadow-[0_-8px_24px_-20px_rgba(0,0,0,.45)] backdrop-blur" aria-label="عملیات و جمع سند">
           <div className="me-auto flex flex-col gap-1" aria-live="polite">
             <span className="text-xs text-muted-foreground">{type === "GOODS_ISSUE" ? "تعداد ردیف‌ها" : "جمع کل (تومان)"}</span>
             <span className="font-semibold tabular-nums">{type === "GOODS_ISSUE" ? formatNumber(items.length) : formatToman(computeDocumentTotals(items).grandTotal)}</span>
@@ -727,6 +713,7 @@ export function DocumentFormPage() {
         </div>
 
         <CustomerFormDialog
+          compact
           open={saveCustomerOpen}
           onOpenChange={setSaveCustomerOpen}
           customer={null}
@@ -905,7 +892,7 @@ export function DocumentFormPage() {
         )}
       </div>
 
-      <section className={cn("min-w-0 space-y-3 2xl:sticky 2xl:top-[calc(var(--header-height)+1.5rem)]", editorView === "entry" && "hidden 2xl:block")}>
+      <section className={cn("flex min-w-0 flex-col gap-3 p-3 2xl:border-s 2xl:p-4", editorView === "entry" && "hidden 2xl:flex")}>
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">پیش‌نمایش سند</h3>
           <div className="flex items-center gap-2">

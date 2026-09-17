@@ -1,6 +1,15 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@font-face {
+  font-family: "Geist Pixel Square";
+  src: url("./assets/fonts/GeistPixel-Square.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+  unicode-range: U+0030-0039;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 /* Brand palette: charcoal #323333, warm grey #DBDBDA and cool border grey
@@ -55,46 +64,54 @@
   --elev-card-hover: 0 2px 4px rgb(50 51 51 / 0.08), 0 14px 28px -8px rgb(50 51 51 / 0.18);
   --elev-raised: 0 1px 2px rgb(50 51 51 / 0.08), 0 2px 6px -1px rgb(50 51 51 / 0.1);
   --elev-header: 0 1px 0 rgb(50 51 51 / 0.04), 0 6px 16px -10px rgb(50 51 51 / 0.2);
+  --elev-panel: var(--elev-card);
 }
 
+/* Dark mode: stacked dark-grey neutrals (never pure black), Linear-style,
+   pitched between the earlier charcoal (#1C1D1D / #323333) and a near-black
+   take. The floating sidebar is the deepest layer, the page one step up,
+   cards and the floating header one more with a faint top highlight, and
+   popovers highest. Depth comes from these steps and 1px light edges; drop shadows are
+   kept deep and soft because they barely show on dark. Text is off-white
+   (15:1 on cards), secondary text #A8A8AA (6.5:1). The mellow red is unchanged. */
 .dark {
-  --background: #1c1d1d;
-  --foreground: #f4f4f3;
-  --card: #323333;
-  --card-foreground: #f4f4f3;
-  --popover: #3a3b3b;
-  --popover-foreground: #f4f4f3;
+  --background: #181919;
+  --foreground: #ececed;
+  --card: #232424;
+  --card-foreground: #ececed;
+  --popover: #2b2c2c;
+  --popover-foreground: #ececed;
   --primary: oklch(0.7 0.1 22);
   --primary-foreground: oklch(0.17 0.02 22);
-  --secondary: #3a3b3b;
-  --secondary-foreground: #f4f4f3;
+  --secondary: #2e2f2f;
+  --secondary-foreground: #ececed;
   --muted: #2a2b2b;
-  --muted-foreground: #a8a8a7;
+  --muted-foreground: #a8a8aa;
   --accent: oklch(0.29 0.02 22);
   --accent-foreground: oklch(0.95 0.02 22);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: rgb(219 219 218 / 0.12);
-  --input: rgb(219 219 218 / 0.16);
+  --border: rgb(255 255 255 / 0.08);
+  --input: rgb(255 255 255 / 0.12);
   --ring: oklch(0.66 0.09 22);
   --chart-1: oklch(0.7 0.1 22);
-  --chart-2: #dbdbda;
-  --chart-3: #9ca3af;
+  --chart-2: #d4d4d6;
+  --chart-3: #8a8a8e;
   --chart-4: #fbbf24;
-  --chart-5: #5b5c5c;
-  --sidebar: #151616;
-  --sidebar-foreground: #dbdbda;
+  --chart-5: #545556;
+  --sidebar: #121313;
+  --sidebar-foreground: #c9c9cc;
   --sidebar-primary: oklch(0.72 0.1 22);
   --sidebar-primary-foreground: oklch(0.17 0 0);
-  --sidebar-accent: #323333;
-  --sidebar-accent-foreground: #f4f4f3;
-  --sidebar-border: rgb(219 219 218 / 0.09);
+  --sidebar-accent: rgb(255 255 255 / 0.06);
+  --sidebar-accent-foreground: #f4f4f5;
+  --sidebar-border: rgb(255 255 255 / 0.07);
   --sidebar-ring: oklch(0.72 0.1 22);
-  /* Shadows barely show on dark surfaces, so a faint top highlight does the lifting. */
-  --elev-card: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 1px 2px rgb(0 0 0 / 0.4), 0 6px 18px -6px rgb(0 0 0 / 0.55);
-  --elev-card-hover: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 2px 4px rgb(0 0 0 / 0.45), 0 16px 32px -10px rgb(0 0 0 / 0.7);
-  --elev-raised: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 1px 3px rgb(0 0 0 / 0.5);
-  --elev-header: 0 1px 0 rgb(0 0 0 / 0.3), 0 8px 18px -12px rgb(0 0 0 / 0.8);
+  --elev-card: inset 0 1px 0 rgb(255 255 255 / 0.035), 0 1px 2px rgb(0 0 0 / 0.5);
+  --elev-card-hover: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 12px 32px -12px rgb(0 0 0 / 0.9);
+  --elev-raised: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 1px 2px rgb(0 0 0 / 0.6);
+  --elev-header: 0 1px 0 rgb(255 255 255 / 0.04);
+  --elev-panel: 0 0 0 1px rgb(255 255 255 / 0.06), 0 20px 50px -30px rgb(0 0 0 / 0.9);
 }
 
 /* Font stacks: the Latin font comes first so Latin letters and all digits use
@@ -102,7 +119,8 @@
 @theme {
   --font-sans: "Inter Variable", "IBM Plex Sans Arabic", system-ui, sans-serif;
   --font-display: "Space Grotesk", "IBM Plex Sans Arabic", system-ui, sans-serif;
-  --font-mono: "Geist Mono Variable", "IBM Plex Sans Arabic", ui-monospace, monospace;
+  --font-mono: "IBM Plex Mono", "IBM Plex Sans Arabic", ui-monospace, monospace;
+  --font-numeric: "Geist Pixel Square", var(--font-sans);
 }
 
 @theme inline {
@@ -142,6 +160,7 @@
   --shadow-card-hover: var(--elev-card-hover);
   --shadow-raised: var(--elev-raised);
   --shadow-header: var(--elev-header);
+  --shadow-panel: var(--elev-panel);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -190,8 +209,24 @@
 .tabular-nums,
 [data-numeric],
 input[type="number"] {
-  font-family: var(--font-mono);
+  font-family: var(--font-numeric);
   font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* Chrome (buttons, badges, headers, nav, tabs) isn't meant to be selected as
+   text — only real data (item names, notes, document content) should be. */
+[data-slot="button"],
+[data-slot="badge"],
+[data-slot="card-title"],
+[data-slot="card-description"],
+[data-slot="table-head"],
+[data-slot="sidebar-menu-button"],
+[data-slot="sidebar-group-label"],
+[data-slot="sidebar-trigger"],
+[data-slot="select-trigger"],
+[data-segment] {
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .shamsi-calendar.rdp-root {
@@ -222,12 +257,82 @@ input[type="number"] {
   [data-slot="checkbox"] { width: 22px; height: 22px; }
   .mobile-data-table, .mobile-data-table tbody { display: block; min-width: 0; width: 100%; }
   .mobile-data-table thead { display: none; }
-  .mobile-data-table tbody tr { display: flex; flex-direction: column; padding: 12px; gap: 6px; }
-  .mobile-data-table td { display: block; width: 100%; min-width: 0; white-space: normal; font-size: 14px; }
-  .mobile-data-table td[data-label] { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(0, 1.5fr); align-items: center; gap: 8px; }
-  .mobile-data-table td[data-label]::before { content: attr(data-label); font-size: 13px; color: var(--muted-foreground); }
-  .mobile-data-table td[data-label] > div:has(+ div) { grid-column: 2; }
-  .mobile-data-table td[data-label] > div + div { grid-column: 2; }
+  /* Phones: each row is a compact card, two columns of label-over-value
+     cells. The first labelled cell (name / number) spans the row and leaves
+     room on the left for the row menu, which is pinned to that corner. */
+  .mobile-data-table tbody tr { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 8px; padding: 6px 4px; }
+  .mobile-data-table td { display: block; width: auto; min-width: 0; white-space: normal; font-size: 14px; }
+  .mobile-data-table td.row-control { width: auto; }
+  .mobile-data-table td[colspan],
+  .mobile-data-table td:not([data-label]):not(.row-control):not(:last-child) { grid-column: 1 / -1; }
+  .mobile-data-table td[data-label] { display: flex; flex-direction: column; gap: 1px; padding-block: 4px; }
+  .mobile-data-table td[data-label]::before { content: attr(data-label); font-size: 11px; line-height: 1.3; color: var(--muted-foreground); }
+  /* A cell marked data-primary is the row's title; otherwise the first labelled one is. */
+  .mobile-data-table tr:not(:has(td[data-primary])) td:nth-child(1 of [data-label]),
+  .mobile-data-table td[data-primary] { grid-column: 1 / -1; font-size: 15px; padding-left: 48px; }
+  .mobile-data-table tr:not(:has(td[data-primary])) td:nth-child(1 of [data-label])::before,
+  .mobile-data-table td[data-primary]::before { display: none; }
+  .mobile-data-table td:last-child:not([data-label]):not([colspan]):not(.row-control) { position: absolute; top: 4px; left: 4px; width: auto; padding: 0; }
+  .mobile-data-table td.mobile-hide { display: none; }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@media (max-width: 639px) {
+  [data-radix-popper-content-wrapper]:has(> [data-slot="dropdown-menu-content"]),
+  [data-radix-popper-content-wrapper]:has(> [data-mobile-sheet]) {
+    position: fixed !important;
+    inset: auto 0 0 0 !important;
+    transform: none !important;
+    min-width: 0 !important;
+  }
+  [data-slot="dropdown-menu-content"],
+  [data-mobile-sheet] {
+    width: 100vw !important;
+    max-width: none !important;
+    max-height: 75dvh !important;
+    border-radius: 1rem 1rem 0 0 !important;
+    border-bottom: 0 !important;
+    padding: 0.5rem 0.5rem calc(0.75rem + env(safe-area-inset-bottom)) !important;
+    /* The spread shadow doubles as the backdrop; a tap on it closes the menu. */
+    box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.45) !important;
+    animation: sheet-up 220ms cubic-bezier(0.22, 1, 0.36, 1) both !important;
+  }
+  [data-slot="dropdown-menu-content"]::before,
+  [data-mobile-sheet]::before {
+    content: "";
+    display: block;
+    width: 2.5rem;
+    height: 0.25rem;
+    margin: 0.25rem auto 0.5rem;
+    border-radius: 999px;
+    background: var(--border);
+  }
+  [data-slot="dropdown-menu-item"],
+  [data-slot="dropdown-menu-radio-item"] {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 639px) and (prefers-reduced-motion: reduce) {
+  [data-slot="dropdown-menu-content"],
+  [data-mobile-sheet] {
+    animation: none !important;
+  }
+}
+
+@media (max-width: 639px) {
+  [data-slot="dialog-content"] {
+    inset: auto 0 0 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    transform: none !important;
+    border-radius: 1rem 1rem 0 0;
+  }
 }
 
 @media (max-width: 767px) {

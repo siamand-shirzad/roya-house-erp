@@ -305,9 +305,8 @@ export function InventoryPage() {
                 </Button>
               </div>
             ) : (
-              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                <p>کالاها را با چک‌باکس انتخاب کنید تا عملیات گروهی ظاهر شود. دستگیره را بکشید تا ترتیب را عوض کنید (در همین مرورگر ذخیره می‌شود).</p>
-                <Button size="sm" variant="ghost" className="ms-auto" onClick={exportSelected}>
+              <div className="flex justify-end">
+                <Button size="sm" variant="ghost" onClick={exportSelected}>
                   <Download /> خروجی CSV
                 </Button>
               </div>
@@ -317,8 +316,10 @@ export function InventoryPage() {
               <table className="mobile-data-table w-full md:min-w-[760px] text-sm">
                 <thead className="bg-muted/50 text-muted-foreground">
                   <tr className="border-b">
-                    <th className={cn(TH, "w-20")}>
-                      <div className="flex items-center gap-2 ps-2">
+                    <th className="w-12 px-3 py-2.5"><span className="sr-only">جابه‌جایی</span></th>
+
+                    <th className={cn(TH, "w-12")}>
+                      <div className="flex items-center justify-center">
                         <Checkbox
                           aria-label="انتخاب همه‌ی ردیف‌های این صفحه"
                           checked={pageChecked ? true : pageSome ? "indeterminate" : false}
@@ -331,6 +332,7 @@ export function InventoryPage() {
                     <th className={cn(TH, "w-32")}>موجودی</th>
                     <th className={cn(TH, "w-28")}>حداقل</th>
                     <th className={cn(TH, "w-32")}>وضعیت</th>
+
                     <th className="w-12 px-3 py-2.5">
                       <span className="sr-only">عملیات</span>
                     </th>
@@ -340,7 +342,7 @@ export function InventoryPage() {
                   {stockLoading &&
                     Array.from({ length: 6 }).map((_, i) => (
                       <tr key={i}>
-                        {Array.from({ length: 7 }).map((__, j) => (
+                        {Array.from({ length: 8 }).map((__, j) => (
                           <td key={j} className="px-3 py-3">
                             <Skeleton className="h-4 w-full max-w-28" />
                           </td>
@@ -350,7 +352,7 @@ export function InventoryPage() {
 
                   {!stockLoading && stockRows.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="px-3 py-14 text-center text-muted-foreground">
+                      <td colSpan={8} className="px-3 py-14 text-center text-muted-foreground">
                         {lowOnly ? "کالایی زیر حداقل موجودی نیست." : "کالایی با این جستجو پیدا نشد."}
                       </td>
                     </tr>
@@ -359,23 +361,22 @@ export function InventoryPage() {
                   {!stockLoading &&
                     stockPager.pageRows.map((r) => (
                       <SortableStockRow key={r.productId} id={r.productId}>
-                        <td className="px-2 py-1">
-                          <div className="flex items-center gap-1">
+                        <td className="row-control px-1 py-1 max-md:absolute max-md:right-1 max-md:top-2"><StockDragHandle name={r.name} /></td>
+
+                        <td className="row-control px-2 py-1 max-md:absolute max-md:right-14 max-md:top-2 max-md:z-10">
+                          <div className="flex items-center justify-center">
                             <Checkbox
-                              className="ms-2"
                               aria-label={`انتخاب ${r.name}`}
                               checked={selected.has(r.productId)}
                               onCheckedChange={(v) => toggle(r.productId, v === true)}
                             />
-                            <StockDragHandle name={r.name} />
                           </div>
                         </td>
-                        <td data-label="کالا" className="px-3 py-2 font-medium">
+                        <td data-label="کالا" className="px-3 py-2 font-medium max-md:pr-28">
                           {r.name}
                           {r.spec && <div className="text-xs font-normal text-muted-foreground">{r.spec}</div>}
-                          {r.code && <bdi dir="ltr" className="text-xs font-normal text-muted-foreground">{r.code}</bdi>}
                         </td>
-                        <td data-label="دسته" className="px-3 py-2 text-muted-foreground">
+                        <td data-label="دسته" className="mobile-hide px-3 py-2 text-muted-foreground">
                           <span className="flex items-center gap-1.5">
                             <CategoryIcon category={r.category} className="size-4" />
                             {CATEGORY_LABELS[r.category]}
@@ -390,13 +391,14 @@ export function InventoryPage() {
                           </span>{" "}
                           <span className="text-xs text-muted-foreground">{r.unit}</span>
                         </div></td>
-                        <td data-label="حداقل" className="px-3 py-2 tabular-nums text-muted-foreground">
+                        <td data-label="حداقل" className="mobile-hide px-3 py-2 tabular-nums text-muted-foreground">
                           {r.minStock === null ? "—" : formatNumber(r.minStock)}
                         </td>
                         <td data-label="وضعیت" className="px-3 py-2">
                           {stockLevel(r) === "ok" ? <span className="text-muted-foreground">عادی</span> : <StockLevelBadge row={r} />}
                         </td>
-                        <td className="px-1.5 py-1">
+
+                        <td className="row-control px-1.5 py-1 max-md:absolute max-md:left-1 max-md:top-2">
                           <DropdownMenu dir="rtl" modal={false}>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon" aria-label={`عملیات ${r.name}`}>

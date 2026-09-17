@@ -107,7 +107,7 @@ export function HeaderNotifications() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-0">
+      <PopoverContent align="end" data-mobile-sheet="" className="w-80 p-0">
         <div className="border-b px-4 py-2.5 text-sm font-semibold">نیازمند توجه</div>
         {alerts === null ? (
           <p className="px-4 py-6 text-center text-sm text-muted-foreground">در حال بررسی...</p>

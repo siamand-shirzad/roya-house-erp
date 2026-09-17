@@ -146,12 +146,13 @@ export function DocumentListPage() {
 
   return (
     <div className="space-y-4 p-4 md:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Phones: tabs and an icon-only "new" button share one row. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 max-sm:flex-nowrap max-sm:gap-2">
         <DocumentTypeTabs active={type} search={`?${new URLSearchParams([...params].filter(([key]) => key !== "page"))}`} />
         {canWrite && (
-          <Button asChild>
+          <Button asChild className="max-sm:size-11 max-sm:shrink-0 max-sm:px-0" aria-label={NEW_LABEL[type]}>
             <Link to={newHref}>
-              <Plus /> {NEW_LABEL[type]}
+              <Plus /> <span className="max-sm:sr-only">{NEW_LABEL[type]}</span>
             </Link>
           </Button>
         )}
@@ -188,13 +189,14 @@ export function DocumentListPage() {
       </div>
 
       <Card className="overflow-hidden p-0">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 md:px-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 max-sm:py-2 md:px-5">
           <p className="text-sm text-muted-foreground tabular-nums">
             {loading ? "در حال بارگذاری..." : `${toDisplayDigits(pageInfo.total)} سند`}
           </p>
+          {/* Column choice only matters for the desktop table; phones show cards. */}
           <DropdownMenu dir="rtl">
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="max-sm:hidden">
                 <Settings2 /> نمایش ستون‌ها <ChevronDown />
               </Button>
             </DropdownMenuTrigger>

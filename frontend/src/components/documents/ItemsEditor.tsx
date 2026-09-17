@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Trash, Undo2 } from "lucide-react";
+import { BadgePercent, Plus, Trash, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NumberInput } from "@/components/number-input";
@@ -34,8 +34,9 @@ export function ItemsEditor({
   const root = useRef<HTMLDivElement>(null);
   const [removed, setRemoved] = useState<{ item: DocumentItem; index: number } | null>(null);
   const isInvoiceLike = type === "INVOICE" || type === "PROFORMA";
+  const [showAdjustments, setShowAdjustments] = useState(() => items.some((item) => (item.discount ?? 0) > 0 || (item.taxRate ?? 0) > 0));
   const showStock = !isInvoiceLike && !!stock;
-  const columnCount = (isInvoiceLike ? 8 : 5) + (showStock ? 1 : 0) + (disabled ? 0 : 1);
+  const columnCount = (isInvoiceLike ? (showAdjustments ? 8 : 6) : 5) + (showStock ? 1 : 0) + (disabled ? 0 : 1);
   // Total asked for per product, so two rows of the same product are compared together.
   const requested = new Map<string, number>();
   for (const it of items) if (it.productId) requested.set(it.productId, (requested.get(it.productId) ?? 0) + it.quantity);
@@ -58,6 +59,27 @@ export function ItemsEditor({
     requestAnimationFrame(() => root.current?.querySelector<HTMLInputElement>(`[data-item-row="${items.length}"] [data-quantity]`)?.focus());
   }
 
+  // A manual row for something not in the price list — the name and unit
+  // fields are already free text, this just adds one to type into.
+  function addBlankRow() {
+    const index = items.length;
+    onChange([
+      ...items,
+      {
+        id: crypto.randomUUID(),
+        productId: undefined,
+        name: "",
+        spec: "",
+        unit: "",
+        quantity: 1,
+        unitPrice: 0,
+        discount: 0,
+        taxRate: 0,
+      },
+    ]);
+    requestAnimationFrame(() => root.current?.querySelector<HTMLInputElement>(`[data-item-row="${index}"] [data-name]`)?.focus());
+  }
+
   function updateItem(idx: number, patch: Partial<DocumentItem>) {
     onChange(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   }
@@ -68,8 +90,20 @@ export function ItemsEditor({
   }
 
   return (
-    <div ref={root} className="flex flex-col gap-3">
-      {!disabled && <ProductPicker onSelect={addProduct} />}
+    <div ref={root} className="flex flex-col">
+      {!disabled && (
+        <div className="flex flex-wrap items-center gap-2 border-b p-3 sm:px-4">
+          <div className="min-w-0 flex-1"><ProductPicker onSelect={addProduct} /></div>
+          <Button type="button" variant="outline" size="icon" onClick={addBlankRow} aria-label="افزودن ردیف خالی برای نوشتن دستی">
+            <Plus />
+          </Button>
+          {isInvoiceLike && (
+            <Button type="button" variant={showAdjustments ? "secondary" : "outline"} size="sm" onClick={() => setShowAdjustments((shown) => !shown)}>
+              <BadgePercent /> تخفیف و مالیات
+            </Button>
+          )}
+        </div>
+      )}
       {removed && !disabled && (
         <div className="flex items-center justify-between gap-2 text-sm" role="status">
           <span>ردیف «{removed.item.name}» حذف شد.</span>
@@ -82,21 +116,21 @@ export function ItemsEditor({
         </div>
       )}
 
-      <div className="rounded-md border overflow-x-auto">
+      <div className="overflow-x-auto md:[&_td]:border-e md:[&_td]:p-0 md:[&_td:last-child]:border-e-0 md:[&_input]:h-11 md:[&_input]:rounded-none md:[&_input]:border-0 md:[&_input]:shadow-none md:[&_input]:focus-visible:ring-inset">
         {/* Min width keeps inputs usable on narrow screens; the wrapper scrolls instead. */}
-        <Table className={cn("max-md:block max-md:[&_td]:block max-md:[&_td]:before:mb-1 max-md:[&_td]:before:block max-md:[&_td]:before:text-xs max-md:[&_td]:before:text-muted-foreground max-md:[&_td]:before:content-[attr(data-label)]", isInvoiceLike ? "md:min-w-[820px]" : "md:min-w-[560px]")}>
+        <Table className={cn("max-md:block max-md:[&_td]:block max-md:[&_td]:before:mb-1 max-md:[&_td]:before:block max-md:[&_td]:before:text-xs max-md:[&_td]:before:text-muted-foreground max-md:[&_td]:before:content-[attr(data-label)]", isInvoiceLike ? (showAdjustments ? "md:min-w-[820px]" : "md:min-w-[620px]") : "md:min-w-[560px]")}>
           <TableHeader className="bg-muted/50 max-md:hidden">
             <TableRow>
               <TableHead className="w-8">#</TableHead>
-              <TableHead className="min-w-48">نام کالا</TableHead>
-              <TableHead className="w-28">واحد</TableHead>
+              <TableHead className="w-40">نام کالا</TableHead>
+              <TableHead className="w-40">واحد</TableHead>
               <TableHead className="w-24">تعداد</TableHead>
               {showStock && <TableHead className="w-24">موجودی</TableHead>}
               {isInvoiceLike && (
                 <>
                   <TableHead className="w-32">قیمت واحد (ت)</TableHead>
-                  <TableHead className="w-32">تخفیف (ت)</TableHead>
-                  <TableHead className="w-24">مالیات %</TableHead>
+                  {showAdjustments && <TableHead className="w-32">تخفیف (ت)</TableHead>}
+                  {showAdjustments && <TableHead className="w-24">مالیات %</TableHead>}
                   <TableHead className="w-32">جمع (ت)</TableHead>
                 </>
               )}
@@ -104,7 +138,7 @@ export function ItemsEditor({
               {!disabled && <TableHead className="w-10" />}
             </TableRow>
           </TableHeader>
-          <TableBody className="max-md:grid max-md:gap-3 max-md:p-3">
+          <TableBody className="max-md:grid">
             {items.length === 0 && (
               <TableRow>
                 <TableCell
@@ -118,10 +152,11 @@ export function ItemsEditor({
             {items.map((item, idx) => {
               const t = computeLineTotal(item);
               return (
-                <TableRow key={item.id ?? idx} data-item-row={idx} className="max-md:grid max-md:grid-cols-2 max-md:rounded-lg max-md:border max-md:p-1">
+                <TableRow key={item.id ?? idx} data-item-row={idx} className="max-md:grid max-md:grid-cols-2 max-md:p-2">
                   <TableCell className="text-muted-foreground tabular-nums">{toDisplayDigits(idx + 1)}</TableCell>
-                  <TableCell data-label="نام کالا" className="max-md:col-span-2">
+                  <TableCell data-label="نام کالا" className="w-40 max-md:w-auto">
                     <Input
+                      data-name
                       aria-label={`نام کالا، ردیف ${idx + 1}`}
                       aria-invalid={!item.name.trim()}
                       value={item.name}
@@ -129,7 +164,7 @@ export function ItemsEditor({
                       disabled={disabled}
                     />
                   </TableCell>
-                  <TableCell data-label="واحد">
+                  <TableCell data-label="واحد" className="min-w-32 max-md:min-w-0">
                     <Input
                       aria-label={`واحد، ردیف ${idx + 1}`}
                       aria-invalid={!item.unit.trim()}
@@ -173,26 +208,23 @@ export function ItemsEditor({
                           disabled={disabled}
                         />
                       </TableCell>
-                      <TableCell data-label="تخفیف (تومان)">
+                      {showAdjustments && <TableCell data-label="تخفیف (تومان)">
                         <NumberInput
                           aria-label={`تخفیف به تومان، ردیف ${idx + 1}`}
                           value={item.discount ?? 0}
                           onValueChange={(v) => updateItem(idx, { discount: v ?? 0 })}
                           disabled={disabled}
                         />
-                      </TableCell>
-                      <TableCell data-label="مالیات %">
-                        <Input
+                      </TableCell>}
+                      {showAdjustments && <TableCell data-label="مالیات %">
+                        <NumberInput
                           aria-label={`درصد مالیات، ردیف ${idx + 1}`}
-                          type="number"
-                          min={0}
-                          max={100}
                           value={item.taxRate ?? 0}
-                          onChange={(e) => updateItem(idx, { taxRate: Number(e.target.value) })}
+                          onValueChange={(v) => updateItem(idx, { taxRate: v ?? 0 })}
                           disabled={disabled}
                         />
-                      </TableCell>
-                      <TableCell data-label="جمع (تومان)" className="font-medium whitespace-nowrap">
+                      </TableCell>}
+                      <TableCell data-label="جمع (تومان)" className="font-medium whitespace-nowrap tabular-nums">
                         {formatToman(t.grandTotal)}
                       </TableCell>
                     </>

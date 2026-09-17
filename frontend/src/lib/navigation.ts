@@ -3,12 +3,9 @@ import {
   Building2,
   ChartColumn,
   Contact,
-  FileClock,
   HandCoins,
-  LayoutDashboard,
   ReceiptText,
   Tags,
-  Truck,
   Undo2,
   Users,
   Warehouse,
@@ -32,12 +29,10 @@ export type NavItem = {
 export type NavGroup = { label: string; items: NavItem[] };
 
 export const NAV: NavGroup[] = [
-  { label: "", items: [{ to: "/", label: "داشبورد", icon: LayoutDashboard, exact: true }] },
   {
-    label: "فروش",
+    label: "",
     items: [
-      { to: "/documents/proforma", label: "پیش‌فاکتورها", icon: FileClock },
-      { to: "/documents/invoice", label: "فاکتورهای فروش", icon: ReceiptText },
+      { to: "/documents", label: "سند", icon: ReceiptText },
       { to: "/payments", label: "دریافت‌ها و چک‌ها", tooltip: "دریافت وجه، چک و مانده حساب", icon: HandCoins },
       { to: "/returns", label: "برگشت از فروش", icon: Undo2, soon: true },
     ],
@@ -46,7 +41,6 @@ export const NAV: NavGroup[] = [
     label: "انبار و کالا",
     items: [
       { to: "/inventory", label: "موجودی و گردش", tooltip: "موجودی، ورود کالا و گردش", icon: Warehouse },
-      { to: "/documents/goods-issue", label: "حواله‌های خروج", icon: Truck },
       { to: "/products", label: "کالاها و قیمت‌ها", icon: Tags },
     ],
   },

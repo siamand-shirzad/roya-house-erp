@@ -4,7 +4,8 @@ const DashboardPage = lazy(() => import("@/pages/DashboardPage").then((m) => ({ 
 const DocumentListPage = lazy(() => import("@/pages/documents/DocumentListPage").then((m) => ({ default: m.DocumentListPage })));
 const DocumentFormPage = lazy(() => import("@/pages/documents/DocumentFormPage").then((m) => ({ default: m.DocumentFormPage })));
 import { DocumentsLayout } from "@/components/documents-layout";
-import { AuthProvider, RequireAuth } from "@/components/auth-provider";
+import { AuthProvider, RequireAuth, useAuth } from "@/components/auth-provider";
+import { canAccessPath } from "@/lib/permissions";
 import { Toaster } from "@/components/ui/sonner";
 import { CommandMenuProvider } from "@/components/command-menu";
 const LandingPage = lazy(() => import("@/pages/site/LandingPage").then((m) => ({ default: m.LandingPage })));
@@ -26,6 +27,12 @@ const GuidePage = lazy(() => import("@/pages/GuidePage").then((m) => ({ default:
 function KeyedDocumentFormPage() {
   const { typeSlug, id } = useParams();
   return <DocumentFormPage key={`${typeSlug}/${id ?? "new"}`} />;
+}
+
+function DocumentsIndex() {
+  const { user } = useAuth();
+  const target = ["/documents/proforma", "/documents/invoice", "/documents/goods-issue"].find((path) => canAccessPath(user, path));
+  return target ? <Navigate to={target} replace /> : <div className="p-4">دسترسی به اسناد ندارید.</div>;
 }
 
 const documents = (page: ReactNode) => (
@@ -75,7 +82,7 @@ const router = createBrowserRouter(
         path="/settings/company"
         element={<RequireAuth><CompanySettingsPage /></RequireAuth>}
       />
-      <Route path="/documents" element={<Navigate to="/documents/proforma" replace />} />
+      <Route path="/documents" element={<RequireAuth><DocumentsIndex /></RequireAuth>} />
       <Route path="/documents/:typeSlug" element={documents(<DocumentListPage />)} />
       <Route path="/documents/:typeSlug/new" element={documents(<KeyedDocumentFormPage />)} />
       <Route path="/documents/:typeSlug/:id" element={documents(<KeyedDocumentFormPage />)} />

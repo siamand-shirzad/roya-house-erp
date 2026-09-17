@@ -30,6 +30,7 @@ export function moduleForPath(path: string): Module | "users" | undefined {
   return (["products","customers","inventory","payments","reports","users"] as const).find((module) => path.startsWith("/" + module));
 }
 export function canAccessPath(user: Principal, path: string) {
+  if (path === "/documents") return (["proforma", "invoice", "goods_issue"] as const).some((module) => can(user, module));
   const module = moduleForPath(path);
   return module === "users" ? user?.role === "ADMIN" : module ? can(user, module, path.endsWith("/new")) : true;
 }

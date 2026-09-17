@@ -120,8 +120,10 @@ function SearchButton() {
 
 export function SiteHeader({ title, actions }: { title: string; actions?: ReactNode }) {
   return (
-    <header className="sticky top-0 z-20 flex min-h-(--header-height) shrink-0 items-center gap-2 border-b border-border/70 bg-background/85 shadow-header backdrop-blur transition-[width,height] ease-linear supports-[backdrop-filter]:bg-background/70 md:h-(--header-height) md:rounded-t-xl">
-      <div className="flex w-full flex-wrap items-center gap-1 px-3 py-2 md:flex-nowrap md:py-0 lg:gap-2 lg:px-6">
+    // Floating bar, like the sidebar: a card inset to the same gutter as the
+    // page content. The solid strip above it hides content scrolling past.
+    <header className="sticky top-0 z-20 shrink-0 bg-transparent px-2 pt-1 md:px-6 md:pt-2">
+      <div className="flex h-11 w-full items-center gap-0.5 rounded-xl border bg-card/65 px-1.5 shadow-card backdrop-blur-xl supports-[backdrop-filter]:bg-card/55 md:h-(--header-height) md:gap-1 lg:gap-2 lg:px-3">
         <SidebarTrigger className="-mr-1" />
         <BackButton />
         {/* On mobile the sidebar (and its mark) is hidden behind the trigger. */}
@@ -131,11 +133,11 @@ export function SiteHeader({ title, actions }: { title: string; actions?: ReactN
         {/* Page actions sit before the shared icons on wide screens and wrap
             onto their own row on phones. */}
         {actions && (
-          <div className="order-2 flex w-full flex-wrap items-center gap-1.5 md:order-1 md:ms-auto md:w-auto md:border-e md:pe-2">
+          <div className="order-1 ms-auto flex shrink-0 items-center gap-1 border-e pe-1 max-sm:[&>*:not(:first-child)]:hidden max-sm:[&_button]:size-8 max-sm:[&_button]:overflow-hidden max-sm:[&_button]:px-0 max-sm:[&_button]:text-[0px] md:w-auto md:gap-1.5 md:pe-2">
             {actions}
           </div>
         )}
-        <div className={cn("order-1 ms-auto flex shrink-0 items-center gap-1 md:order-2", actions && "md:ms-0")}>
+        <div className={cn("order-1 ms-auto flex shrink-0 items-center gap-0.5 md:order-2 md:gap-1", actions && "md:ms-0")}>
           <SearchButton />
           <span className="hidden xl:contents">
             <QuickCreate />
@@ -143,11 +145,11 @@ export function SiteHeader({ title, actions }: { title: string; actions?: ReactN
           <span className="contents xl:hidden">
             <QuickCreate compact />
           </span>
-          <HeaderNotifications />
+          <span className="hidden sm:contents"><HeaderNotifications /></span>
           <span className="hidden md:contents">
             <ThemeToggle />
           </span>
-          <NavUser />
+          <span className="hidden sm:contents"><NavUser /></span>
         </div>
       </div>
     </header>

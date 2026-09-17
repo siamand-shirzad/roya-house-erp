@@ -53,11 +53,11 @@ export function AppShell({
       style={
         {
           "--sidebar-width": "calc(var(--spacing) * 64)",
-          "--header-height": "calc(var(--spacing) * 14)",
+          "--header-height": "calc(var(--spacing) * 13)",
         } as CSSProperties
       }
     >
-      <AppSidebar variant="inset" />
+      <AppSidebar variant="floating" />
       <SidebarInset>
         <SiteHeader title={titleOverride ?? title} actions={actions} />
         {/* Each page mounts its own AppShell, so this fades every page in on navigation. */}

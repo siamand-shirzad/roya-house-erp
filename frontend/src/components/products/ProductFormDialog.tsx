@@ -148,7 +148,6 @@ export function ProductFormDialog({
       }
     >
       <div className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-4">
-        <div className={cn(FIELD, "sm:col-span-2")}><Label htmlFor="product-brand">برند</Label><Select value={form.brand} onValueChange={(v) => set("brand", v as Brand)}><SelectTrigger id="product-brand" className="w-full"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(BRANDS).map(([value,label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></div>
         <div className={cn(FIELD, "sm:col-span-2")}>
           <Label htmlFor="product-name" className={LABEL}>
             نام کالا
@@ -162,9 +161,16 @@ export function ProductFormDialog({
           />
         </div>
 
+        <div className={cn(FIELD, "sm:col-span-2")}>
+          <Label htmlFor="product-spec" className={LABEL}>ابعاد / مدل (اختیاری)</Label>
+          <Input id="product-spec" className={INPUT} value={form.spec} onChange={(e) => set("spec", e.target.value)} placeholder="240×120×12.5 سانتی‌متر" />
+        </div>
+
+        <div className={FIELD}><Label htmlFor="product-brand">برند</Label><Select value={form.brand} onValueChange={(v) => set("brand", v as Brand)}><SelectTrigger id="product-brand" className="w-full"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(BRANDS).map(([value,label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select></div>
+
         <div className={FIELD}>
           <Label htmlFor="product-code" className={LABEL}>
-            کد کالا (یکتا، اختیاری)
+            شناسه کالا (اختیاری)
           </Label>
           <Input
             id="product-code"
@@ -250,18 +256,6 @@ export function ProductFormDialog({
           />
         </div>
 
-        <div className={cn(FIELD, "sm:col-span-4")}>
-          <Label htmlFor="product-spec" className={LABEL}>
-            مشخصات (اختیاری)
-          </Label>
-          <Input
-            id="product-spec"
-            className={INPUT}
-            value={form.spec}
-            onChange={(e) => set("spec", e.target.value)}
-            placeholder="240×120×12.5 سانتی‌متر"
-          />
-        </div>
       </div>
 
       {product && (

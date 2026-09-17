@@ -8,6 +8,8 @@ import { useCommandMenu } from "@/components/command-menu";
 
 import { LogoMark } from "@/components/logo-mark";
 import { Badge } from "@/components/ui/badge";
+import { HeaderNotifications } from "@/components/header/header-notifications";
+import { NavUser } from "@/components/nav-user";
 import { NAV, type NavItem } from "@/lib/navigation";
 import { useAuth } from "@/components/auth-provider";
 import {
@@ -32,7 +34,7 @@ import {
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const location = useLocation();
-  const { setOpenMobile } = useSidebar();
+  const { setOpenMobile, isMobile } = useSidebar();
   const { user } = useAuth();
   const { open: openCommandMenu } = useCommandMenu();
   const isActive = (item: NavItem) =>
@@ -121,6 +123,16 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
       </SidebarContent>
 
       <SidebarFooter>
+        {isMobile && user && (
+          <div className="flex items-center gap-2 rounded-lg bg-sidebar-accent/60 p-2">
+            <NavUser />
+            <div className="grid min-w-0 flex-1 leading-tight">
+              <span className="truncate text-sm font-medium">{user.fullName}</span>
+              <span className="truncate text-xs text-sidebar-foreground/60">حساب کاربری</span>
+            </div>
+            <HeaderNotifications />
+          </div>
+        )}
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="راهنمای کار" isActive={location.pathname === "/guide"} className="h-9 text-sidebar-foreground/70">

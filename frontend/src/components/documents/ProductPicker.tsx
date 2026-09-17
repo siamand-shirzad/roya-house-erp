@@ -39,8 +39,8 @@ export function ProductPicker({ onSelect }: { onSelect: (product: Product) => vo
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="outline" role="combobox" aria-label="افزودن کالا از فهرست قیمت" aria-expanded={open} className="w-full justify-between">
-          <span className="flex items-center gap-2 text-muted-foreground">
-            <Search className="size-4" /> افزودن کالا از فهرست قیمت...
+          <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
+            <Search /> <span className="truncate">افزودن کالا از فهرست قیمت...</span>
           </span>
           <ChevronsUpDown className="opacity-50" />
         </Button>

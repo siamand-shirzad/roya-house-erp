@@ -77,6 +77,7 @@ export function CustomerFormDialog({
   customer,
   draft,
   onSaved,
+  compact = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -84,16 +85,19 @@ export function CustomerFormDialog({
   customer: Customer | null;
   /** Prefill for a new customer, e.g. the buyer typed on a document. */
   draft?: CustomerDraft;
+  compact?: boolean;
   onSaved: (customer: Customer, mode: "created" | "updated") => void;
 }) {
   const [form, setForm] = useState<FormState>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setForm(toForm(customer ?? draft ?? {}));
     setError(null);
+    setDetailsOpen(false);
   }, [open, customer, draft]);
 
   const set = (key: Exclude<keyof FormState, "partyKind">) => (value: string) =>
@@ -152,6 +156,9 @@ export function CustomerFormDialog({
     >
       <div className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-4">
         {field("name", "نام", "sm:col-span-2")}
+        {field("phone", "تلفن", "sm:col-span-2")}
+        {compact && <Button type="button" variant="ghost" className="sm:col-span-4" aria-expanded={detailsOpen} onClick={() => setDetailsOpen((open) => !open)}>اطلاعات تکمیلی</Button>}
+        {(!compact || detailsOpen) && <>
         {field("customerCode", "کد طرف حساب (سپیدار)")}
         <div className={FIELD}>
           <Label htmlFor="customer-partyKind" className={LABEL}>
@@ -170,7 +177,6 @@ export function CustomerFormDialog({
             </SelectContent>
           </Select>
         </div>
-        {field("phone", "تلفن")}
         {field("nationalId", "شناسه ملی / کد ملی")}
         {field("economicCode", "شماره اقتصادی")}
         {field("registration", "شماره ثبت")}
@@ -179,6 +185,7 @@ export function CustomerFormDialog({
         {field("city", "شهرستان")}
         {field("postalCode", "کدپستی")}
         {field("address", "آدرس", "sm:col-span-4")}
+        </>}
       </div>
 
       {error && (

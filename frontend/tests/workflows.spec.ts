@@ -27,15 +27,37 @@ async function mockApi(page: Page, options: { failStock?: boolean; failSave?: bo
   });
 }
 
+test("shared documents entry uses the first permitted type", async ({ page }) => {
+  await mockApi(page, { role: "SALES", permissions: { proforma: "none", invoice: "edit", goods_issue: "none" } });
+  await page.goto("/documents");
+  await expect(page).toHaveURL(/\/documents\/invoice$/);
+  await expect(page.getByLabel("سند", { exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "نوع سند" }).getByRole("link")).toHaveCount(1);
+});
+
+test("document type navigation protects unsaved item changes", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/documents/proforma/new");
+  await page.getByRole("navigation", { name: "نوع سند" }).getByRole("link", { name: "فاکتور", exact: true }).click();
+  await expect(page).toHaveURL(/\/documents\/invoice\/new$/);
+  await page.getByRole("combobox", { name: /افزودن کالا/ }).click();
+  await page.getByRole("option", { name: /پنل گچی/ }).click();
+  await page.getByRole("navigation", { name: "نوع سند" }).getByRole("link", { name: "پیش‌فاکتور", exact: true }).click();
+  await expect(page.getByRole("alertdialog")).toBeVisible();
+  await page.getByRole("button", { name: "ماندن در این صفحه" }).click();
+  await expect(page.getByLabel("تعداد، ردیف 1")).toHaveValue("1");
+});
+
 test("buyer-only edits block navigation and Stay preserves them", async ({ page }) => {
   await mockApi(page);
   await page.goto("/documents/invoice/new");
+  await page.getByRole("button", { name: "مشخصات خریدار", exact: true }).click();
   await page.getByLabel("نام خریدار", { exact: true }).fill("خریدار آزمایش");
-  await page.getByRole("link", { name: "مشتریان", exact: true }).click();
+  await page.getByRole("link", { name: "مشتریان و تأمین‌کنندگان", exact: true }).click();
   await expect(page.getByRole("alertdialog")).toBeVisible();
   await page.getByRole("button", { name: "ماندن در این صفحه" }).click();
   await expect(page.getByLabel("نام خریدار", { exact: true })).toHaveValue("خریدار آزمایش");
-  await page.getByRole("link", { name: "مشتریان", exact: true }).click();
+  await page.getByRole("link", { name: "مشتریان و تأمین‌کنندگان", exact: true }).click();
   await page.getByRole("button", { name: "خروج بدون ذخیره" }).click();
   await expect(page).toHaveURL(/\/customers$/);
 });
@@ -46,7 +68,7 @@ test("save and leave a new document reaches the requested destination", async ({
   await page.getByRole("combobox", { name: /افزودن کالا/ }).click();
   await page.getByRole("option", { name: /پنل گچی/ }).click();
   await expect(page.getByLabel("تعداد، ردیف 1")).toBeFocused();
-  await page.getByRole("link", { name: "مشتریان", exact: true }).click();
+  await page.getByRole("link", { name: "مشتریان و تأمین‌کنندگان", exact: true }).click();
   await page.getByRole("button", { name: "ذخیره و خروج" }).click();
   await expect(page).toHaveURL(/\/customers$/);
 });
@@ -56,7 +78,7 @@ test("failed save retains the entered items", async ({ page }) => {
   await page.goto("/documents/invoice/new");
   await page.getByRole("combobox", { name: /افزودن کالا/ }).click();
   await page.getByRole("option", { name: /پنل گچی/ }).click();
-  await page.getByRole("link", { name: "مشتریان", exact: true }).click();
+  await page.getByRole("link", { name: "مشتریان و تأمین‌کنندگان", exact: true }).click();
   await page.getByRole("button", { name: "ذخیره و خروج" }).click();
   await expect(page.getByRole("alertdialog")).not.toBeVisible();
   await expect(page.getByLabel("تعداد، ردیف 1")).toHaveValue("1");
@@ -201,7 +223,7 @@ test("inventory drag and keyboard reorder rows and persist across reloads", asyn
 
 test("English command palette separates navigation and creation", async ({page}) => {
   await mockApi(page); await page.goto("/products");
-  await expect(page.getByRole("heading",{name:"فهرست کالاها و قیمت‌ها"})).toBeVisible();
+  await expect(page.getByRole("heading",{name:"کالاها و قیمت‌ها"})).toBeVisible();
   await page.keyboard.press("Control+k");
   const dialog=page.getByRole("dialog");
   await expect(dialog).toHaveAttribute("dir","ltr");
@@ -229,7 +251,7 @@ test("permissions hide sections and block direct navigation", async ({page}) => 
   await mockApi(page,{role:"SALES",permissions:{products:"none",invoice:"none",inventory:"none",reports:"view"}});
   await page.goto("/");
   await expect(page.getByRole("link",{name:"کالاها و قیمت‌ها",exact:true})).toHaveCount(0);
-  await expect(page.getByRole("link",{name:"گزارشات",exact:true})).toBeVisible();
+  await expect(page.getByRole("link",{name:"گزارش فروش",exact:true})).toBeVisible();
   await page.goto("/products");
   await expect(page.getByText("به این بخش دسترسی ندارید.",{exact:true})).toBeVisible();
 });
@@ -296,7 +318,7 @@ test("collapsed sidebar keeps every icon inside the rail", async ({page}) => {
     return Array.from(rail.querySelectorAll('[data-sidebar="menu-button"]')).map((button)=>{const b=button.getBoundingClientRect();return b.left>=bounds.left && b.right<=bounds.right && b.width>=40;});
   });
   expect(positions.length).toBeGreaterThan(5); expect(positions.every(Boolean)).toBe(true);
-  const search=page.getByRole("button",{name:"جستجو و دستورات",exact:true});
+  const search=page.locator('[data-slot="sidebar-container"]').getByRole("button",{name:"جستجو و دستورات",exact:true});
   const icon=await search.locator("svg").boundingBox(); const button=await search.boundingBox();
   expect(icon!.x).toBeGreaterThanOrEqual(button!.x); expect(icon!.x+icon!.width).toBeLessThanOrEqual(button!.x+button!.width);
   await expect(search.locator("span")).toBeHidden();
@@ -313,4 +335,55 @@ test("mobile user access form fits and keeps saving accessible", async ({page}) 
   await expect(dialog.getByRole("button",{name:"افزودن کاربر",exact:true})).toBeVisible();
   expect(await dialog.evaluate((el)=>el.scrollWidth<=el.clientWidth)).toBe(true);
   await page.screenshot({animations:"disabled",path:"test-results/mobile-user-access.png"});
+});
+
+test("product selection assigns a saved brand without exposing product codes", async ({ page }) => {
+  await mockApi(page);
+  await page.route("**/api/products", (route) => route.fulfill({ json: catalog }));
+  let savedBrand: unknown;
+  await page.route("**/api/products/bana", async (route) => {
+    savedBrand = route.request().postDataJSON().brand;
+    await route.fulfill({ json: { ...catalog[0], brand: savedBrand } });
+  });
+  await page.goto("/products");
+  await page.getByRole("checkbox", { name: "انتخاب پنل بانا", exact: true }).click();
+  await expect(page.getByText("1 کالا انتخاب شده", { exact: true })).toBeVisible();
+  await page.getByRole("combobox", { name: "برند انتخاب‌شده‌ها" }).click();
+  await page.getByRole("option", { name: "رویا", exact: true }).click();
+  await page.getByRole("button", { name: "ذخیره برند", exact: true }).click();
+  expect(savedBrand).toBe("ROYA");
+  await expect(page.getByRole("columnheader", { name: /کد کالا/ })).toHaveCount(0);
+});
+
+test("invoice keeps optional buyer and adjustment fields out of the initial flow", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/documents/invoice/new");
+  await expect(page.getByLabel("نام خریدار", { exact: true })).not.toBeVisible();
+  await page.getByRole("button", { name: "ثبت مشتری", exact: true }).click();
+  await expect(page.getByRole("dialog").getByLabel("نام", { exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog").getByLabel("شناسه ملی / کد ملی", { exact: true })).not.toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "مشخصات خریدار", exact: true }).click();
+  await expect(page.getByLabel("نام خریدار", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("شناسه ملی / کد ملی", { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "اطلاعات تکمیلی", exact: true }).click();
+  await expect(page.getByLabel("شناسه ملی / کد ملی", { exact: true })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "تخفیف (ت)" })).toHaveCount(0);
+  await page.getByRole("button", { name: "تخفیف و مالیات", exact: true }).click();
+  await expect(page.getByRole("columnheader", { name: "تخفیف (ت)" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "مالیات %" })).toBeVisible();
+});
+
+test("mobile header stays compact and quick create opens from the bottom", async ({ page }) => {
+  await mockApi(page);
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto("/products");
+  const header = await page.locator("header > div").boundingBox();
+  expect(header!.height).toBeLessThanOrEqual(48);
+  await page.getByRole("button", { name: "ایجاد سریع", exact: true }).click();
+  const dialog = await page.getByRole("dialog").boundingBox();
+  expect(Math.abs(dialog!.y + dialog!.height - 800)).toBeLessThanOrEqual(1);
+  await expect(page.getByPlaceholder("چه چیزی می‌خواهید ایجاد کنید؟")).toBeVisible();
+  const numericFont = await page.locator('input[aria-label="قیمت واحد پنل گچی"]').evaluate((element) => getComputedStyle(element).fontFamily);
+  expect(numericFont).toContain("Geist Pixel Square");
 });

@@ -69,14 +69,6 @@ type SortKey = "code" | "name" | "category" | "unitPrice" | "partnerPrice";
 const COL_UNIT = 0;
 const COL_PARTNER = 1;
 
-function Kbd({ children }: { children: string }) {
-  return (
-    <kbd className="rounded border bg-muted px-1.5 py-0.5 font-sans text-[11px] font-medium text-foreground">
-      {children}
-    </kbd>
-  );
-}
-
 export function ProductsPage() {
   const { user } = useAuth();
   // The API only lets admins change products; others get a read-only list.
@@ -115,8 +107,11 @@ export function ProductsPage() {
 
   const columns = useTableColumns(`product-columns:${user?.id}`, ["code"]);
   const [brand, setBrand] = useState<Brand | "ALL">("ALL");
-  const columnOptions = [{id:"code",label:"کد کالا"},{id:"category",label:"دسته‌بندی"},{id:"unit",label:"واحد"},{id:"unitPrice",label:"قیمت واحد"},{id:"partnerPrice",label:"قیمت همکاری"}];
-  const colCount = 1 + columnOptions.filter((c) => columns.visible(c.id)).length + Number(canEdit);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBrand, setBulkBrand] = useState<Brand>("BANA");
+  const [savingBrand, setSavingBrand] = useState(false);
+  const columnOptions = [{id:"code",label:"کد کالا"},{id:"spec",label:"ابعاد / مدل"},{id:"brand",label:"برند"},{id:"category",label:"دسته‌بندی"},{id:"unit",label:"واحد"},{id:"unitPrice",label:"قیمت واحد"},{id:"partnerPrice",label:"قیمت همکاری"}];
+  const colCount = 2 + columnOptions.filter((c) => columns.visible(c.id)).length + Number(canEdit);
   const units = useMemo(
     () => [...new Set(products.map((p) => p.unit).filter(Boolean))].sort(),
     [products]
@@ -298,6 +293,23 @@ export function ProductsPage() {
     }
   }
 
+  async function saveSelectedBrand() {
+    if (!selected.size) return;
+    setSavingBrand(true);
+    setError(null);
+    try {
+      const updated = await Promise.all([...selected].map((id) => api.products.update(id, { brand: bulkBrand })));
+      const byId = new Map(updated.map((product) => [product.id, product]));
+      setProducts((list) => list.map((product) => byId.get(product.id) ?? product));
+      setSelected(new Set());
+      toast.success(`برند ${toDisplayDigits(updated.length)} کالا ذخیره شد.`);
+    } catch (err) {
+      setError(`ذخیره برند ناموفق بود: ${errorMessage(err)}`);
+    } finally {
+      setSavingBrand(false);
+    }
+  }
+
   function exportCsv() {
     const { jy, jm, jd } = toJalali(new Date());
     const pad = (n: number) => String(n).padStart(2, "0");
@@ -399,6 +411,19 @@ export function ProductsPage() {
     >
       <div className="space-y-4 p-4 md:p-6">
         <SegmentedControl ariaLabel="برند کالا" className="w-full [&_button]:min-w-20 [&_button]:flex-1 [&_button]:justify-center [&_button]:py-3" value={brand} onValueChange={setBrand} items={[{value:"ALL",label:"همه برندها"}, ...Object.entries(BRANDS).map(([value,label]) => ({value:value as Brand,label}))]} />
+        {selected.size > 0 && canEdit && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/25 bg-primary/5 p-2.5">
+            <span className="text-sm font-medium tabular-nums">{toDisplayDigits(selected.size)} کالا انتخاب شده</span>
+            <Select value={bulkBrand} onValueChange={(value) => setBulkBrand(value as Brand)}>
+              <SelectTrigger className="w-36" aria-label="برند انتخاب‌شده‌ها"><SelectValue /></SelectTrigger>
+              <SelectContent>{Object.entries(BRANDS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent>
+            </Select>
+            <Button size="sm" onClick={saveSelectedBrand} disabled={savingBrand}>
+              {savingBrand ? <LoaderCircle className="animate-spin" /> : <Save />} ذخیره برند
+            </Button>
+            <Button size="sm" variant="ghost" className="ms-auto" onClick={() => setSelected(new Set())}>لغو انتخاب</Button>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-72">
             <Search className="absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
@@ -445,21 +470,6 @@ export function ProductsPage() {
           </p>
         )}
 
-        <p className={cn("hidden sm:flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground", !canEdit && "hidden")}>
-          <span>
-            <Kbd>Tab</Kbd> خانه بعد
-          </span>
-          <span>
-            <Kbd>Enter</Kbd> یا <Kbd>↓</Kbd> ردیف بعد
-          </span>
-          <span>
-            <Kbd>Shift+Enter</Kbd> یا <Kbd>↑</Kbd> ردیف قبل
-          </span>
-          <span>
-            <Kbd>Esc</Kbd> برگرداندن قیمت
-          </span>
-        </p>
-
         {error && (
           <Alert variant="destructive">
             <TriangleAlert />
@@ -472,12 +482,23 @@ export function ProductsPage() {
             <table className="mobile-data-table w-full md:min-w-[760px] text-sm">
               <thead className="sticky top-0 z-10 bg-muted/95 text-muted-foreground backdrop-blur">
                 <tr className="border-b">
+
+                  <th className="w-12 px-3 py-2.5">
+                    <Checkbox
+                      aria-label="انتخاب همه کالاهای نمایش‌داده‌شده"
+                      checked={rows.length > 0 && rows.every((product) => selected.has(product.id)) ? true : rows.some((product) => selected.has(product.id)) ? "indeterminate" : false}
+                      onCheckedChange={(checked) => setSelected(checked === true ? new Set(rows.map((product) => product.id)) : new Set())}
+                    />
+                  </th>
                   {columns.visible("code") && <SortHeader k="code" className="w-24">کد کالا</SortHeader>}
                   <SortHeader k="name">نام کالا</SortHeader>
+                  {columns.visible("spec") && <th className="w-40 px-3 py-2.5 text-right font-medium">ابعاد / مدل</th>}
+                  {columns.visible("brand") && <th className="w-24 px-3 py-2.5 text-right font-medium">برند</th>}
                   {columns.visible("category") && <SortHeader k="category" className="w-36">دسته‌بندی</SortHeader>}
                   {columns.visible("unit") && <th className="w-28 px-3 py-2.5 text-right font-medium">واحد</th>}
                   {columns.visible("unitPrice") && <SortHeader k="unitPrice" className="w-40">قیمت واحد (تومان)</SortHeader>}
                   {columns.visible("partnerPrice") && <SortHeader k="partnerPrice" className="w-40">قیمت همکاری (تومان)</SortHeader>}
+
                   {canEdit && (
                     <th className="w-12 px-3 py-2.5">
                       <span className="sr-only">عملیات</span>
@@ -516,19 +537,25 @@ export function ProductsPage() {
                           !p.active && "text-muted-foreground"
                         )}
                       >
+
+                        <td className="row-control px-3 py-1.5 max-md:absolute max-md:right-2 max-md:top-2 max-md:z-10">
+                          <Checkbox aria-label={`انتخاب ${p.name}`} checked={selected.has(p.id)} onCheckedChange={(checked) => setSelected((previous) => { const next = new Set(previous); if (checked === true) next.add(p.id); else next.delete(p.id); return next; })} />
+                        </td>
                         {columns.visible("code") && <td data-label="کد کالا" className="px-3 py-1.5 font-mono text-[11px] text-muted-foreground" dir="ltr">
                           <span className="block text-right">{p.code ?? "—"}</span>
                         </td>}
-                        <td data-label="نام کالا" className="px-3 py-1.5">
+                        <td data-label="نام کالا" data-primary="" className="px-3 py-1.5 max-md:order-first max-md:px-12">
                           <div className="flex items-center gap-2 font-medium">
                             {p.name}
                             {!p.active && <Badge variant="outline">غیرفعال</Badge>}
                           </div>
-                          {p.spec && <div className="text-xs text-muted-foreground">{p.spec}</div>}
+                          {p.spec && <div className="mt-1 text-xs text-muted-foreground md:hidden">{p.spec}</div>}
                         </td>
-                        {columns.visible("category") && <td data-label="دسته‌بندی" className="px-3 py-1.5 text-xs">{CATEGORY_LABELS[p.category]}</td>}
+                        {columns.visible("spec") && <td data-label="ابعاد / مدل" className="mobile-hide px-3 py-1.5 text-xs text-muted-foreground">{p.spec || "—"}</td>}
+                        {columns.visible("brand") && <td data-label="برند" className="mobile-hide px-3 py-1.5"><Badge variant="outline">{BRANDS[productBrand(p)]}</Badge></td>}
+                        {columns.visible("category") && <td data-label="دسته‌بندی" className="mobile-hide px-3 py-1.5 text-xs">{CATEGORY_LABELS[p.category]}</td>}
                         {columns.visible("unit") && <td data-label="واحد"
-                          className="px-3 py-1.5 text-xs"
+                          className="mobile-hide px-3 py-1.5 text-xs"
                           title={p.packSize ? `${toDisplayDigits(p.packSize)} عدد در هر بسته` : undefined}
                         >
                           {p.unit}
@@ -559,8 +586,9 @@ export function ProductsPage() {
                             onChange={(v) => setPrice(p, "partnerPrice", v)}
                           />
                         </td>}
+
                         {canEdit && (
-                          <td className="px-1.5 py-1">
+                          <td className="row-control px-1.5 py-1 max-md:absolute max-md:left-2 max-md:top-2 max-md:z-10">
                             <DropdownMenu dir="rtl" modal={false}>
                               <DropdownMenuTrigger asChild>
                                 <Button

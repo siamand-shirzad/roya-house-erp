@@ -56,29 +56,28 @@ export function BuyerForm({
   onChange: (v: BuyerFormState) => void;
   disabled?: boolean;
 }) {
+  const [advanced, setAdvanced] = useState(false);
   const set = (key: keyof BuyerFormState) => (v: string) => onChange({ ...value, [key]: v });
   return (
-    <div className="grid grid-cols-1 gap-x-3 gap-y-2.5 sm:grid-cols-2 lg:grid-cols-4">
-      <Field
-        label="نام خریدار"
-        value={value.buyerName}
-        onChange={set("buyerName")}
-        disabled={disabled}
-        className="sm:col-span-2"
-      />
-      <Field label="شناسه ملی / کد ملی" value={value.buyerNationalId} onChange={set("buyerNationalId")} disabled={disabled} />
-      <Field label="شماره اقتصادی" value={value.buyerEconomicCode} onChange={set("buyerEconomicCode")} disabled={disabled} />
-      <Field label="شماره تلفن / نمابر" value={value.buyerPhone} onChange={set("buyerPhone")} disabled={disabled} />
-      <Field label="استان" value={value.buyerProvince} onChange={set("buyerProvince")} disabled={disabled} />
-      <Field label="شهرستان" value={value.buyerCity} onChange={set("buyerCity")} disabled={disabled} />
-      <Field label="کدپستی" value={value.buyerPostalCode} onChange={set("buyerPostalCode")} disabled={disabled} />
-      <Field
-        label="آدرس"
-        value={value.buyerAddress}
-        onChange={set("buyerAddress")}
-        disabled={disabled}
-        className="sm:col-span-2 lg:col-span-4"
-      />
+    <div className="flex flex-col gap-2">
+      <div className="grid grid-cols-1 gap-x-3 gap-y-2.5 sm:grid-cols-2">
+        <Field label="نام خریدار" value={value.buyerName} onChange={set("buyerName")} disabled={disabled} />
+        <Field label="شماره تلفن" value={value.buyerPhone} onChange={set("buyerPhone")} disabled={disabled} />
+      </div>
+      <Button type="button" variant="ghost" size="sm" onClick={() => setAdvanced((open) => !open)}>
+        <SlidersHorizontal /> اطلاعات تکمیلی
+        <ChevronDown className={cn("transition-transform", advanced && "rotate-180")} />
+      </Button>
+      {advanced && (
+        <div className="grid grid-cols-1 gap-x-3 gap-y-2.5 border-t pt-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Field label="شهرستان" value={value.buyerCity} onChange={set("buyerCity")} disabled={disabled} />
+          <Field label="شناسه ملی / کد ملی" value={value.buyerNationalId} onChange={set("buyerNationalId")} disabled={disabled} />
+          <Field label="شماره اقتصادی" value={value.buyerEconomicCode} onChange={set("buyerEconomicCode")} disabled={disabled} />
+          <Field label="استان" value={value.buyerProvince} onChange={set("buyerProvince")} disabled={disabled} />
+          <Field label="کدپستی" value={value.buyerPostalCode} onChange={set("buyerPostalCode")} disabled={disabled} />
+          <Field label="آدرس" value={value.buyerAddress} onChange={set("buyerAddress")} disabled={disabled} className="sm:col-span-2 lg:col-span-4" />
+        </div>
+      )}
     </div>
   );
 }
@@ -112,3 +111,6 @@ export function GoodsIssueForm({
 export function typeNeedsGoodsIssueFields(type: DocumentType) {
   return type === "GOODS_ISSUE";
 }
+import { useState } from "react";
+import { ChevronDown, SlidersHorizontal } from "lucide-react";
+import { Button } from "@/components/ui/button";

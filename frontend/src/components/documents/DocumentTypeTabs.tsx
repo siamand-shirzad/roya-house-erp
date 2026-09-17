@@ -16,18 +16,18 @@ const TABS: { type: DocumentType; label: string }[] = [
 // dashboard cards pointing straight at invoices). Switching tabs keeps the
 // list page mounted, so the selection pill slides across.
 // `search` (e.g. "?customer=<id>") is carried across tabs so a filter survives switching type.
-export function DocumentTypeTabs({ active, search = "" }: { active: DocumentType; search?: string }) {
+export function DocumentTypeTabs({ active, search = "", creating = false }: { active: DocumentType; search?: string; creating?: boolean }) {
   const { user } = useAuth();
   return (
     <nav aria-label="نوع سند">
       <SegmentedControl
         ariaLabel="نوع سند"
         value={active}
-        items={TABS.filter((tab) => can(user, tab.type.toLowerCase() as Module)).map((tab) => ({
+        items={TABS.filter((tab) => can(user, tab.type.toLowerCase() as Module, creating)).map((tab) => ({
           value: tab.type,
           label: tab.label,
           icon: <DocumentTypeIcon type={tab.type} />,
-          href: `/documents/${TYPE_TO_SLUG[tab.type]}${search}`,
+          href: `/documents/${TYPE_TO_SLUG[tab.type]}${creating ? "/new" : ""}${search}`,
         }))}
       />
     </nav>

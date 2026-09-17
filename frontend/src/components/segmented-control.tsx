@@ -56,7 +56,7 @@ export function SegmentedControl<T extends string>({
       {pill && (
         <span
           aria-hidden
-          className="absolute top-1 bottom-1 rounded-md bg-card shadow-raised ring-1 ring-border/60 motion-safe:transition-[left,width] motion-safe:duration-300 motion-safe:ease-out"
+          className="absolute top-1 bottom-1 rounded-md bg-card shadow-raised ring-1 ring-border/60 dark:bg-white/10 motion-safe:transition-[left,width] motion-safe:duration-300 motion-safe:ease-out"
           style={{ left: pill.left, width: pill.width }}
         />
       )}
